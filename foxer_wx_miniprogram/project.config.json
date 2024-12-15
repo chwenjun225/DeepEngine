@@ -24,5 +24,6 @@
     "tabIndent": "auto",
     "tabSize": 2
   },
-  "appid": "wx98439dee804eb05d"
+  "appid": "wx98439dee804eb05d",
+  "simulatorPluginLibVersion": {}
 }

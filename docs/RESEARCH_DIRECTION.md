@@ -1,10 +1,10 @@
-## Lựa chọn hướng nghiên cứu chính
+## I. Lựa chọn hướng nghiên cứu chính
 1. **Nghiên cứu về các mô hình ngôn ngữ nhỏ**: Khám phá các mô hình ngôn ngữ nhẹ và hiệu quả cho AI nhúng hoặc các thiết bị biên.
 2. **Tối ưu hóa hiệu suất thuật toán**: Nghiên cứu và phát triển các phương pháp để giảm độ phức tạp tính toán hoặc tăng tốc xử lý trên phần cứng hạn chế.
 
 ---
 
-## Các hướng nghiên cứu **không đòi hỏi phần cứng mạnh** nhưng vẫn mang tính mới và tiềm năng khoa học:
+## II. Các hướng nghiên cứu **không đòi hỏi phần cứng mạnh** nhưng vẫn mang tính mới và tiềm năng khoa học:
 
 ### **1. Tối ưu hóa mô hình nhỏ (Small Language Models)**
 - **Nội dung**: Nghiên cứu và phát triển các mô hình ngôn ngữ nhỏ, hiệu quả và phù hợp với các thiết bị có tài nguyên hạn chế (Edge AI, mobile devices).
@@ -18,42 +18,7 @@
 
 ---
 
-### **2. Xử lý ảnh nhẹ (Lightweight Image Processing)**
-- **Nội dung**: Phát triển các thuật toán hoặc mô hình AI tối ưu để xử lý ảnh trên thiết bị nhỏ hoặc môi trường hạn chế.  
-- **Hướng đi cụ thể**:  
-  - **Phát hiện đối tượng nhẹ** với mô hình như **YOLOv8-tiny** hoặc **MobileNet**.  
-  - **Phục hồi ảnh mờ** hoặc nâng cao chất lượng ảnh với kỹ thuật **super-resolution** nhẹ.  
-  - **Segmentation** và **object tracking** với các phương pháp không cần GPU mạnh.  
-- **Công cụ**: OpenCV, TensorFlow Lite, PyTorch Mobile.  
-
-**Ứng dụng**: Phù hợp cho các bài toán trong y tế, giám sát, nông nghiệp.
-
----
-
-### **3. Nghiên cứu mô hình dựa trên dữ liệu nhỏ (Few-shot Learning)**
-- **Nội dung**: Tập trung vào **Few-shot Learning** hoặc **Zero-shot Learning** để xây dựng mô hình AI hiệu quả khi có ít dữ liệu hoặc tài nguyên tính toán.  
-- **Hướng đi cụ thể**:  
-  - Sử dụng các phương pháp như **Prompt Engineering** hoặc **Adapter Layers** trên mô hình đã pre-trained.  
-  - Nghiên cứu thuật toán **meta-learning** để mô hình học nhanh từ một vài mẫu dữ liệu.  
-- **Ví dụ**: Ứng dụng cho nhận dạng văn bản, phân loại hình ảnh, hoặc chatbots.
-
-**Lợi ích**: Giảm thiểu chi phí huấn luyện và tài nguyên.
-
----
-
-### **4. Nghiên cứu và tối ưu hóa thuật toán truyền thống**
-- **Nội dung**: Phát triển hoặc cải tiến các thuật toán học máy cổ điển nhưng vẫn mang tính ứng dụng cao.  
-- **Ví dụ**:  
-  - Thuật toán **PCA** (Phân tích thành phần chính) để giảm chiều dữ liệu.  
-  - Cải tiến các thuật toán **Random Forest, SVM, Decision Tree** để tối ưu hơn.  
-  - Kết hợp **Machine Learning truyền thống** với mô hình học sâu nhẹ (hybrid).  
-- **Ứng dụng**: Phân tích dữ liệu, dự báo chuỗi thời gian, hệ thống gợi ý.
-
-**Lợi ích**: Không cần GPU mạnh, thuật toán có thể chạy trên CPU.
-
----
-
-### **5. Phát triển mô hình AI trên thiết bị IoT và Edge**
+### **2. Phát triển mô hình AI trên thiết bị IoT và Edge**
 - **Nội dung**: Tập trung vào AI chạy trên **IoT** hoặc thiết bị nhúng với phần cứng hạn chế.  
 - **Hướng đi cụ thể**:  
   - Tối ưu hóa mô hình nhỏ và triển khai trên Raspberry Pi hoặc các thiết bị Edge AI.  
@@ -64,7 +29,7 @@
 
 ---
 
-### **7. Nghiên cứu trong lĩnh vực NLP nhẹ**
+### **3. Nghiên cứu trong lĩnh vực NLP nhẹ**
 - **Nội dung**: Nghiên cứu các tác vụ xử lý ngôn ngữ tự nhiên không yêu cầu huấn luyện lớn như:  
   - **Tóm tắt văn bản**: Sử dụng các mô hình pre-trained kết hợp thuật toán heuristic.  
   - **Phân loại văn bản và gán nhãn**: Fine-tune mô hình nhỏ như **DistilBERT** hoặc **ALBERT**.  
@@ -74,7 +39,7 @@
 
 ---
 
-### **8. Tích hợp AI với Blockchain hoặc công nghệ phi tập trung**
+### **4. Tích hợp AI với Blockchain hoặc công nghệ phi tập trung**
 - **Nội dung**: Kết hợp AI với **blockchain** để giải quyết các vấn đề như:  
   - Tối ưu hóa lưu trữ và truy xuất dữ liệu AI trên mạng phi tập trung.  
   - Xây dựng hệ thống AI bảo mật và minh bạch.  

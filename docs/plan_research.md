@@ -1,114 +1,4 @@
-# English version
-
-This is a **detailed research plan** for the year 2025, focusing on the two new core areas: *small language models (SLMs)* and *algorithm performance optimization*. This plan is tailored to meet the ambitious KPI of achieving **5 patents** or **10 SCI papers**.
-
----
-
-## **2025 Research Plan for AI R&D**
-
-### **1. Objective**
-The research will focus on:
-- **Small Language Models (SLMs):** Exploring lightweight, efficient, and deployable language models for edge devices or embedded AI.
-- **Algorithm Performance Optimization:** Developing methods to reduce computational complexity and improve processing speed on limited hardware.
-
-The key deliverable is to achieve **5 patents** or **10 SCI-indexed publications** in these areas.
-
----
-
-### **2. Research Breakdown by Quarters**
-
-#### **Q1 2025: Laying the Foundation**
-**Focus:** Literature review, resource setup, and identifying key research problems.  
-
-| Task | Details | Deliverables |
-|------|---------|-------------|
-| **2.1 Comprehensive Survey** | Conduct a literature review on current SLMs (e.g., DistilBERT, TinyBERT) and optimization methods (e.g., quantization, pruning, low-rank factorization). Identify gaps in current technologies. | Technical survey report and gap analysis. |
-| **2.2 Resource and Tool Setup** | Set up a research environment with tools like PyTorch, TensorFlow, ONNX for lightweight model deployment, and libraries for optimization (e.g., TensorRT, OpenVINO). | Functional development environment. |
-| **2.3 Problem Statement Formulation** | Narrow down specific challenges (e.g., efficient SLM architecture design, latency improvements on RTX 3090). Define 2-3 key research problems. | Finalized research problems for Q2. |
-
-**Milestone:**  
-- Complete literature review.  
-- Finalize 2-3 focused research questions for each topic.  
-
----
-
-#### **Q2 2025: Model Development and Experimentation**
-**Focus:** Prototype design, experimentation, and initial model training.  
-
-| Task | Details | Deliverables |
-|------|---------|-------------|
-| **2.4 Develop Small Language Models** | Design lightweight Transformer architectures with optimizations like quantization (8-bit/4-bit), knowledge distillation, and pruning. Experiment with datasets (e.g., WikiText, Common Crawl). | Prototype SLM with benchmark results. |
-| **2.5 Optimize Existing Algorithms** | Apply and compare optimization techniques: - Matrix decomposition. - Kernel fusion. - Low-rank approximations. Test efficiency on RTX 3090 GPU. | Optimized algorithms and benchmarks. |
-| **2.6 Benchmark Models** | Evaluate accuracy, latency, and memory consumption of SLM prototypes and optimized algorithms using established metrics (e.g., FLOPs, inference time). | Comparative performance report. |
-
-**Milestone:**  
-- Prototypes of small language models and optimized algorithms.  
-- Preliminary results ready for internal review and feedback.  
-
----
-
-#### **Q3 2025: Patent Filing and Publication Preparation**
-**Focus:** Consolidate results, file patents, and write scientific papers.  
-
-| Task | Details | Deliverables |
-|------|---------|-------------|
-| **2.7 Patent Drafting and Submission** | File patents for innovative SLM architecture and algorithm optimization methods. Focus on uniqueness and feasibility. | 2-3 patent applications submitted. |
-| **2.8 Writing and Submitting SCI Papers** | Prepare 4-5 research papers for SCI-indexed journals, such as: - *Journal of Artificial Intelligence Research.* - *IEEE Transactions on Neural Networks.* - *Pattern Recognition Letters.* | 4-5 SCI submissions. |
-| **2.9 External Collaboration** | Collaborate with academic partners or external researchers for validation or feedback on results. | Joint research validation. |
-
-**Milestone:**  
-- Submit 2-3 patent applications.  
-- Submit 4-5 SCI-indexed papers for review.  
-
----
-
-#### **Q4 2025: Final Optimization and Reporting**
-**Focus:** Refine solutions, finalize patents/papers, and prepare technical presentations.  
-
-| Task | Details | Deliverables |
-|------|---------|-------------|
-| **2.10 Final Model Optimization** | Optimize developed SLMs further for real-world deployment. Perform extensive testing for scalability and robustness. | Final, deployable lightweight models. |
-| **2.11 Patent Resubmission and Final Edits** | Address reviewer feedback for pending patents and journal submissions. Finalize all outstanding applications. | Additional 2-3 patents finalized. |
-| **2.12 Research Showcase** | Present findings in company-wide meetings, focusing on advancements and potential applications for production. | Technical presentations and internal reports. |
-
-**Milestone:**  
-- File 5 patents (total).  
-- Publish 8-10 SCI-indexed papers.  
-- Present final results to the leader's company.
-
----
-
-### **3. Timeline Overview**
-
-| Quarter | Key Milestones |
-|---------|----------------|
-| **Q1**  | Finalize research questions and setup. |
-| **Q2**  | Develop and benchmark prototypes. |
-| **Q3**  | File 2-3 patents and submit 4-5 SCI papers. |
-| **Q4**  | Finalize patents/papers, optimize models, and present results. |
-
----
-
-### **4. Resource Requirements**
-To achieve the above goals, the following resources are essential:  
-1. **Computational Hardware:** Access to at least 2 RTX 3090 GPUs (or equivalent) for training and inference.  
-2. **Tools and Libraries:** PyTorch, TensorRT, OpenVINO, ONNX, and access to benchmark datasets.  
-3. **Collaboration:** Support for academic collaboration or external validation.  
-
----
-
-### **5. Expected Outcomes**
-- **5 Patents Filed** (covering innovative architectures, optimization techniques).  
-- **10 SCI Papers** published in high-impact journals.  
-- **Deployable SLMs:** Lightweight models ready for use on edge devices.  
-- **Performance Optimizations:** Proven methods to reduce latency and computational cost on GPUs.
-
----
-
 # Vietnamese version
-
----
-
 Đây là **kế hoạch nghiên cứu chi tiết** cho năm 2025, tập trung vào hai lĩnh vực mới và cốt lõi: **mô hình ngôn ngữ nhỏ** và **tối ưu hóa hiệu suất thuật toán**. Kế hoạch này được xây dựng để đáp ứng KPI đạt **5 bằng sáng chế** hoặc **10 bài báo SCI**.
 
 ---
@@ -213,3 +103,109 @@ Mục tiêu chính là đạt được **5 bằng sáng chế** hoặc **10 bài
 - **Tối ưu hóa thuật toán:** Các phương pháp tăng tốc và giảm chi phí tính toán.
 
 --- 
+
+# English version
+This is a **detailed research plan** for the year 2025, focusing on the two new core areas: *small language models (SLMs)* and *algorithm performance optimization*. This plan is tailored to meet the ambitious KPI of achieving **5 patents** or **10 SCI papers**.
+
+---
+
+## **2025 Research Plan for AI R&D**
+
+### **1. Objective**
+The research will focus on:
+- **Small Language Models (SLMs):** Exploring lightweight, efficient, and deployable language models for edge devices or embedded AI.
+- **Algorithm Performance Optimization:** Developing methods to reduce computational complexity and improve processing speed on limited hardware.
+
+The key deliverable is to achieve **5 patents** or **10 SCI-indexed publications** in these areas.
+
+---
+
+### **2. Research Breakdown by Quarters**
+
+#### **Q1 2025: Laying the Foundation**
+**Focus:** Literature review, resource setup, and identifying key research problems.  
+
+| Task | Details | Deliverables |
+|------|---------|-------------|
+| **2.1 Comprehensive Survey** | Conduct a literature review on current SLMs (e.g., DistilBERT, TinyBERT) and optimization methods (e.g., quantization, pruning, low-rank factorization). Identify gaps in current technologies. | Technical survey report and gap analysis. |
+| **2.2 Resource and Tool Setup** | Set up a research environment with tools like PyTorch, TensorFlow, ONNX for lightweight model deployment, and libraries for optimization (e.g., TensorRT, OpenVINO). | Functional development environment. |
+| **2.3 Problem Statement Formulation** | Narrow down specific challenges (e.g., efficient SLM architecture design, latency improvements on RTX 3090). Define 2-3 key research problems. | Finalized research problems for Q2. |
+
+**Milestone:**  
+- Complete literature review.  
+- Finalize 2-3 focused research questions for each topic.  
+
+---
+
+#### **Q2 2025: Model Development and Experimentation**
+**Focus:** Prototype design, experimentation, and initial model training.  
+
+| Task | Details | Deliverables |
+|------|---------|-------------|
+| **2.4 Develop Small Language Models** | Design lightweight Transformer architectures with optimizations like quantization (8-bit/4-bit), knowledge distillation, and pruning. Experiment with datasets (e.g., WikiText, Common Crawl). | Prototype SLM with benchmark results. |
+| **2.5 Optimize Existing Algorithms** | Apply and compare optimization techniques: - Matrix decomposition. - Kernel fusion. - Low-rank approximations. Test efficiency on RTX 3090 GPU. | Optimized algorithms and benchmarks. |
+| **2.6 Benchmark Models** | Evaluate accuracy, latency, and memory consumption of SLM prototypes and optimized algorithms using established metrics (e.g., FLOPs, inference time). | Comparative performance report. |
+
+**Milestone:**  
+- Prototypes of small language models and optimized algorithms.  
+- Preliminary results ready for internal review and feedback.  
+
+---
+
+#### **Q3 2025: Patent Filing and Publication Preparation**
+**Focus:** Consolidate results, file patents, and write scientific papers.  
+
+| Task | Details | Deliverables |
+|------|---------|-------------|
+| **2.7 Patent Drafting and Submission** | File patents for innovative SLM architecture and algorithm optimization methods. Focus on uniqueness and feasibility. | 2-3 patent applications submitted. |
+| **2.8 Writing and Submitting SCI Papers** | Prepare 4-5 research papers for SCI-indexed journals, such as: - *Journal of Artificial Intelligence Research.* - *IEEE Transactions on Neural Networks.* - *Pattern Recognition Letters.* | 4-5 SCI submissions. |
+| **2.9 External Collaboration** | Collaborate with academic partners or external researchers for validation or feedback on results. | Joint research validation. |
+
+**Milestone:**  
+- Submit 2-3 patent applications.  
+- Submit 4-5 SCI-indexed papers for review.  
+
+---
+
+#### **Q4 2025: Final Optimization and Reporting**
+**Focus:** Refine solutions, finalize patents/papers, and prepare technical presentations.  
+
+| Task | Details | Deliverables |
+|------|---------|-------------|
+| **2.10 Final Model Optimization** | Optimize developed SLMs further for real-world deployment. Perform extensive testing for scalability and robustness. | Final, deployable lightweight models. |
+| **2.11 Patent Resubmission and Final Edits** | Address reviewer feedback for pending patents and journal submissions. Finalize all outstanding applications. | Additional 2-3 patents finalized. |
+| **2.12 Research Showcase** | Present findings in company-wide meetings, focusing on advancements and potential applications for production. | Technical presentations and internal reports. |
+
+**Milestone:**  
+- File 5 patents (total).  
+- Publish 8-10 SCI-indexed papers.  
+- Present final results to the leader's company.
+
+---
+
+### **3. Timeline Overview**
+
+| Quarter | Key Milestones |
+|---------|----------------|
+| **Q1**  | Finalize research questions and setup. |
+| **Q2**  | Develop and benchmark prototypes. |
+| **Q3**  | File 2-3 patents and submit 4-5 SCI papers. |
+| **Q4**  | Finalize patents/papers, optimize models, and present results. |
+
+---
+
+### **4. Resource Requirements**
+To achieve the above goals, the following resources are essential:  
+1. **Computational Hardware:** Access to at least 2 RTX 3090 GPUs (or equivalent) for training and inference.  
+2. **Tools and Libraries:** PyTorch, TensorRT, OpenVINO, ONNX, and access to benchmark datasets.  
+3. **Collaboration:** Support for academic collaboration or external validation.  
+
+---
+
+### **5. Expected Outcomes**
+- **5 Patents Filed** (covering innovative architectures, optimization techniques).  
+- **10 SCI Papers** published in high-impact journals.  
+- **Deployable SLMs:** Lightweight models ready for use on edge devices.  
+- **Performance Optimizations:** Proven methods to reduce latency and computational cost on GPUs.
+
+---

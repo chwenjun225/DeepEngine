@@ -52,6 +52,5 @@
 ### **Tổng kết**
 Các hướng nghiên cứu trên đều **không đòi hỏi GPU mạnh** mà vẫn mang lại giá trị khoa học và thực tiễn cao như:  
 - **Fine-tuning mô hình nhẹ**  
-- **Xử lý ảnh nhẹ**  
 - **Few-shot learning**  
 - **AI trên IoT và Edge**  

@@ -1,1 +1,0 @@
-Triển khai foxer lên thiết bị di động 

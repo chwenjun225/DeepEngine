@@ -18,11 +18,12 @@ class CustomArticleCrawler(BaseCrawler):
     def extract(self, link: str, **kwargs) -> None:
         old_model = self.model.find(link=link)
         if old_model is not None:
-            logger.info(f"Article already exists in the database: {link}")
+            # logger.info(f"Article already exists in the database: {link}")
+            logger.info(f">>> Bài viết đã tồn tại trong cơ sở dữ liệu: {link}")
 
             return
 
-        logger.info(f"Starting scrapping article: {link}")
+        logger.info(f">>> Bắt đầu scrapping bài viết: {link}")
 
         loader = AsyncHtmlLoader([link])
         docs = loader.load()

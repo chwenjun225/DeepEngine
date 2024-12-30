@@ -46,6 +46,7 @@ class CrawlerDispatcher:
             if re.match(pattern, url):
                 return crawler()
         else:
-            logger.warning(f"No crawler found for {url}. Defaulting to CustomArticleCrawler.")
+            # logger.warning(f"No crawler found for {url}. Defaulting to CustomArticleCrawler.")
+            logger.warning(f">>> Không tìm thấy crawler nào cho {url}. Mặc định để CustomArticleCrawler.")
 
             return CustomArticleCrawler()

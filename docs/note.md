@@ -47,3 +47,5 @@ Prompt and system monitoring
 Other tools similar to `Poetry` are `Venv` and `Conda` for creating virtual environments. Still, they lack the dependency management option. Thus, you must do it through Python’s default `requirements.txt` files, which are less powerful than `Poetry’s lock` files. Another option is `Pipenv`, which feature-wise is more like `Poetry` but slower, and `uv`, which is a replacement for `Poetry` built in `Rust`, making it blazing fast. `uv` has lots of potential to replace Poetry, making it worthwhile to test out: https://github.com/astral-sh/uv.
 
 # TODO: https://learning.oreilly.com/library/view/llm-engineers-handbook/9781836200079/Text/Chapter_02.xhtml#_idParaDest-44
+
+# TODO: https://learning.oreilly.com/library/view/llm-engineers-handbook/9781836200079/Text/Chapter_03.xhtml#_idParaDest-79

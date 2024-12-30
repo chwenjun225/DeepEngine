@@ -20,11 +20,13 @@ class GithubCrawler(BaseCrawler):
     def extract(self, link: str, **kwargs) -> None:
         old_model = self.model.find(link=link)
         if old_model is not None:
-            logger.info(f"Repository already exists in the database: {link}")
+            # logger.info(f"Repository already exists in the database: {link}")
+            logger.info(f">>> Repository đã tồn tại trong cơ sở dữ liệu: {link}")
 
             return
 
-        logger.info(f"Starting scrapping GitHub repository: {link}")
+        # logger.info(f"Starting scrapping GitHub repository: {link}")
+        logger.info(f">>> Bắt đầu scrapping GitHub repository tại: {link}")
 
         repo_name = link.rstrip("/").split("/")[-1]
 

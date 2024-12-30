@@ -15,11 +15,13 @@ class MediumCrawler(BaseSeleniumCrawler):
     def extract(self, link: str, **kwargs) -> None:
         old_model = self.model.find(link=link)
         if old_model is not None:
-            logger.info(f"Article already exists in the database: {link}")
+            # logger.info(f"Article already exists in the database: {link}")
+            logger.info(f">>> Bài viết đã tồn tại trong cơ sở dữ liệu: {link}")
 
             return
 
-        logger.info(f"Starting scrapping Medium article: {link}")
+        # logger.info(f"Starting scrapping Medium article: {link}")
+        logger.info(f">>> Bắt đầu scrapping bài viết trên Medium: {link}")
 
         self.driver.get(link)
         self.scroll_page()
@@ -46,4 +48,5 @@ class MediumCrawler(BaseSeleniumCrawler):
         )
         instance.save()
 
-        logger.info(f"Successfully scraped and saved article: {link}")
+        # logger.info(f"Successfully scraped and saved article: {link}")
+        logger.info(f">>> Đã scrapped và lưu bài viết thành công: {link}")

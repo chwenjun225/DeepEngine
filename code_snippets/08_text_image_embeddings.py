@@ -23,9 +23,9 @@ if __name__ == "__main__":
     # Encode text descriptions.
     text_emb = model.encode(
         [
-            "A crazy cat smiling.",
-            "A white and brown cat with a yellow bandana.",
-            "A man eating in the garden.",
+            "Một con mèo điên đang cười.",
+            "Một con mèo nâu và một con mèo trắng với một cái khăn dằn màu vàng.",
+            "Một người đàn ông đăng ăn trong vườn.",
         ]
     )
     print(text_emb.shape)  # noqa

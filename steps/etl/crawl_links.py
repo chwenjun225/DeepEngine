@@ -13,7 +13,8 @@ from foxer.domain.documents import UserDocument
 def crawl_links(user: UserDocument, links: list[str]) -> Annotated[list[str], "crawled_links"]:
     dispatcher = CrawlerDispatcher.build().register_linkedin().register_medium().register_github()
 
-    logger.info(f"Starting to crawl {len(links)} link(s).")
+    # logger.info(f"Starting to crawl {len(links)} link(s).")
+    logger.info(f">>> Bắt đầu crawl {len(links)} link(s).")
 
     metadata = {}
     successfull_crawls = 0
@@ -26,7 +27,8 @@ def crawl_links(user: UserDocument, links: list[str]) -> Annotated[list[str], "c
     step_context = get_step_context()
     step_context.add_output_metadata(output_name="crawled_links", metadata=metadata)
 
-    logger.info(f"Successfully crawled {successfull_crawls} / {len(links)} links.")
+    # logger.info(f"Successfully crawled {successfull_crawls} / {len(links)} links.")
+    logger.info(f">>> Đã thành công crawled {successfull_crawls} / {len(links)} links.")
 
     return links
 
@@ -40,7 +42,8 @@ def _crawl_link(dispatcher: CrawlerDispatcher, link: str, user: UserDocument) ->
 
         return (True, crawler_domain)
     except Exception as e:
-        logger.error(f"An error occurred while crowling: {e!s}")
+        # logger.error(f"An error occurred while crowling: {e!s}")
+        logger.error(f">>> Lỗi xảy ra khi đang crowling: {e!s}")
 
         return (False, crawler_domain)
 

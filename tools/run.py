@@ -31,17 +31,17 @@ stack component that is configured in your active ZenML stack.
 
 Examples:
 
-  \b
-  # Run the pipeline with default options
-  python run.py
-               
-  \b
-  # Run the pipeline without cache
-  python run.py --no-cache
-  
-  \b
-  # Run only the ETL pipeline
-  python run.py --only-etl
+    \b
+    # Run the pipeline with default options
+    python run.py
+                
+    \b
+    # Run the pipeline without cache
+    python run.py --no-cache
+    
+    \b
+    # Run only the ETL pipeline
+    python run.py --only-etl
 
 """
 )

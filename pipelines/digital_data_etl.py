@@ -1,4 +1,3 @@
-# TODO: https://learning.oreilly.com/library/view/llm-engineers-handbook/9781836200079/Text/Chapter_02.xhtml#_idParaDest-49
 from zenml import pipeline
 from steps.etl import crawl_links, get_or_create_user
 @pipeline

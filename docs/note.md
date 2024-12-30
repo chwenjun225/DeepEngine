@@ -42,3 +42,6 @@ Model versioning, lineage, and reusability
 Experiment tracking
 Continuous training, continuous integration, and continuous delivery (CT/CI/CD)
 Prompt and system monitoring
+
+## Nên sử dụng `poetry` thay vì `conda`
+Other tools similar to `Poetry` are `Venv` and `Conda` for creating virtual environments. Still, they lack the dependency management option. Thus, you must do it through Python’s default `requirements.txt` files, which are less powerful than `Poetry’s lock` files. Another option is `Pipenv`, which feature-wise is more like `Poetry` but slower, and `uv`, which is a replacement for `Poetry` built in `Rust`, making it blazing fast. `uv` has lots of potential to replace Poetry, making it worthwhile to test out: https://github.com/astral-sh/uv.

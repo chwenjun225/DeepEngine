@@ -42,3 +42,16 @@ Office Assistance
 `<|ipython|>`: Gọi API lấy dữ liệu bất thường theo mã nhân viên -> Hiển thị dữ liệu bất thường.
 
 `<|assistant|>`: Giải thích dữ liệu bất thường -> Xử lý bất thường. 
+
+`
+<|begin_of_text|><|start_header_id|>system<|end_header_id|>
+Cutting Knowledge Date: December 2023
+Today Date: 23 July 2024
+You are a helpful assistant<|eot_id|>
+
+<|start_header_id|>user<|end_header_id|>
+What is the capital of France?<|eot_id|>
+
+<|start_header_id|>assistant<|end_header_id|>
+lamvlaml
+`

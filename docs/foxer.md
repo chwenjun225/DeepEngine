@@ -35,6 +35,7 @@ Office Assistance
 
 > Với các yêu cầu trên ta sử dụng mô hình Llama-3.1-8b của Meta-AI, có khả năng generate code điều khiển thao tác phần mềm. 
 
+**Mô tả cách hoạt động**:
 `<|system|>`: Bạn là một trợ lý văn phòng, giúp giải quyết các tác vụ văn phòng như chấm công, xử lý bất thường, nhắc nhở báo cáo,...
 
 `<|user|>`: Xin chào, mã nhân viên của tôi là V123456, tôi gặp bất thường vào ngày 13 tháng 1 năm 2025, làm ơn giúp tôi giải quyết. 
@@ -43,15 +44,5 @@ Office Assistance
 
 `<|assistant|>`: Giải thích dữ liệu bất thường -> Xử lý bất thường. 
 
-`
-<|begin_of_text|><|start_header_id|>system<|end_header_id|>
-Cutting Knowledge Date: December 2023
-Today Date: 23 July 2024
-You are a helpful assistant<|eot_id|>
-
-<|start_header_id|>user<|end_header_id|>
-What is the capital of France?<|eot_id|>
-
-<|start_header_id|>assistant<|end_header_id|>
-lamvlaml
-`
+# Commands
+`torchrun --nproc_per_node 1 example_text_completion.py --ckpt_dir ~/.llama/checkpoints/Llama3.2-1B-Instruct/ --tokenizer_path ~/.llama/checkpoints/Llama3.2-1B-Instruct/tokenizer.model --max_seq_len 256 --max_batch_size 8`

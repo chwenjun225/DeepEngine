@@ -46,3 +46,7 @@ Office Assistance
 
 # Commands
 `torchrun --nproc_per_node 1 example_text_completion.py --ckpt_dir ~/.llama/checkpoints/Llama3.2-1B-Instruct/ --tokenizer_path ~/.llama/checkpoints/Llama3.2-1B-Instruct/tokenizer.model --max_seq_len 256 --max_batch_size 8`
+
+#!/bin/bash
+CHECKPOINT_DIR=~/.llama/checkpoints/Meta-Llama3.2-3B-Instruct
+PYTHONPATH=$(git rev-parse --show-toplevel) torchrun ./example_chat_completion.py $CHECKPOINT_DIR

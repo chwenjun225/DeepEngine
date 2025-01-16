@@ -94,3 +94,28 @@ torchrun --nproc_per_node 1 \
 	--ckpt_dir ~/.llama/checkpoints/Llama3.1-8B-Instruct/ \
 	--tokenizer_path ~/.llama/checkpoints/Llama3.1-8B-Instruct/tokenizer.model \
 	--max_seq_len 512 --max_batch_size 6
+
+
+
+Hiện tại, tôi đang tập trung nghiên cứu các mô hình ngôn ngữ nhỏ như Llama3.2-3B-Instruct với mục tiêu triển khai trên thiết bị di động, IoT và các hệ thống nhúng.
+
+Trong tuần qua (thứ 2 đến thứ 5), sau khi quay trở lại công ty sau 2 năm du học, tôi đã hoàn thành các công việc sau:
+
+1. Hoàn tất việc cài đặt và thiết lập môi trường làm việc trên máy tính công ty.
+2. Tìm hiểu tài liệu liên quan đến cách sử dụng mô hình Llama.
+3. Chạy và thực hiện suy luận (inference) trên mô hình Llama3.2-3B-Instruct.
+4. Triển khai mô hình Llama3.2-3B-Instruct trên thiết bị di động Xiaomi 11T (Chipset: Snapdragon 888, RAM: 8G, Storage: 256GB).
+
+Viết lại theo form sau:
+
+I. Problems?
+
+II. Technical difficulties ?
+
+III. Solution ?
+
+IV. Solution effects ?
+
+V. Next Step ?
+
+Achieved?

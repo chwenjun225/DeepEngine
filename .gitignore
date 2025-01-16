@@ -2,6 +2,7 @@
 from_3rdparty/
 llama3-demo/
 cuda-keyring_1.1-1_all.deb
+_3rdparty_api/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -1,7 +1,7 @@
 from typing import List, Optional
 import fire
-from llama import Dialog, Llama
-# \home\chwenjun225\.llama\checkpoints
+from foxer import Dialog, Llama
+
 def main(
 	ckpt_dir: str = "/home/chwenjun225/.llama/checkpoints/Llama3.2-1B-Instruct",
 	tokenizer_path: str = "/home/chwenjun225/.llama/checkpoints/Llama3.2-1B-Instruct/tokenizer.model",

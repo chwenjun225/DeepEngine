@@ -1,13 +1,12 @@
+import torch.distributed as dist
 from typing import List
-
 import fire
-
-from llama import Llama
+from foxer import Llama
 
 
 def main(
-	ckpt_dir: str,
-	tokenizer_path: str,
+	ckpt_dir: str = "/home/chwenjun225/.llama/checkpoints/Llama3.2-1B-Instruct",
+	tokenizer_path: str = "/home/chwenjun225/.llama/checkpoints/Llama3.2-1B-Instruct/tokenizer.model",
 	temperature: float = 0.6,
 	top_p: float = 0.9,
 	max_seq_len: int = 128,
@@ -59,3 +58,5 @@ def main(
 
 if __name__ == "__main__":
 	fire.Fire(main)
+	# Giải phóng ProcessGroup
+	dist.destroy_process_group()

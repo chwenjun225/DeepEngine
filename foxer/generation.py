@@ -13,8 +13,8 @@ from fairscale.nn.model_parallel.initialize import (
 	model_parallel_is_initialized,
 )
 
-from llama.model import ModelArgs, Transformer
-from llama.tokenizer import ChatFormat, Dialog, Message, Tokenizer
+from foxer.model import ModelArgs, Transformer
+from foxer.tokenizer import ChatFormat, Dialog, Message, Tokenizer
 
 class CompletionPrediction(TypedDict, total=False):
 	generation: str
@@ -59,13 +59,13 @@ class Llama:
 			và tải mô hình đã huấn luyện trước cùng với tokenizer.
 		"""
 		# Kiểm tra chiều dài chuỗi hợp lệ 
-		assert 1 <= max_seq_len <= 8192, f"max_seq_len phải nằm trong khoảng [1, 8192]. Nhận được {max_seq_len}."
+		assert 1 <= max_seq_len <= 8192, f">>> max_seq_len phải nằm trong khoảng [1, 8192]. Nhận được {max_seq_len}."
 
 		# Kiểm tra sự tồn tại của thư mục checkpoint
-		assert os.path.isdir(ckpt_dir), f"Thư mục checkpoint '{ckpt_dir}' không tồn tại."
+		assert os.path.isdir(ckpt_dir), f">>> Thư mục checkpoint '{ckpt_dir}' không tồn tại."
 
 		# Kiểm tra sự tồn tại của tệp tokenizer 
-		assert os.path.isfile(tokenizer_path), f"Tệp tokenizer '{tokenizer_path}' không tồn tại."
+		assert os.path.isfile(tokenizer_path), f">>> Tệp tokenizer '{tokenizer_path}' không tồn tại."
 		
 		# Khởi tạo nhóm tiến trình phân tán nếu chưa có 
 		if not torch.distributed.is_initialized():
@@ -98,7 +98,7 @@ class Llama:
 		), f"Đang tải số lượng checkpoint với MP={len(checkpoints)} nhưng số lượng GPU hiện có là {model_parallel_size}"
 		# Chọn checkpoint theo tiến trình hiện tại 
 		ckpt_path = checkpoints[get_model_parallel_rank()]
-		checkpoint = torch.load(ckpt_path, map_location="cpu")
+		checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=True)
 		
 		# Tải tham số mô hình từ tệp params.json
 		with open(Path(ckpt_dir) / "params.json", "r") as f:
@@ -125,7 +125,7 @@ class Llama:
 		model.load_state_dict(checkpoint, strict=False)
 
 		# Hiện thông báo thời gian tải 
-		print(f"Hoàn thành tải trong {time.time() - start_time:.2f} giây")
+		print(f">>> Hoàn thành load model trong {time.time() - start_time:.2f} giây")
 
 		# Trả về đối tượng Llama
 		return Llama(model, tokenizer)

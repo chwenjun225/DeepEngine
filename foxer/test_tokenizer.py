@@ -1,6 +1,6 @@
 import os
 from unittest import TestCase
-from llama.tokenizer import ChatFormat, Tokenizer
+from foxer.tokenizer import ChatFormat, Tokenizer
 
 # TOKENIZER_PATH=<path> python -m unittest llama/test_tokenizer.py
 

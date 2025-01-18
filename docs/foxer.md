@@ -127,55 +127,29 @@ send_alert(">>> Phát hiện vật thể trên băng chuyền. Yêu cầu kiểm
 
 ### 1. Nghiên cứu bằng sáng chế hiện có 
 
-**Bảng 1**: Nghiên cứu, tổng hợp các bằng sáng chế liên quan đến PHM, các tài liệu dưới đây được tham khảo từ `Google Patent`, và từ Văn Phòng Cục Sở Hữu Trí Tuệ tại USA, China, Taiwan, Vietnam. 
+**Bảng 1**: Nghiên cứu, tổng hợp các bằng sáng chế liên quan đến PHM, các tài liệu dưới đây được tham khảo từ `Google Patent`, và từ Văn Phòng Cục Sở Hữu Trí Tuệ tại Mỹ, Trung Quốc, Đài Loan và Việt Nam. 
 
-| STT | Patent No       | Date of Patent | Title | Abstract | Comments |
-|---- |-----------------|----------------|-------|----------|----------|
-| 01 | CN116680554B | 2024-04-19 | Hệ Thống Đo Lường và Cải Tiến Luồng Bệnh Nhân trong Các Hệ Thống Y Tế | Phát minh này là một phương pháp dựa trên phần mềm dùng để hiển thị, phân tích, mô phỏng và tối ưu hóa luồng bệnh nhân trong một cơ sở y tế. Hệ thống bao gồm phần cứng máy tính để lưu trữ dữ liệu, cũng như phần mềm để truy xuất dữ liệu và tạo các mô hình toán học nhằm biểu diễn quá trình điều trị và di chuyển của bệnh nhân trong cơ sở y tế. | Chưa áp dụng LLMs, kỹ thuật nén mô hình, IoT |
-| 02 | abc | abc | abc | abc |
-| 03 | abc | abc | abc | abc |
-| 04 | abc | abc | abc | abc |
-| 05 | abc | abc | abc | abc |
-| 06 | abc | abc | abc | abc |
-| 07 | abc | abc | abc | abc |
-| 08 | abc | abc | abc | abc |
-| 09 | abc | abc | abc | abc |
-| 10 | abc | abc | abc | abc |
-| 11 | abc | abc | abc | abc |
-| 12 | abc | abc | abc | abc |
-| 13 | abc | abc | abc | abc |
-| 14 | abc | abc | abc | abc |
-| 15 | abc | abc | abc | abc |
-| 16 | abc | abc | abc | abc |
-| 17 | abc | abc | abc | abc |
-| 18 | abc | abc | abc | abc |
-| 19 | abc | abc | abc | abc |
-| 20 | abc | abc | abc | abc |
-| 21 | abc | abc | abc | abc |
-| 22 | abc | abc | abc | abc |
-| 23 | abc | abc | abc | abc |
-| 24 | abc | abc | abc | abc |
-| 25 | abc | abc | abc | abc |
+| STT | Patent No       | Date of Patent | Title | Comments |
+|---- |-----------------|----------------|-------|----------|
+| 01 | CN116680554B | 2024-04-19 | Hệ Thống Đo Lường và Cải Tiến Luồng Bệnh Nhân trong Các Hệ Thống Y Tế | Phương pháp truyền thống, `Chưa tích hợp LLMs, kỹ thuật nén mô hình, kết hợp IoT phần cứng` |
+| 02 | CN114486262B | 2023-03-21 | Phương pháp dự đoán tuổi thọ còn lại của vòng bi dựa trên CNN-AT-LSTM | Đã tích hợp phương pháp học sâu CNN, Attention. `Chưa có kỹ thuật nén mô hình, kết hợp IoT phần cứng và Actuators đầu ra` |
+| 03 | CN115291589B | 2024-10-01 | Phương pháp và hệ thống chẩn đoán lỗi ma trận D của thiết bị đo lường và kiểm soát mặt đất | Dựa trên phương pháp toán học truyền thống, không phải giải pháp AI | 
+| 04 | US11609836B2 | 2023-03-21 | Phương pháp vận hành và thiết bị vận hành cho mô hình phát hiện và phân loại lỗi | Không áp dụng LLM, AI |
+| 05 | TWI794907B   | 2023-03-01 | Prognostic and Health Management và phương pháp liên quan | Chưa kết hợp phần cứng actutors như PLC, chưa tích hợp AI mạnh mẽ |
+| 06 | CN113344295B | 2023-02-14 | Phương pháp, hệ thống và môi trường dự đoán tuổi thọ còn lại của thiết bị dựa trên dữ liệu lớn công nghiệp | Phương pháp này sử dụng mô hình học máy, và các thuật toán dự đoán. Chưa kết hợp LLM, kỹ thuật cắt tỉa chứng cất trọng số mô hình |
+| 07 | CN114925723B | 2023-04-07 | Phương pháp dự đoán tuổi thọ còn lại của vòng bi lăn bằng cách sử dụng encoder và decoder | Sử dụng CNN để trích xuất đặc trưng rồi đưa vào mạng encode-decode, thực hiện hồi quy tuyến tính trên chỉ số sức khoẻ thu thập được. `Chưa kết hợp phần cứng IOT, LLM, và các phương pháp tối ưu hoá mô hình` |
+| 08 | TWI849573B   | 2024-07-21 | Hệ thống và phương pháp giám sát thông minh thiết bị máy móc | Phương pháp này đề xuất sử dụng 3 mô đun phần cứng lần lượt là `1. Cảm biến thu thập data; 2. Tính toán xử lý dữ liệu thô trên thiết bị biên; 3. Tính toán xử lý GPU server AI; 4. Truyền dữ liệu và hiển thị`, phương pháp này sử dụng mạng neural network. Tuy nhiên, đây là những điểm chưa có ở phương pháp này `1. Chưa có kết hợp Actuators (bộ phận thực hiện lệnh) là PLC; 2. Chưa áp dụng phương pháp nén mô hình AI; chưa áp dụng kiến trúc mô hình MoE` |
+| 09 | CN115017826B | 2023-08-25 | Phương pháp dự đoán tuổi thọ còn lại của thiết bị sử dụng phương pháp học sâu xử lý trực tiếp dữ liệu thô từ cảm biến | Bằng sáng chế này đề xuất một giải pháp theo dõi quản lý sức khoẻ thiết bị bằng cách `dùng phương pháp học sâu, xử lý trực tiếp dữ liệu thô thu được từ cảm biến về`. `Tuy nhiên chưa kết hợp đầu ra Actutors và các thuật toán nén, chưng cất mô hình` |
+| 10 | CN114169548B | 2023-04-07 | Hệ thống và phương pháp PHM quản lý và bảo trì cầu đường dựa trên BIM | Phương pháp sử dụng BIM trong xây dựng, `cùng với việc thu thập dữ liệu từ cảm biến đưa vào mạng neural để xử lý`. `Chưa áp dụng LLM, kỹ thuật nén mô hình, đầu ra tác động vật lý Actuators` |
+| 11 | CN112785183B | 2022-04-05 | Khung hệ thống quản lý sức khỏe cho đội xe kiểu hợp nhất phân tầng | Ứng dụng cho theo dõi phương tiện giao thông cỡ lớn (đội xe tải, xe container, ...). Có tích hợp AI, và phần cứng nhưng chưa áp dụng kỹ thuật nén mô hình |
+| 12 | CN113420849B | 2021-11-30 | Phương pháp, thiết bị và phương tiện huấn luyện mô hình gia tăng trực tuyến dựa trên học chủ động | `Đây là một bằng sáng chế phương pháp phần mềm nhằm hạn chế nhu cầu gán nhãn dữ liệu thủ công` |
+| 13 | CN113076625B | 2022-03-29 | Hệ thống quản lý sức khỏe máy phát điện diesel tàu chiến và phương pháp hoạt động | Ý tưởng này sử dụng kết hợp các mô hình học sâu như CNN, RNN, DBN cùng với kết hợp các phần cứng như cảm biến. `Hiện tại chưa áp dụng LLM, và chưa áp dụng các thuật toán cắt tỉa trọng số LLM`|
+| 14 | CN114266278B | 2024-02-20 | Phương pháp dự đoán thời gian sử dụng còn lại của thiết bị dựa trên mạng lưới chú ý kép | Bằng sáng chế này thể hiện một mô hình toán học attention để xử lý dữ liệu cảm biến từ nhiều nguồn, cùng với môdun BiLSTM để thể hiện mối quan hệ mô hình hoá giữa dữ liệu thu được và thời gian xử lý. `Bằng sáng chế tập trung vào một mô hình toán học attention network để xác định thời gian sử dụng còn lại của sản phẩm`. |
+| 15 | CN114167842B | 2023-06-09 | Fault prediction and health management method based on vibration active control system | abc*** |
 
 ### 2. Phân tích điểm mới 
 - Xác định các yếu tố sáng tạo (Ví dụ: cách kết hợp LLM và PHM hoặc tối ưu hoá quy trình dự đoán). 
 - Lưu ý rằng phần mềm thuần tuý thường khó đạt được bằng sáng chế, nên cần kết hợp với phần cứng để tăng tính khả thi. 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 ## III. Kết hợp phần cứng
 Xây dựng giải pháp tích hợp:

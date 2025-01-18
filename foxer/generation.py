@@ -77,7 +77,7 @@ class Llama:
 				model_parallel_size = int(os.environ.get("WORLD_SIZE", 1))
 			initialize_model_parallel(model_parallel_size)
 
-		# Chỉ định thiết bị CUDA cho tình trình cục bộ 
+		# Chỉ định thiết bị CUDA cho tiến trình cục bộ 
 		local_rank = int(os.environ.get("LOCAL_RANK", 0))
 		torch.cuda.set_device(local_rank)
 		# torch.cuda.set_default_device(local_rank) # UserWarning: Pytorch 2.1 sử dụng `set_default_device` thay cho `set_device`

@@ -52,7 +52,7 @@ def main(
 	)
 	for prompt, result in zip(prompts, results):
 		print(prompt)
-		print(f"> {result['generation']}")
+		print(f">>> {result['generation']}")
 		print("\n==================================\n")
 
 

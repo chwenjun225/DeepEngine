@@ -69,7 +69,7 @@ These are just a few of the many attractions that Paris has to offer. With so mu
 		for msg in dialog:
 			print(f"{msg['role'].capitalize()}: {msg['content']}\n")
 		print(
-			f"> {result['generation']['role'].capitalize()}: {result['generation']['content']}"
+			f">>> {result['generation']['role'].capitalize()}: {result['generation']['content']}"
 		)
 		print("\n==================================\n")
 

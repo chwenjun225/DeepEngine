@@ -28,9 +28,7 @@ class Message(TypedDict):
 	role: Role
 	content: str
 
-
 Dialog = Sequence[Message]
-
 
 class Tokenizer:
 	"""

@@ -1,17 +1,14 @@
 from typing import List, Optional
-
 import fire
-
 from llama import Dialog, Llama
-
-
+# \home\chwenjun225\.llama\checkpoints
 def main(
-	ckpt_dir: str,
-	tokenizer_path: str,
+	ckpt_dir: str = "/home/chwenjun225/.llama/checkpoints/Llama3.2-1B-Instruct",
+	tokenizer_path: str = "/home/chwenjun225/.llama/checkpoints/Llama3.2-1B-Instruct/tokenizer.model",
 	temperature: float = 0.6,
 	top_p: float = 0.9,
 	max_seq_len: int = 512,
-	max_batch_size: int = 4,
+	max_batch_size: int = 6,
 	max_gen_len: Optional[int] = None,
 ):
 	"""
@@ -75,7 +72,6 @@ These are just a few of the many attractions that Paris has to offer. With so mu
 			f"> {result['generation']['role'].capitalize()}: {result['generation']['content']}"
 		)
 		print("\n==================================\n")
-
 
 if __name__ == "__main__":
 	fire.Fire(main)

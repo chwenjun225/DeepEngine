@@ -145,7 +145,6 @@ send_alert(">>> Phát hiện vật thể trên băng chuyền. Yêu cầu kiểm
 | 12 | CN113420849B | 2021-11-30 | Phương pháp, thiết bị và phương tiện huấn luyện mô hình gia tăng trực tuyến dựa trên học chủ động | `Đây là một bằng sáng chế phương pháp phần mềm nhằm hạn chế nhu cầu gán nhãn dữ liệu thủ công` |
 | 13 | CN113076625B | 2022-03-29 | Hệ thống quản lý sức khỏe máy phát điện diesel tàu chiến và phương pháp hoạt động | Ý tưởng này sử dụng kết hợp các mô hình học sâu như CNN, RNN, DBN cùng với kết hợp các phần cứng như cảm biến. `Hiện tại chưa áp dụng LLM, và chưa áp dụng các thuật toán cắt tỉa trọng số LLM`|
 | 14 | CN114266278B | 2024-02-20 | Phương pháp dự đoán thời gian sử dụng còn lại của thiết bị dựa trên mạng lưới chú ý kép | Bằng sáng chế này thể hiện một mô hình toán học attention để xử lý dữ liệu cảm biến từ nhiều nguồn, cùng với môdun BiLSTM để thể hiện mối quan hệ mô hình hoá giữa dữ liệu thu được và thời gian xử lý. `Bằng sáng chế tập trung vào một mô hình toán học attention network để xác định thời gian sử dụng còn lại của sản phẩm`. |
-| 15 | CN114167842B | 2023-06-09 | Fault prediction and health management method based on vibration active control system | abc*** |
 
 ### 2. Phân tích điểm mới 
 - Xác định các yếu tố sáng tạo (Ví dụ: cách kết hợp LLM và PHM hoặc tối ưu hoá quy trình dự đoán). 

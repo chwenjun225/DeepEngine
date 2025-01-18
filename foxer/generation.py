@@ -80,6 +80,7 @@ class Llama:
 		# Chỉ định thiết bị CUDA cho tình trình cục bộ 
 		local_rank = int(os.environ.get("LOCAL_RANK", 0))
 		torch.cuda.set_device(local_rank)
+		# torch.cuda.set_default_device(local_rank) # UserWarning: Pytorch 2.1 sử dụng `set_default_device` thay cho `set_device`
 
 		# Đặt seed ngẫu nhiên (phải giống nhau trên tất cả các tiến trình)
 		torch.manual_seed(seed)
@@ -117,8 +118,10 @@ class Llama:
 		# Thiết lập kiểu dữ liệu tensor mặc định 
 		if torch.cuda.is_bf16_supported():
 			torch.set_default_tensor_type(torch.cuda.BFloat16Tensor)
+			# torch.set_default_dtype(torch.cuda.BFloat16Tensor) # UserWarning: Pytorch 2.1 sử dụng `set_default_dtype` thay cho `set_default_tensor_type`
 		else:
 			torch.set_default_tensor_type(torch.cuda.HalfTensor)
+			# torch.set_default_dtype(torch.cuda.HalfTensor) # UserWarning: Pytorch 2.1 sử dụng `set_default_dtype` thay cho `set_default_tensor_type`
 		
 		# Tạo và tải trạng thái mô hình
 		model = Transformer(model_args)

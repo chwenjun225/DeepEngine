@@ -4,6 +4,9 @@ llama3-demo/
 cuda-keyring_1.1-1_all.deb
 _3rdparty_api/
 _3rdparty_repository/
+data/
+save_models/
+log_prunting.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

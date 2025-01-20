@@ -5,8 +5,12 @@ from foxer import Llama
 
 
 def main(
-	ckpt_dir: str = "/home/chwenjun225/.llama/checkpoints/Llama3.2-1B-Instruct",
-	tokenizer_path: str = "/home/chwenjun225/.llama/checkpoints/Llama3.2-1B-Instruct/tokenizer.model",
+	# ckpt_dir: str = "/home/chwenjun225/.llama/checkpoints/Llama3.2-1B-Instruct",
+	ckpt_dir: str = "/home/chwenjun225/.llama/checkpoints/Llama3.1-8B-Instruct",
+
+	# tokenizer_path: str = "/home/chwenjun225/.llama/checkpoints/Llama3.2-1B-Instruct/tokenizer.model",
+	tokenizer_path: str = "/home/chwenjun225/.llama/checkpoints/Llama3.1-8B-Instruct/tokenizer.model",
+
 	temperature: float = 0.6,
 	top_p: float = 0.9,
 	max_seq_len: int = 128,

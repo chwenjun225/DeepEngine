@@ -8,3 +8,11 @@
 8. Sẽ thế nào nếu như ta áp dụng kiểu kiến trúc Mixture-of-Expert lên các thiết bị biên
 9. Tuần sau có thể sử dụng báo cáo để trình bày `Define the Agent’s Purpose and Scope`
 
+Dưới đây là bản dịch nội dung trong hình:
+
+| Tên danh mục                         | Mô tả                                                                                             | Ứng dụng                              | Chi tiết thêm                                                                                   |
+|--------------------------------------|---------------------------------------------------------------------------------------------------|---------------------------------------|------------------------------------------------------------------------------------------------|
+| Cắt tỉa tham số và lượng tử hóa       | Loại bỏ các tham số dư thừa không ảnh hưởng đáng kể đến hiệu suất.                                | Lớp tích chập và lớp kết nối đầy đủ   | Ổn định trong nhiều thiết lập, đạt hiệu suất tốt, hỗ trợ huấn luyện từ đầu hoặc từ mô hình đã huấn luyện. |
+| Phân tích ma trận hạng thấp           | Sử dụng phân rã ma trận/tensor để ước tính các tham số quan trọng.                               | Lớp tích chập và lớp kết nối đầy đủ   | Quy trình chuẩn hóa, dễ thực hiện, hỗ trợ huấn luyện từ đầu hoặc từ mô hình đã huấn luyện.      |
+| Bộ lọc tích chập chuyển đổi/nén       | Thiết kế các bộ lọc tích chập cấu trúc đặc biệt để tiết kiệm tham số.                            | Chỉ áp dụng cho lớp tích chập         | Thuật toán phụ thuộc vào ứng dụng, thường đạt hiệu suất tốt, chỉ hỗ trợ huấn luyện từ đầu.      |
+| Truyền nội dung tri thức (Knowledge distillation) | Huấn luyện một mạng nơ-ron nhỏ gọn với tri thức được truyền từ một mô hình lớn hơn.             | Lớp tích chập và lớp kết nối đầy đủ   | Hiệu suất của mô hình nhạy cảm với ứng dụng và cấu trúc mạng, chỉ hỗ trợ huấn luyện từ đầu.     |

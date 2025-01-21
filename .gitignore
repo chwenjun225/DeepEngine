@@ -7,7 +7,6 @@ transformers/
 _3rdparty_repository/
 data/
 save_models/
-archives/
 lm-evaluation-harness/
 log_prunting.txt
 

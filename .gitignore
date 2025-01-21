@@ -1,8 +1,5 @@
 # Add by chwenjun225
-from_3rdparty/
-llama3-demo/
-cuda-keyring_1.1-1_all.deb
-llama.cpp
+llama.cpp/
 transformers/
 _3rdparty_repository/
 data/

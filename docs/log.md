@@ -15,4 +15,3 @@ hf (pretrained=/home/chwenjun225/.llama/checkpoints/Llama3.1-8B-Instruct/hf), ge
 |piqa          |      1|none  |     0|acc       |↑  |0.7998|±  |0.0093|
 |              |       |none  |     0|acc_norm  |↑  |0.8079|±  |0.0092|
 |winogrande    |      1|none  |     0|acc       |↑  |0.7403|±  |0.0123|
-

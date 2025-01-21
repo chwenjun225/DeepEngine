@@ -8,6 +8,7 @@ _3rdparty_repository/
 data/
 save_models/
 lm-evaluation-harness/
+output_log_evals/
 log_prunting.txt
 
 # Byte-compiled / optimized / DLL files

@@ -2,11 +2,13 @@
 from_3rdparty/
 llama3-demo/
 cuda-keyring_1.1-1_all.deb
-_3rdparty_api/
+llama.cpp
+transformers/
 _3rdparty_repository/
 data/
 save_models/
 archives/
+lm-evaluation-harness/
 log_prunting.txt
 
 # Byte-compiled / optimized / DLL files

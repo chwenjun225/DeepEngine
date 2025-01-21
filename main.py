@@ -1,12 +1,14 @@
 # torchrun --nproc_per_node 1 inference.py 
+# lm_eval --model_args pretrained=/home/chwenjun225/.llama/checkpoints/Llama3.1-8B-Instruct/hf --batch_size auto --device cuda --output_path ./evals/output_log_evals --log_samples --tasks lambada_openai,hellaswag,piqa,arc_easy,arc_challenge,winogrande,openbookqa
 
 import fire 
 from typing import List, Optional
 import torch.distributed as dist 
+import torch
 
 from foxer import Dialog, Llama
 
-def chat_inference_with_llama3(
+def chat_completion_inference_with_llama3(
 	# ckpt_dir: str = "/home/chwenjun225/.llama/checkpoints/Llama3.2-1B-Instruct",
 	ckpt_dir: str = "/home/chwenjun225/.llama/checkpoints/Llama3.1-8B-Instruct",
 
@@ -81,8 +83,7 @@ These are just a few of the many attractions that Paris has to offer. With so mu
 		)
 		print("\n==================================\n")
 
-
 if __name__ == "__main__":
-	fire.Fire(chat_inference_with_llama3)
+	fire.Fire(chat_completion_inference_with_llama3)
 	# Giải phóng ProcessGroup
 	dist.destroy_process_group()

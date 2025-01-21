@@ -6,6 +6,7 @@ _3rdparty_api/
 _3rdparty_repository/
 data/
 save_models/
+archives/
 log_prunting.txt
 
 # Byte-compiled / optimized / DLL files

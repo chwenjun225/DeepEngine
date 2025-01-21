@@ -93,10 +93,10 @@ class Llama:
 
 		# Lấy danh sách các tệp checkpoint trong thư mục 
 		checkpoints = sorted(Path(ckpt_dir).glob("*.pth"))
-		assert len(checkpoints) > 0, f"Không tìm thấy tệp checkpoint nào trong: {ckpt_dir}"
+		assert len(checkpoints) > 0, f">>> Không tìm thấy tệp checkpoint nào trong: {ckpt_dir}"
 		assert model_parallel_size == len(
 			checkpoints
-		), f"Đang tải số lượng checkpoint với MP={len(checkpoints)} nhưng số lượng GPU hiện có là {model_parallel_size}"
+		), f">>> Đang tải số lượng checkpoint với MP={len(checkpoints)} nhưng số lượng GPU hiện có là {model_parallel_size}"
 		# Chọn checkpoint theo tiến trình hiện tại 
 		ckpt_path = checkpoints[get_model_parallel_rank()]
 		checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=True)
@@ -111,8 +111,17 @@ class Llama:
 			max_batch_size=max_batch_size,
 			**params,
 		)
-		# Tải tokenizer 
+
+		# Load tokenizer 
 		tokenizer = Tokenizer(model_path=tokenizer_path)
+
+		# if False: 
+		# 	from transformers import LlamaTokenizer
+		# 	# Tự lưu tokenizer
+		# 	save_tokenizer = LlamaTokenizer.from_pretrained(tokenizer_path)
+		# 	save_tokenizer.save_pretrained()
+		# 	print(">>> Đã chuyển đổi sang tokenizer.json thành công!")
+
 		assert model_args.vocab_size == tokenizer.n_words
 
 		# Thiết lập kiểu dữ liệu tensor mặc định 
@@ -126,6 +135,11 @@ class Llama:
 		# Tạo và tải trạng thái mô hình
 		model = Transformer(model_args)
 		model.load_state_dict(checkpoint, strict=False)
+
+		# if False:
+		# 	print(">>> Đang lưu .bin file")
+		# 	torch.save(model, "Llama3.1-8B-Instruct.bin")
+		# 	print(">>> Lưu .bin file thành công")
 
 		# Hiện thông báo thời gian tải 
 		print(f">>> Hoàn thành load model trong {time.time() - start_time:.2f} giây")

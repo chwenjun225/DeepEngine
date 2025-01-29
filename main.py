@@ -2,18 +2,18 @@ import os
 import fire 
 import logging 
 import urllib3
+from datetime import datetime
+import requests
 
 import streamlit as st 
 
-from init_agent import agent
+from init_agent import init_agent
 
 # Configure logging 
 logging.basicConfig(level=logging.INFO)
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# Global varibales for lazy initialization 
-llm = None
-agent_executor = None 
+agent_executor = init_agent()
 
 def main():
 	st.title("AI-Agent for Prognostic & Health Management System")
@@ -57,7 +57,7 @@ def main():
 					# Lưu tin nhắn người dùng với thời gian
 					st.session_state.chat_history.append({
 						"role": "user",
-						"content": user_input,
+						"content": input_data.strip(),
 						"time": datetime.now().isoformat()  # Lưu thời gian
 					})
 					try:
@@ -73,6 +73,7 @@ def main():
 						logging.error(f"Network error: {str(e)}")
 					except Exception as e:
 						st.error(f"An error occurred: {str(e)}")
+						logging.error(e)
 				else:
 					st.error("Please provide valid input data.")
 

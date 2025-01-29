@@ -1,4 +1,4 @@
-def remaining_useful_life_prediction():
+def remaining_useful_life_prediction(hello=""):
 	"""
 	Predict the Remaining Useful Life (RUL) of a component.
 	"""

@@ -1,89 +1,114 @@
-# torchrun --nproc_per_node 1 inference.py 
-# lm_eval --model_args pretrained=/home/chwenjun225/.llama/checkpoints/Llama3.1-8B-Instruct/hf --batch_size auto --device cuda --output_path ./evals/output_log_evals --log_samples --tasks lambada_openai,hellaswag,piqa,arc_easy,arc_challenge,winogrande,openbookqa
-
+import os 
 import fire 
-from typing import List, Optional
-import torch.distributed as dist 
-import torch
+import logging 
+import urllib3
 
-from foxer import Dialog, Llama
+import streamlit as st 
 
-def chat_completion_inference_with_llama3(
-	# ckpt_dir: str = "/home/chwenjun225/.llama/checkpoints/Llama3.2-1B-Instruct",
-	ckpt_dir: str = "/home/chwenjun225/.llama/checkpoints/Llama3.1-8B-Instruct",
+from init_agent import agent
 
-	# tokenizer_path: str = "/home/chwenjun225/.llama/checkpoints/Llama3.2-1B-Instruct/tokenizer.model",
-	tokenizer_path: str = "/home/chwenjun225/.llama/checkpoints/Llama3.1-8B-Instruct/tokenizer.model",
+# Configure logging 
+logging.basicConfig(level=logging.INFO)
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-	temperature: float = 0.6,
-	top_p: float = 0.9,
-	max_seq_len: int = 512,
-	max_batch_size: int = 6,
-	max_gen_len: Optional[int] = None,
-):
-	"""
-		Examples to run with the models finetuned for chat. Prompts correspond of chat
-		turns between the user and assistant with the final one always being the user.
+# Global varibales for lazy initialization 
+llm = None
+agent_executor = None 
 
-		An optional system prompt at the beginning to control how the model should respond
-		is also supported.
+def main():
+	st.title("AI-Agent for Prognostic & Health Management System")
+	st.write("Select a task below to interact with the AI-Agent.")
 
-		The context window of llama3 models is 8192 tokens, so `max_seq_len` needs to be <= 8192.
-
-		`max_gen_len` is optional because finetuned models are able to stop generations naturally.
-	"""
-	generator = Llama.build(
-		ckpt_dir=ckpt_dir,
-		tokenizer_path=tokenizer_path,
-		max_seq_len=max_seq_len,
-		max_batch_size=max_batch_size,
-	)
-
-	dialogs: List[Dialog] = [
-		[ # Hội thoại 1
-			{"role": "user", "content": "what is the recipe of mayonnaise?"}
-		], 
-
-		[ # Hội thoại 2
-			{"role": "user", "content": "I am going to Paris, what should I see?"},
-			{"role": "assistant", "content": """\
-Paris, the capital of France, is known for its stunning architecture, art museums, historical landmarks, and romantic atmosphere. Here are some of the top attractions to see in Paris:
-
-1. The Eiffel Tower: The iconic Eiffel Tower is one of the most recognizable landmarks in the world and offers breathtaking views of the city.
-2. The Louvre Museum: The Louvre is one of the world's largest and most famous museums, housing an impressive collection of art and artifacts, including the Mona Lisa.
-3. Notre-Dame Cathedral: This beautiful cathedral is one of the most famous landmarks in Paris and is known for its Gothic architecture and stunning stained glass windows.
-
-These are just a few of the many attractions that Paris has to offer. With so much to see and do, it's no wonder that Paris is one of the most popular tourist destinations in the world.""",
-			},
-			{"role": "user", "content": "What is so great about #1?"},
-		],
-		
-		[ # Hội thoại 3
-			{"role": "system", "content": "Always answer with Haiku"},
-			{"role": "user", "content": "I am going to Paris, what should I see?"},
-		],
-		
-		[ # Hội thoại 4
-			{"role": "system", "content": "Always answer with emojis"},
-			{"role": "user", "content": "How to go from Beijing to NY?"},
-		],
+	# Danh sách cấu hình cho các tab
+	tabs_config = [
+		{
+			"title": "🔮 RUL Prediction",
+			"key": "rul_input",
+			"description": "Enter sensor data (e.g., temperature, vibration, pressure):",
+			"button_label": "Predict RUL",
+			"invoke_input": "Predict the RUL for the following data: {data}",
+		},
+		{
+			"title": "🩺 Fault Diagnosis",
+			"key": "fault_input",
+			"description": "Enter sensor data for fault diagnosis (e.g., vibration, temperature):",
+			"button_label": "Diagnose Fault",
+			"invoke_input": "Diagnose the fault for the following data: {data}",
+		},
+		{
+			"title": "🛠️ Maintenance Strategy",
+			"key": "maintenance_input",
+			"description": "Enter historical data and conditions for maintenance recommendation:",
+			"button_label": "Recommend Strategy",
+			"invoke_input": "Recommend a maintenance strategy for the following data: {data}",
+		},
 	]
-	results = generator.chat_completion(
-		dialogs,
-		max_gen_len=max_gen_len,
-		temperature=temperature,
-		top_p=top_p,
-	)
+	# Tạo các tab động
+	tabs = st.tabs([tab["title"] for tab in tabs_config])
+	
+	# Lặp qua từng tab
+	for i, tab_config in enumerate(tabs_config):
+		with tabs[i]:
+			st.subheader(tab_config["title"])
+			input_data = st.text_area(tab_config["description"], key=tab_config["key"])
 
-	for dialog, result in zip(dialogs, results):
-		for msg in dialog:
-			print(f"{msg['role'].capitalize()}: {msg['content']}\n")
-		print(
-			f">>> {result['generation']['role'].capitalize()}: {result['generation']['content']}"
-		)
-		print("\n==================================\n")
+			if st.button(tab_config["button_label"], key=f"button_{tab_config['key']}"):
+				if input_data.strip():
+					# Lưu tin nhắn người dùng với thời gian
+					st.session_state.chat_history.append({
+						"role": "user",
+						"content": user_input,
+						"time": datetime.now().isoformat()  # Lưu thời gian
+					})
+					try:
+						# Gọi agent để xử lý
+						result = agent_executor.invoke({
+							"input": tab_config["invoke_input"].format(data=input_data),
+							"agent_scratchpad": ""
+						})
+						st.success("Result:")
+						st.write(result.get('output', 'No answer provided.'))
+					except requests.exceptions.RequestException as e:
+						st.error("Network error. Please check your connection or server.")
+						logging.error(f"Network error: {str(e)}")
+					except Exception as e:
+						st.error(f"An error occurred: {str(e)}")
+				else:
+					st.error("Please provide valid input data.")
+
+	# Hiển thị lịch sử hội thoại
+	if "chat_history" not in st.session_state: 
+		st.session_state.chat_history = []
+
+	# Hiển thị tiêu đề Sidebar
+	st.sidebar.header("📜 Chat History", divider=True)
+
+	# Tạo dictionary để nhóm tin nhắn theo ngày
+	chat_by_date = {}
+
+	# Duyệt qua các tin nhắn và nhóm theo ngày
+	for message in st.session_state.chat_history:
+
+		# Chuyển đổi thời gian thành chuỗi ngày
+		message_time = datetime.fromisoformat(message["time"])
+		date_key = message_time.strftime("%Y-%m-%d")  # YYYY-MM-DD
+
+		# Thêm tin nhắn vào nhóm của ngày tương ứng
+		if date_key not in chat_by_date:
+			chat_by_date[date_key] = []
+		chat_by_date[date_key].append(message)
+
+	# Hiển thị từng ngày
+	for date, messages in chat_by_date.items():
+		st.sidebar.subheader(f"📅 {date}")  # Hiển thị ngày
+
+		# Hiển thị tin nhắn trong ngày
+		for message in messages:
+			message_time = datetime.fromisoformat(message["time"]).strftime("%H:%M:%S")  # HH:mm:ss
+			if message["role"] == "user":
+				st.sidebar.markdown(f"**[{message_time}] You:** {message['content']}")
+			elif message["role"] == "assistant":
+				st.sidebar.markdown(f"**[{message_time}] AI-Agent:** {message['content']}")
 
 if __name__ == "__main__":
-	fire.Fire(chat_completion_inference_with_llama3)
-	# Giải phóng ProcessGroup
-	dist.destroy_process_group()
+	fire.Fire(main)

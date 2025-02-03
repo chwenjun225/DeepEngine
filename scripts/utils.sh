@@ -23,8 +23,8 @@ vllm serve /home/chwenjun225/Projects/Foxer/models/DeepSeek-R1-Distill-Qwen-1.5B
 --max-prompt-adapter-token 2048
 
 # Start server with DeepSeek-R1-Distill-Qwen-1.5B.gguf
-./third_3party/llama.cpp/build/bin/llama-server -m ./models/DeepSeek-R1-Distill-Qwen-1.5B/gguf/DeepSeek-R1-Distill-Qwen-1.5B-F32.gguf \
---port 8080
+./third_3rdparty/llama.cpp-b4621/build/bin/llama-server -m /home/chwenjun225/Projects/Foxer/models/DeepSeek-R1-Distill-Qwen-1.5B/gguf/DeepSeek-R1-Distill-Qwen-1.5B-F32.gguf \
+--port 2026 
 
 # Convert DeepSeek-R1-Distill-Qwen-1.5B hf to gguf
 python convert_hf_to_gguf.py /home/kali/Projects/Foxer/models/DeepSeek-R1-Distill-Qwen-1.5B \

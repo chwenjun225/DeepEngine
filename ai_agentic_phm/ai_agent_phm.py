@@ -1,6 +1,7 @@
+# Smaller models inherit larger models' reasoning patterns, showcasing the distillation process's effectiveness.
 from openai import OpenAI
 client = OpenAI(
-	base_url="http://localhost:2025/v1",
+	base_url="http://localhost:2026/v1",
 	api_key="token-abc123",
 )
 

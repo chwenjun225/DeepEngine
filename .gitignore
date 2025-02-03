@@ -9,6 +9,7 @@ output_log_evals/
 log_prunting.txt
 models/
 llama.cpp-b4621/
+FLAN-main/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

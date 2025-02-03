@@ -1,3 +1,7 @@
+# Dataset used
+1. [FLAN-main](https://github.com/google-research/FLAN)
+2. [Chain-of-thought data](https://github.com/google-research/FLAN/tree/main/flan/v2/cot_data)
+
 # Tập dữ liệu ReAct + CoT để finetune `DeepSeek-R1-Distill-Qwen-1.5B`
 1. Cot Collection (Google Research) 
 2. ReAct Dataset (LangChain)

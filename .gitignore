@@ -8,6 +8,7 @@ lm-evaluation-harness/
 output_log_evals/
 log_prunting.txt
 models/
+third_3rdparty/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

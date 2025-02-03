@@ -1,29 +1,15 @@
-from flask import Flask, request, jsonify
-from vllm import LLM, SamplingParams
+from openai import OpenAI
+client = OpenAI(
+	base_url="http://localhost:2025/v1",
+	api_key="token-abc123",
+)
 
-app = Flask(__name__)
-sampling_params = SamplingParams(temperature=0.8, top_p=0.95)
-llm = LLM(model="../models/DeepSeek-R1-Distill-Qwen-1.5B")
+completion = client.chat.completions.create(
+	model="/home/chwenjun225/Projects/Foxer/models/DeepSeek-R1-Distill-Qwen-1.5B/",
+	messages=[
+		{"role": "user", "content": "Hello!"}, 
+        {"role": "user", "content": "Explain what is AI-Agent?"}
+	]
+)
 
-@app.route('/generate', methods=['POST'])
-def generate():
-	data = request.get_json()
-	prompts = data.get('prompts', [])
-
-	outputs = llm.generate(prompts, sampling_params)
-
-	# Prepare the outputs.
-	results = []
-
-	for output in outputs:
-		prompt = output.prompt
-		generated_text = output.outputs[0].text
-		results.append({
-			'prompt': prompt,
-			'generated_text': generated_text
-		})
-
-	return jsonify(results)
-
-if __name__ == '__main__':
-	app.run(host='0.0.0.0', port=2025, debug=True)
+print(completion.choices[0].message)

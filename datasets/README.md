@@ -1,6 +1,11 @@
-Dưới đây là phân loại các tập dữ liệu từ trang GitHub [Awesome Industrial Datasets](https://github.com/jonathanwvd/awesome-industrial-datasets), chia thành hai nhóm chính:  
+# Tập dữ liệu ReAct + CoT để finetune `DeepSeek-R1-Distill-Qwen-1.5B`
+1. Cot Collection (Google Research) 
+2. ReAct Dataset (LangChain)
+3. Dolly 15K (Databricks)
 
-### **1️⃣ Dữ liệu liên quan đến Prognostic and Health Management (PHM) cho máy móc công nghiệp**
+# Dưới đây là phân loại các tập dữ liệu từ trang GitHub [Awesome Industrial Datasets](https://github.com/jonathanwvd/awesome-industrial-datasets), chia thành hai nhóm chính:  
+
+## **1️⃣ Dữ liệu liên quan đến Prognostic and Health Management (PHM) cho máy móc công nghiệp**
 Các tập dữ liệu này tập trung vào giám sát tình trạng thiết bị, dự đoán hỏng hóc, bảo trì dự đoán, và phân tích hiệu suất:
 
 | **Tên Tập Dữ Liệu** | **Mô Tả** |
@@ -24,10 +29,10 @@ Các tập dữ liệu này tập trung vào giám sát tình trạng thiết b�
 
 ---
 
-### **2️⃣ Dữ liệu công nghiệp khác**
+## **2️⃣ Dữ liệu công nghiệp khác**
 Các tập dữ liệu này thuộc các lĩnh vực khác như sản xuất, năng lượng, môi trường, an toàn lao động và tài chính:
 
-#### **📌 Sản xuất và kiểm soát chất lượng**
+### **📌 Sản xuất và kiểm soát chất lượng**
 | **Tên Tập Dữ Liệu** | **Mô Tả** |
 |----------------------|----------|
 | **Bosch Production Line Performance** | Dữ liệu về dây chuyền sản xuất của Bosch, hỗ trợ kiểm soát chất lượng. |
@@ -36,7 +41,7 @@ Các tập dữ liệu này thuộc các lĩnh vực khác như sản xuất, n�
 | **Predicting Manufacturing Defects Dataset** | Dự đoán lỗi sản xuất, hỗ trợ cải thiện kiểm soát chất lượng. |
 | **Severstal Steel Defect Detection** | Dữ liệu hình ảnh nhận diện lỗi trên bề mặt thép. |
 
-#### **📌 Năng lượng và môi trường**
+### **📌 Năng lượng và môi trường**
 | **Tên Tập Dữ Liệu** | **Mô Tả** |
 |----------------------|----------|
 | **Brent Oil Prices** | Dữ liệu giá dầu Brent, phục vụ phân tích thị trường. |
@@ -48,18 +53,18 @@ Các tập dữ liệu này thuộc các lĩnh vực khác như sản xuất, n�
 | **Solar Power Generation Data** | Dữ liệu sản xuất điện mặt trời. |
 | **Steel Industry Energy Consumption** | Tiêu thụ năng lượng trong sản xuất thép. |
 
-#### **📌 Robot và hệ thống tự động hóa**
+### **📌 Robot và hệ thống tự động hóa**
 | **Tên Tập Dữ Liệu** | **Mô Tả** |
 |----------------------|----------|
 | **Genesis Demonstrator Data for Machine Learning** | Dữ liệu cảm biến cho hệ thống robot công nghiệp. |
 | **Robot Execution Failures** | Dữ liệu lỗi vận hành của robot, hỗ trợ phân tích và cải tiến tự động hóa. |
 
-#### **📌 An toàn công nghiệp và sức khỏe lao động**
+### **📌 An toàn công nghiệp và sức khỏe lao động**
 | **Tên Tập Dữ Liệu** | **Mô Tả** |
 |----------------------|----------|
 | **Industrial Safety and Health Analytics Database** | Dữ liệu về an toàn lao động và phân tích rủi ro. |
 
-#### **📌 Tài chính và phân tích kinh tế**
+### **📌 Tài chính và phân tích kinh tế**
 | **Tên Tập Dữ Liệu** | **Mô Tả** |
 |----------------------|----------|
 | **Business and Industry Reports** | Dữ liệu kinh tế ngành, hỗ trợ phân tích thị trường. |
@@ -68,7 +73,7 @@ Các tập dữ liệu này thuộc các lĩnh vực khác như sản xuất, n�
 
 ---
 
-### **📌 Tổng kết**
+## **📌 Tổng kết**
 1️⃣ **Dữ liệu PHM cho máy móc công nghiệp** tập trung vào **bảo trì dự đoán, giám sát tình trạng thiết bị, và quản lý sức khỏe hệ thống**.  
 2️⃣ **Dữ liệu công nghiệp khác** bao gồm các lĩnh vực như **sản xuất, năng lượng, robot, an toàn lao động, và tài chính**.  
 

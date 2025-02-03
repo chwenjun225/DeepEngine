@@ -8,7 +8,7 @@ lm-evaluation-harness/
 output_log_evals/
 log_prunting.txt
 models/
-third_3rdparty/
+llama.cpp-b4621/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

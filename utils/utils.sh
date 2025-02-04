@@ -6,7 +6,7 @@ lm_eval --model hf \
 --batch_size auto 
 
 # VLLM run server 
-vllm serve /home/chwenjun225/Projects/Foxer/models/DeepSeek-R1-Distill-Qwen-1.5B/ \
+vllm serve /home/chwenjun225/Projects/Foxer/notebooks/DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct \
 --host 127.0.0.1 \
 --port 2025 \
 --gpu-memory-utilization 0.3 \

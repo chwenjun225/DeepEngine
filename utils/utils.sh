@@ -1,3 +1,10 @@
+# lm-eval-harness for finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct
+!lm_eval --model hf \
+--model_args pretrained="/home/chwenjun225/Projects/Foxer/notebooks/DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct" \
+--tasks lambada_openai,hellaswag,piqa,arc_easy,arc_challenge,winogrande,openbookqa \
+--device cuda \
+--batch_size auto 
+
 # VLLM run server 
 vllm serve /home/chwenjun225/Projects/Foxer/models/DeepSeek-R1-Distill-Qwen-1.5B/ \
 --host 127.0.0.1 \

@@ -5,7 +5,7 @@ lm_eval --model hf \
 --device cuda \
 --batch_size auto 
 
-# VLLM run server 
+# VLLM runserver 
 vllm serve /home/chwenjun225/Projects/Foxer/notebooks/DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct \
 --host 127.0.0.1 \
 --port 2025 \
@@ -29,7 +29,7 @@ vllm serve /home/chwenjun225/Projects/Foxer/notebooks/DeepSeek-R1-Distill-Qwen-1
 --tool-call-parser llama3_json \
 --max-prompt-adapter-token 2048
 
-# Start server with DeepSeek-R1-Distill-Qwen-1.5B.gguf
+# llama_cpp runserver
 ./third_3rdparty/llama.cpp-b4621/build/bin/llama-server -m /home/chwenjun225/Projects/Foxer/models/DeepSeek-R1-Distill-Qwen-1.5B/gguf/DeepSeek-R1-Distill-Qwen-1.5B-F32.gguf \
 --port 2026 
 

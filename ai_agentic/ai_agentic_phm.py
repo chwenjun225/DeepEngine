@@ -1,9 +1,7 @@
-from pprint import pprint
-
 import chromadb 
-from langchain.vectorstores import Chroma 
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain.document_loaders import TextLoader 
+from langchain_community.vectorstores import Chroma 
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_community.document_loaders import TextLoader 
 from langchain.text_splitter import RecursiveCharacterTextSplitter 
 from openai import OpenAI
 
@@ -12,7 +10,7 @@ chroma_client = chromadb.PersistentClient(path="./chroma_db")
 collection = chroma_client.get_or_create_collection(name="documents")
 
 # 2. Tải tài liệu từ file 
-loader = TextLoader("../state_of_the_union.txt")
+loader = TextLoader("../datasets/state_of_the_union.txt")
 documents = loader.load()
 
 # 3. Chia nhỏ tài liệu thành các đoạn nhỏ 
@@ -37,10 +35,11 @@ client = OpenAI(
 )
 
 # 6. Truy vấn từ ChromaDB
-query = "What did the President say about the economy?"
-# Tìm 3 đoạn văn bản liên quan nhất
-retrieved_docs = vector_db.similarity_search(query, k=3)  
-# Kết hợp đoạn văn bản
+query = "What did the president say about Ketanji Brown Jackson?"
+#   - Tìm 3 đoạn văn bản liên quan nhất
+# TODO: Make this line become tools-use 
+retrieved_docs = vector_db.similarity_search(query, k=1)  
+#   - Kết hợp đoạn văn bản
 context = "\n".join([doc.page_content for doc in retrieved_docs])  
 
 ### 7️⃣ Gửi truy vấn đến mô hình AI cục bộ
@@ -53,16 +52,4 @@ completion = client.chat.completions.create(
 )
 
 print("\n✅ >>> AI Response:")
-pprint(completion.choices[0].message)
-
-
-
-
-
-
-
-
-
-
-
-
+print(completion.choices[0].message)

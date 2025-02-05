@@ -51,7 +51,8 @@ python ./third_3rdparty/vllm-0.7.1/benchmarks/benchmark_serving.py \
 
 # llama_cpp runserver
 ./third_3rdparty/llama.cpp-b4641/build/bin/llama-server -m /home/chwenjun225/Projects/Foxer/notebooks/DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/gguf/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct-1.8B-1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct-F32.gguf \
---port 2026 
+--port 2026 \
+-ngl 200
 
 # 1️. Kiểm tra hiệu suất inference trên llama.cpp
 ./third_3rdparty/llama.cpp-b4641/build/bin/main -m models/your_model.gguf -p "A machine reports high vibration levels. What should be done?" \

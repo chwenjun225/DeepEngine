@@ -30,19 +30,19 @@ print("✅ >>> Dữ liệu đã được lưu vào ChromaDB!")
 # 5. Kết nối đến deepseek-r1-host-server 
 PATH_MODEL = "/home/chwenjun225/Projects/Foxer/notebooks/DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct"
 client = OpenAI(
-	base_url="http://localhost:2025/v1",
+	base_url="http://localhost:2026/v1",
 	api_key="chwenjun225",
 )
 
 # 6. Truy vấn từ ChromaDB
-query = "What did the president say about Ketanji Brown Jackson?"
+query = "What did the president say about?"
 #   - Tìm 3 đoạn văn bản liên quan nhất
 # TODO: Make this line become tools-use 
-retrieved_docs = vector_db.similarity_search(query, k=1)  
+retrieved_docs = vector_db.similarity_search(query, k=5)  
 #   - Kết hợp đoạn văn bản
 context = "\n".join([doc.page_content for doc in retrieved_docs])  
 
-### 7️⃣ Gửi truy vấn đến mô hình AI cục bộ
+### 7️. Gửi truy vấn đến mô hình AI cục bộ
 completion = client.chat.completions.create(
     model=PATH_MODEL,
     messages=[

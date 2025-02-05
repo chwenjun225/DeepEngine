@@ -1,4 +1,7 @@
-# **DeepSeek-R1**
+# Order original
+Please deploy Deepseek-R1 to your local computer as soon as possible, use Fii's sample data (such as equipment maintenance history) to fine-tune and evaluate its local operation effect. In addition, evaluate other scenarios suitable for the application (for example, enter text prompts, let LLM automatically identify the operation steps and working hours of each step in the packaging process in the 360IP CAM video, and propose efficiency improvement plans, etc.). If the above R&D completion date exceeds 2/6 (Thursday), please submit a R&D plan as soon as possible in the next few days. If it does not exceed, please report the R&D results within 2/6 weekly reports.@Tran Van Tuan 陳文俊 
+
+# **Implement**
 
 Triển khai **Deepseek-R1** lên máy tính cá nhân càng sớm càng tốt, sử dụng dữ liệu mẫu của **Fii** (chẳng hạn như lịch sử bảo trì thiết bị) để tinh chỉnh và đánh giá hiệu quả hoạt động của mô hình tại địa phương.  
 

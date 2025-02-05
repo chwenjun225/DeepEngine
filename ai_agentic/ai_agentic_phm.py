@@ -1,67 +1,68 @@
-if False:
-	import chromadb
-	from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
+from pprint import pprint
 
-	# Sử dụng embedding mạnh hơn
-	embedding_function = SentenceTransformerEmbeddingFunction(model_name="all-mpnet-base-v2")
+import chromadb 
+from langchain.vectorstores import Chroma 
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain.document_loaders import TextLoader 
+from langchain.text_splitter import RecursiveCharacterTextSplitter 
+from openai import OpenAI
 
-	# Tạo client-database
-	chroma_client = chromadb.PersistentClient(path="./chroma_db")
-	collection = chroma_client.get_or_create_collection(name="phm_records", embedding_function=embedding_function)
+# 1. Kết nối tới ChromaDB
+chroma_client = chromadb.PersistentClient(path="./chroma_db") 
+collection = chroma_client.get_or_create_collection(name="documents")
 
-	# Tăng cường kết quả truy vấn 
-	results = collection.query(query_texts=["High vibration detected"], n_results=3)
+# 2. Tải tài liệu từ file 
+loader = TextLoader("../state_of_the_union.txt")
+documents = loader.load()
 
-	# Thêm dữ liệu bảo trì vào ChromaDB
-	collection.add(
-		documents=["Machine 22 had vibration issues due to misalignment. Solution: Realignment and lubrication."],
-		metadatas=[{"issue": "vibration", "solution": "realignment"}],
-		ids=["1"]
-	)
+# 3. Chia nhỏ tài liệu thành các đoạn nhỏ 
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+split_docs = text_splitter.split_documents(documents)
 
-	# Tìm kiếm dữ liệu tương tự
-	results = collection.query(query_texts=["High vibration detected"], n_results=1)
-	print("Kết quả tìm kiếm:", results)
-if False:
-	from openai import OpenAI
-	path_model = "/home/chwenjun225/Projects/Foxer/notebooks/DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct"
+# 4. Chuyển đổi đoạn văn thành vector embeddings & lưu vào ChromaDB 
+embedding_func = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+vector_db = Chroma.from_documents(
+    documents=documents, 
+    embedding=embedding_func, 
+    persist_directory="./chroma_db"
+)
 
-	client = OpenAI(
-		base_url="http://localhost:2025/v1",
-		api_key="chwenjun225",
-	)
+print("✅ >>> Dữ liệu đã được lưu vào ChromaDB!")
 
-	completion = client.chat.completions.create(
-		model=path_model,
-		messages=[
-			{"role": "user", "content": "Hello!"}, 
-			{"role": "user", "content": "Explain what is AI-Agent?"}
-		]
-	)
+# 5. Kết nối đến deepseek-r1-host-server 
+PATH_MODEL = "/home/chwenjun225/Projects/Foxer/notebooks/DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct"
+client = OpenAI(
+	base_url="http://localhost:2025/v1",
+	api_key="chwenjun225",
+)
 
-	print(completion.choices[0].message)
+# 6. Truy vấn từ ChromaDB
+query = "What did the President say about the economy?"
+# Tìm 3 đoạn văn bản liên quan nhất
+retrieved_docs = vector_db.similarity_search(query, k=3)  
+# Kết hợp đoạn văn bản
+context = "\n".join([doc.page_content for doc in retrieved_docs])  
 
-from typing import Optional, List 
+### 7️⃣ Gửi truy vấn đến mô hình AI cục bộ
+completion = client.chat.completions.create(
+    model=PATH_MODEL,
+    messages=[
+        {"role": "system", "content": "You are an expert assistant."},
+        {"role": "user", "content": f"Answer the following question based on the context below:\n\nContext:\n{context}\n\nQuestion: {query}"}
+    ]
+)
 
-from langchain_core.language_models import BaseLLM
-from langchain_core.callbacks import CallbackManagerForLLMRun
+print("\n✅ >>> AI Response:")
+pprint(completion.choices[0].message)
 
-class CustomServerLLM(BaseLLM):
-	def _call(
-		self, 
-		prompt: str, 
-		stop: Optional[List[str]] = None,
-		run_manager: Optional[CallbackManagerForLLMRun] = None
-	) -> str:
-		# Implement your API request logic here
-		# Make request to your server
-		# Return the response
-		pass
 
-	@property
-	def _llm_type(self) -> str:
-		return "custom_server_llm"
-	
-# TODO: (very urgent)
-# 1. Build VectorDB and DB.
-# 2. Learn how to modify the chat-langchain: https://github.com/langchain-ai/chat-langchain/blob/master/MODIFY.md
+
+
+
+
+
+
+
+
+
+

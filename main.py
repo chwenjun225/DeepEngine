@@ -258,7 +258,7 @@ def main():
 						
 						st.write(f"""**Answer**: {str(answer_log)}\nPredicted result: {str(answer_predict)}""")
 						# st.markdown(f"""Answer: {output}""")
-5
+
 					except requests.exceptions.RequestException as e:
 						st.error("Network error. Please check your connection or server.")
 						logging.error(f"Network error: {e}")

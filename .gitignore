@@ -4,11 +4,11 @@ transformers/
 _3rdparty_repository/
 data/
 save_models/
-lm-evaluation-harness/
 output_log_evals/
 log_prunting.txt
 models/
 llama.cpp-b4621/
+llama.cpp-b4641
 FLAN-main/
 mamba-2.2.4/
 finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/

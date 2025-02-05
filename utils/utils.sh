@@ -5,6 +5,16 @@ lm_eval --model hf \
 --device cuda \
 --batch_size auto 
 
+# Run LLMCompiler 
+python run_llm_compiler.py \
+--model_type vllm \
+--model_name /home/chwenjun225/Projects/Foxer/notebooks/DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct \
+--benchmark_name parallelqa \
+--store /home/chwenjun225/Projects/Foxer/evals/LLMCompiler_store \
+--logging \
+--api_key "chwenjun225" \
+--vllm_port 2025
+
 # VLLM runserver 
 vllm serve /home/chwenjun225/Projects/Foxer/notebooks/DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct \
 --host 127.0.0.1 \
@@ -40,10 +50,11 @@ python ./third_3rdparty/vllm-0.7.1/benchmarks/benchmark_serving.py \
 --use-beam-search 
 
 # llama_cpp runserver
-./third_3rdparty/llama.cpp-b4621/build/bin/llama-server -m /home/chwenjun225/Projects/Foxer/notebooks/DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/gguf/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct-1.8B-1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct-F32.gguf \
+./third_3rdparty/llama.cpp-b4641/build/bin/llama-server -m /home/chwenjun225/Projects/Foxer/notebooks/DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/gguf/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct-1.8B-1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct-F32.gguf \
 --port 2026 
+
 # 1️. Kiểm tra hiệu suất inference trên llama.cpp
-./third_3rdparty/llama.cpp-b4621/build/bin/main -m models/your_model.gguf -p "A machine reports high vibration levels. What should be done?" \
+./third_3rdparty/llama.cpp-b4641/build/bin/main -m models/your_model.gguf -p "A machine reports high vibration levels. What should be done?" \
 --repeat_prompt \
 --threads 8 \
 --n 256
@@ -53,10 +64,9 @@ python ./third_3rdparty/vllm-0.7.1/benchmarks/benchmark_serving.py \
 # --threads 8 → Sử dụng 8 luồng CPU (Tăng hoặc giảm tùy phần cứng).
 # --n 256 → Sinh ra 256 token đầu ra, giúp đo tốc độ token/s.
 # 2. Chạy benchmark tốc độ inference
-./third_3rdparty/llama.cpp-b4621/build/bin/main -m models/your_model.gguf -p "Benchmarking Llama.cpp server" \
+./third_3rdparty/llama.cpp-b4641/build/bin/main -m models/your_model.gguf -p "Benchmarking Llama.cpp server" \
 --tokens 256 \
 --threads 8
-
 
 # Convert DeepSeek-R1-Distill-Qwen-1.5B hf to gguf
 python convert_hf_to_gguf.py /home/chwenjun225/Projects/Foxer/notebooks/DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct \
@@ -68,3 +78,10 @@ nvidia-smi | grep 'python' | awk '{ print $5 }' | xargs -n1 kill -9
 
 # CUDA static realtime
 watch -n0.3 gpustat -cp --color
+
+# CPU & RAM static realtime
+htop
+
+# Kill port
+sudo fuser -k your_port/tcp
+sudo fuser -k 2026/tcp

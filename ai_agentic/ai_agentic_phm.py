@@ -19,7 +19,7 @@ split_docs = text_splitter.split_documents(documents)
 
 embedding_func = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 vector_db = Chroma.from_documents(
-	documents=documents, 
+	documents=split_docs, 
 	embedding=embedding_func, 
 	persist_directory="./chroma_db"
 )

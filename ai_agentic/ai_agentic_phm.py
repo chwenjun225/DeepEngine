@@ -1,31 +1,30 @@
-import chromadb 
+import asyncio
+import chromadb
+
 from langchain_community.vectorstores import Chroma 
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.document_loaders import TextLoader 
 from langchain.text_splitter import RecursiveCharacterTextSplitter 
+
 from openai import OpenAI
 
-# 1. Kết nối tới ChromaDB
-chroma_client = chromadb.PersistentClient(path="./chroma_db") 
+chroma_client = chromadb.PersistentClient(path="/home/chwenjun225/Projects/Foxer/ai_agentic/chroma_db") 
 collection = chroma_client.get_or_create_collection(name="documents")
 
-# 2. Tải tài liệu từ file 
 loader = TextLoader("../datasets/state_of_the_union.txt")
 documents = loader.load()
 
-# 3. Chia nhỏ tài liệu thành các đoạn nhỏ 
 text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
 split_docs = text_splitter.split_documents(documents)
 
-# 4. Chuyển đổi đoạn văn thành vector embeddings & lưu vào ChromaDB 
 embedding_func = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 vector_db = Chroma.from_documents(
-    documents=documents, 
-    embedding=embedding_func, 
-    persist_directory="./chroma_db"
+	documents=documents, 
+	embedding=embedding_func, 
+	persist_directory="./chroma_db"
 )
 
-print("✅ >>> Dữ liệu đã được lưu vào ChromaDB!")
+print(">>> Datas aved to ChromaDB")
 
 PATH_MODEL = "/home/chwenjun225/Projects/Foxer/notebooks/DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct"
 client = OpenAI(
@@ -33,29 +32,18 @@ client = OpenAI(
 	api_key="chwenjun225",
 )
 
-while True: 
-    # 6. Truy vấn từ ChromaDB
-    # query = "What did the president say about America?"
-    query = input("User: ")
-    if query != "":
-        #   - Tìm 5 đoạn văn bản liên quan nhất
-        # TODO: Make this line become tools-use 
-        retrieved_docs = vector_db.similarity_search(query, k=1)  
-        #   - Kết hợp đoạn văn bản
-        context = "\n".join([doc.page_content for doc in retrieved_docs])  
-
-        ### 7️. Gửi truy vấn đến mô hình AI cục bộ
-        n = 0
-        completion = client.chat.completions.create(
-            model=PATH_MODEL,
-            messages=[
-                {"role": "system", "content": "You are an expert assistant."},
-                {"role": "user", "content": f"Answer the following question based on the context below:\n\nContext:\n{context}\n\nQuestion: {query}"}
-            ]
-        )
-        print("\n✅ >>> AI Response:")
-        print(completion.choices[0].message.content)
-        n += 1
-        if n > 30:
-            break
-    continue
+query = input("User: ")
+if query != "":
+	retrieved_docs = vector_db.similarity_search(query, k=1)  
+	context = "\n".join([doc.page_content for doc in retrieved_docs])  
+	n = 0
+	completion = client.chat.completions.create(
+		model=PATH_MODEL,
+		messages=[
+			{"role": "system", "content": "You are an expert assistant."},
+			{"role": "user", "content": f"Answer the following question based on the context below:\n\nContext:\n{context}\n\nQuestion: {query}"}
+		]
+	)
+	print("\n✅ >>> AI Response:")
+	print(completion.choices[0].message.content)
+	n += 1

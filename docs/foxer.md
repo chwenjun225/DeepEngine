@@ -97,32 +97,6 @@ set_conveyor_speed(speed=1.0)  # Đặt tốc độ băng chuyền về mức ti
 send_alert(">>> Phát hiện vật thể trên băng chuyền. Yêu cầu kiểm tra ngay.")
 ```
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ## II. Đánh giá tính sáng tạo 
 
 ### 1. Nghiên cứu bằng sáng chế hiện có 
@@ -164,3 +138,7 @@ Tóm tắt chức năng.
 Tính sáng tạo của chức năng.
 Tính khả thi của việc đạt bằng sáng chế.
 Đề xuất cải tiến để tăng khả năng thành công.
+
+## V. Mô phỏng kịch bản sử dụng
+- User hỏi đáp về dữ liệu lịch sử trong database. 
+- 

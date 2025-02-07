@@ -1,5 +1,3 @@
-import sys
-
 import chromadb
 import chromadb.errors
 
@@ -9,18 +7,18 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import TextLoader 
 
 def show_all_collections_data(host, port):
-    """Hiển thị dữ liệu của tất cả collections trong ChromaDB."""
-    client = chromadb.HttpClient(host=host, port=port)
-    collections = client.list_collections()
-    print(">>> Danh sách Collections trong ChromaDB:")
-    for collection_name in collections:
-        print(f">>> Dữ liệu trong Collection: {collection_name}")
-        collection = client.get_collection(name=collection_name)
-        data = collection.get()
-        for i in range(len(data['ids'])):
-            print(f">>> ID: {data['ids'][i]}")
-            print(f">>> Document: {data['documents'][i]}")
-            print(f">>> Metadata: {data['metadatas'][i]}")
+	"""Hiển thị dữ liệu của tất cả collections trong ChromaDB."""
+	client = chromadb.HttpClient(host=host, port=port)
+	collections = client.list_collections()
+	print(">>> Danh sách Collections trong ChromaDB:")
+	for collection_name in collections:
+		print(f">>> Dữ liệu trong Collection: {collection_name}")
+		collection = client.get_collection(name=collection_name)
+		data = collection.get()
+		for i in range(len(data['ids'])):
+			print(f">>> ID: {data['ids'][i]}")
+			print(f">>> Document: {data['documents'][i]}")
+			print(f">>> Metadata: {data['metadatas'][i]}")
 
 def show_collections(host, port):
 	"""Hiển thị danh sách Collections trong ChromaDB."""
@@ -103,18 +101,28 @@ def remove_collection(port, host, collection_name):
 			print(f">>> Không thể xóa Collection {collection_name}. Vì: {e}")
 
 if __name__ == "__main__":
-	# TODO: How to make all of these code become ArgParser 
+	# TODO: How to make all of these code become ArgParser.
+	# Dự kiến hoàn thiện sau khi hoàn chỉnh các module chính.
 	HOST, PORT = "127.0.0.1", 2027
 	RUN = "show_collections"
+
 	if "show_collections" == RUN:
 		show_collections(host=HOST, port=PORT)
 
 	elif "show_all_collections_data" == RUN:
 		show_all_collections_data(port=PORT, host=HOST)
 
-	elif "remove_collection":
+	elif "remove_collection" == RUN:
 		remove_collection(port=PORT, host=HOST, collection_name="langchain")
 
-	# with open("chroma_logs.txt", "a") as f:
-	# 	sys.stdout = f  
-		# sys.stdout = sys.__stdout__
+	elif "upload_data_to_server" == RUN:
+		upload_data_to_server(
+			host=HOST, 
+			port=PORT,
+			chunk_size=500, 
+			chunk_overlap=50, 
+			embedding_model="sentence-transformers/all-MiniLM-L6-v2", 
+			name_of_collection="state_of_the_union", 
+			file_path="/home/chwenjun225/Projects/Foxer/datasets/state_of_the_union.txt", 
+			persist_directory="/home/chwenjun225/Projects/Foxer/ai_agentic/chroma_db"
+		)

@@ -9,7 +9,8 @@ from langchain_openai import ChatOpenAI
 
 from typing_extensions import List, TypedDict
 
-# TODO: Xem và đọc thật kỹ tài liệu triển khai RAG 
+# TODO: Xem và đọc thật kỹ tài liệu triển khai RAG. 
+# Cần hoàn thiện toàn bộ kiến trúc vào thứ 7 
 
 class State(TypedDict):
 	question: str

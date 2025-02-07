@@ -47,7 +47,7 @@ def show_collection_data(
 		print(e) 
 		pass 
 
-def upload_data_to_server(
+def add_data_to_collection(
 		host, 
 		port,
 		chunk_size=500, 
@@ -64,15 +64,16 @@ def upload_data_to_server(
 		chunk_overlap: Độ chồng lấn trong mỗi đoạn 
 	"""
 	client = chromadb.HttpClient(host=host, port=port)
+	embedding_model = HuggingFaceEmbeddings(model_name=embedding_model)
 	collection = client.get_or_create_collection(name=name_of_collection)
 	loader = TextLoader(file_path)
 	documents = loader.load()
 	text_splitter = RecursiveCharacterTextSplitter(
 		chunk_size=chunk_size, 
 		chunk_overlap=chunk_overlap, 
+		add_start_index=True
 	)
 	split_docs = text_splitter.split_documents(documents)
-	embedding_model = HuggingFaceEmbeddings(model_name=embedding_model)
 	vector_db = Chroma.from_documents(
 		documents=split_docs, 
 		embedding=embedding_model, 
@@ -85,7 +86,7 @@ def upload_data_to_server(
 	collection.add(
 		ids=ids, 
 		documents=documents, 
-		metadatas=metadatas, 
+		metadatas=metadatas
 	)
 	print(f">>> Successfully loaded {len(split_docs)} data & vector to collection: {name_of_collection}")
 
@@ -97,6 +98,7 @@ def remove_collection(port, host, collection_name):
 	if collection_name in collections:
 		try:
 			client.delete_collection(name=collection_name)
+			print(f">>> Danh sách collections sau khi xóa: {collections}")
 		except Exception as e:
 			print(f">>> Không thể xóa Collection {collection_name}. Vì: {e}")
 
@@ -113,14 +115,14 @@ if __name__ == "__main__":
 		show_all_collections_data(port=PORT, host=HOST)
 
 	elif "remove_collection" == RUN:
-		remove_collection(port=PORT, host=HOST, collection_name="langchain")
+		remove_collection(port=PORT, host=HOST, collection_name="state_of_the_union")
 
-	elif "upload_data_to_server" == RUN:
-		upload_data_to_server(
+	elif "add_data_to_collection" == RUN:
+		add_data_to_collection(
 			host=HOST, 
 			port=PORT,
-			chunk_size=500, 
-			chunk_overlap=50, 
+			chunk_size=1000, 
+			chunk_overlap=200, 
 			embedding_model="sentence-transformers/all-MiniLM-L6-v2", 
 			name_of_collection="state_of_the_union", 
 			file_path="/home/chwenjun225/Projects/Foxer/datasets/state_of_the_union.txt", 

@@ -1,83 +1,105 @@
 from openai import OpenAI
 
-from langchain.chains import create_retrieval_chain
+from langchain import hub 
+from langchain.memory import ConversationBufferMemory
+from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma 
-from langchain.prompts import PromptTemplate
+from langchain_openai import ChatOpenAI
 
-PATH_MODEL = "/home/chwenjun225/Projects/Foxer/notebooks/DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct"
+from typing_extensions import List, TypedDict
 
-def get_retriever(
-		collection_name="state_of_the_union", 
-		persist_directory="./chroma_db"
-	):
-	"""Truy vấn dữ liệu từ ChromaDB."""
-	embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-	vector_db = Chroma(persist_directory=persist_directory, embedding_function=embeddings, collection_name=collection_name)
-	retriever = vector_db.as_retriever(search_kwargs={"k": 3})
+# TODO: Xem và đọc thật kỹ tài liệu triển khai RAG 
+
+class State(TypedDict):
+	question: str
+	context: List[Document]
+	answer: str
+
+def get_llm(port, host, openai_api_key, model_name, temperature):
+	"""Mô hình ngôn ngữ lớn."""
+	openai_api_base = "http://" + str(host) + ":" + str(port) 
+	return ChatOpenAI(
+		model=model_name, 
+		openai_api_base=openai_api_base, 
+		openai_api_key=openai_api_key, 
+		temperature=temperature
+	)
+
+def get_retriever(num_relate_docs, embedding_model_name, persist_directory):
+	# TODO: Sửa lại hàm này: 
+	# 1. Làm sao để kết nối với ChromaDB. 
+	# 2. Thực hiện similarity_search trong ChromaDB
+	embedding_model = HuggingFaceEmbeddings(model_name=embedding_model_name)
+	vector_db = Chroma(
+		persist_directory=persist_directory, 
+		embedding=embedding_model, 
+	)
+	retriever = vector_db.as_retriever(search_kwargs={"k": num_relate_docs})
 	return retriever
 
-def get_rag_chain(collection_name="state_of_the_union"):
-	"""RAG pipeline."""
-	llm = get_llm()
-	retriever = get_retriever(collection_name)
-
-	prompt_template = PromptTemplate(
-		input_variables=["context", "question"],
-		template="""
-		Bạn là một AI sử dụng mô hình DeepSeek-R1.
-		Dưới đây là các thông tin từ database:
-		{context}
-		
-		Câu hỏi của người dùng: {question}
-		Trả lời dựa trên dữ liệu đã tìm được.
-		"""
-	)
-
-	rag_chain = RetrievalQA(
-		llm=llm,
-		retriever=retriever,
-		return_source_documents=True,
-		prompt=prompt_template
-	)
-	return rag_chain
-
-# 🔹 Chạy truy vấn RAG
-def rag_query(question, collection_name="state_of_the_union"):
-	rag_chain = get_rag_chain(collection_name)
-	response = rag_chain({"query": question})
-
-	print("\n🔎 **Truy vấn:**", question)
-	print("📖 **Câu trả lời:**", response["result"])
-	print("\n📂 **Nguồn dữ liệu sử dụng:**")
-	for doc in response["source_documents"]:
-		print(f"- {doc.metadata['source']}: {doc.page_content[:200]}...")
-
-	return response
-
-def get_llm(
-		path_model, 
-		host, 
+def llm_chain(
 		port, 
-		api_key
+		host, 
+		openai_api_key, 
+		model_name, 
+		temperature, 
+		num_relate_docs, 
+		embedding_model_name, 
+		persist_directory, 
+		output_key,
+		memory_key,
+		return_messages
 	):
-	base_url = "http://" + str(host)+ ":" + str(port)
-	client = OpenAI(base_url=base_url, api_key=api_key)
-
-	completion = client.chat.completions.create(
-		model=path_model,
-		messages=[
-			{"role": "system", "content": "You are an expert assistant."},
-			{"role": "user", "content": "What is the different between America economy and China economy?"}
-		]
+	"""Let's go..."""
+	llm = get_llm(
+		port=port, 
+		host=host, 
+		openai_api_key=openai_api_key, 
+		model_name=model_name, 
+		temperature=temperature
 	)
-	print(">>> 🤖 AI Response:")
-	print(completion.choices[0].message.content)
+	retriever = get_retriever(
+		num_relate_docs=num_relate_docs,
+		embedding_model_name=embedding_model_name, 
+		persist_directory=persist_directory
+	)
+	memory = ConversationBufferMemory(
+		output_key=output_key,
+		memory_key=memory_key, 
+		return_messages=True
+	)
+	chain = ConversationalRetrievalChain.from_llm(
+        llm=llm,
+        retriever=retriever,
+        chain_type="map_reduce",
+        memory=memory,
+        verbose=return_messages
+    )
+	return chain 
 
 if __name__ == "__main__":
-	get_llm(
-		path_model=PATH_MODEL, 
-		host="127.0.0.1", 
+	chain = llm_chain(
 		port=2026, 
-		api_key="Foxconn-AI Research", 
+		host="127.0.0.1", 
+		openai_api_key="chwenjun225", 
+		model_name="1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct", 
+		temperature=0, 
+		num_relate_docs=3, 
+		embedding_model_name="sentence-transformers/all-MiniLM-L6-v2", 
+		persist_directory="/home/chwenjun225/Projects/Foxer/ai_agentic/chroma_db", 
+		output_key="answer",
+		memory_key="chat_history",
+		return_messages=True
 	)
+	while True:
+		user_input = input(">>> 👨‍💻 User: ")
+		if user_input.lower() == "exit":
+			break
+	
+		response = chain(
+			{"question": user_input, "chat_history": memory.chat_memory.messages}
+		)
+		assistant_response = response["answer"]
+	
+		print(">>> 🤖 Assistant: ", assistant_response)

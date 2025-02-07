@@ -1,3 +1,0 @@
->>> Danh sách các Collections:
->>> - state_of_the_union
->>> Danh sách collections trước khi xóa: ['state_of_the_union']

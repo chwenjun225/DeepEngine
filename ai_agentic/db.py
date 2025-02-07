@@ -1,20 +1,57 @@
+import sys
+
 import chromadb
+import chromadb.errors
 
 from langchain_community.vectorstores import Chroma 
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import TextLoader 
 
-def show_collections(host="127.0.0.1", port=2027):
-	"""Hiển thị danh sách collections trong ChromaDB."""
-	client = chromadb.HttpClient(host="127.0.0.1", port=2027)
-	print("List of collections:")
-	for collection in client.list_collections():
-		print(f"- {collection}")
+def show_all_collections_data(host, port):
+    """Hiển thị dữ liệu của tất cả collections trong ChromaDB."""
+    client = chromadb.HttpClient(host=host, port=port)
+    collections = client.list_collections()
+    print(">>> 📂 Danh sách Collections trong ChromaDB:")
+    for collection_name in collections:
+        print(f">>> 🔍 Dữ liệu trong Collection: {collection_name}")
+        collection = client.get_collection(name=collection_name)
+        data = collection.get()
+        for i in range(len(data['ids'])):
+            print(f">>> 🆔 ID: {data['ids'][i]}")
+            print(f">>> 📄 Document: {data['documents'][i]}")
+            print(f">>> 📌 Metadata: {data['metadatas'][i]}")
+
+def show_collections(host, port):
+	"""Hiển thị danh sách Collections trong ChromaDB."""
+	client = chromadb.HttpClient(host=host, port=port)
+	collections = client.list_collections()
+	print(">>> Danh sách các Collections:")
+	for collection in collections:
+		print(f">>> - {collection}")
+
+def show_collection_data(
+		host, 
+		port, 
+		collection_name
+	):
+	"""Hiển thị dữ liệu bên trong một collection."""
+	client = chromadb.HttpClient(host=host, port=port)
+	try:
+		collection = client.get_collection(name=collection_name)
+		data = collection.get()
+		print(f">>> Dữ liệu bên trong Collection: {collection_name}")
+		for i in range(len(data['ids'])):
+			print(f">>> ID: {data['ids'][i]}")
+			print(f">>> Document: {data['documents'][i]}")
+			print(f">>> Metadata: {data['metadatas'][i]}")
+	except chromadb.errors.InvalidCollectionException as e:
+		print(e) 
+		pass 
 
 def upload_data_to_server(
-		host="127.0.0.1", 
-		port=2027,
+		host, 
+		port,
 		chunk_size=500, # Số ký tự trong mỗi đoạn 
 		chunk_overlap=50, # Độ chồng lấn trong mỗi đoạn 
 		embedding_model="sentence-transformers/all-MiniLM-L6-v2", 
@@ -48,14 +85,13 @@ def upload_data_to_server(
 	)
 	print(f">>> Successfully loaded {len(split_docs)} data & vector to collection: {name_of_collection}")
 
-def query_collection(
-		port=2027, 
-		host="127.0.0.1"
-	):
-	# TODO: Mai hoàn thành module RAG và các api để tương tác với dữ liệu server.
-	pass
-
 if __name__ == "__main__":
-	upload_data_to_server()
-	show_collections()
-	query_collection()
+	HOST, PORT = "127.0.0.1", 2027
+	RUN = "show_all_collections_data"
+	with open("chroma_logs.txt", "a") as f:
+		sys.stdout = f  
+		if "show_collections" == RUN:
+			show_collections(host=HOST, port=PORT)
+		if "show_all_collections_data" == RUN:
+			show_all_collections_data(port=PORT, host=HOST)
+		sys.stdout = sys.__stdout__

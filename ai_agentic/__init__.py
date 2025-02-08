@@ -1,0 +1,1 @@
+from db import add_data_to_collection

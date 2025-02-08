@@ -49,9 +49,9 @@ def show_collection_data(
 
 def add_data_to_collection(
 		host, 
-		port,
-		chunk_size=500, 
-		chunk_overlap=50, 
+		port, 
+		chunk_size=256, 
+		chunk_overlap=200, 
 		embedding_model="sentence-transformers/all-MiniLM-L6-v2", 
 		name_of_collection="state_of_the_union", 
 		file_path="/home/chwenjun225/Projects/Foxer/datasets/state_of_the_union.txt", 
@@ -93,20 +93,19 @@ def add_data_to_collection(
 def remove_collection(port, host, collection_name):
 	"""Xóa collection được chỉ định"""
 	client = chromadb.HttpClient(host=host, port=port)
-	collections = client.list_collections()
-	print(f">>> Danh sách collections trước khi xóa: {collections}")
-	if collection_name in collections:
+	print(f">>> Danh sách Collections trước khi xóa: {client.list_collections()}")
+	if collection_name in client.list_collections():
 		try:
 			client.delete_collection(name=collection_name)
-			print(f">>> Danh sách collections sau khi xóa: {collections}")
 		except Exception as e:
 			print(f">>> Không thể xóa Collection {collection_name}. Vì: {e}")
+	print(f">>> Danh sách Collections sau khi xóa: {client.list_collections()}")
 
 if __name__ == "__main__":
 	# TODO: How to make all of these code become ArgParser.
 	# Dự kiến hoàn thiện sau khi hoàn chỉnh các module chính.
 	HOST, PORT = "127.0.0.1", 2027
-	RUN = "show_collections"
+	RUN = "add_data_to_collection"
 
 	if "show_collections" == RUN:
 		show_collections(host=HOST, port=PORT)
@@ -121,10 +120,10 @@ if __name__ == "__main__":
 		add_data_to_collection(
 			host=HOST, 
 			port=PORT,
-			chunk_size=1000, 
+			chunk_size=256, 
 			chunk_overlap=200, 
 			embedding_model="sentence-transformers/all-MiniLM-L6-v2", 
-			name_of_collection="state_of_the_union", 
+			name_of_collection="foxconn_ai_research", 
 			file_path="/home/chwenjun225/Projects/Foxer/datasets/state_of_the_union.txt", 
 			persist_directory="/home/chwenjun225/Projects/Foxer/ai_agentic/chroma_db"
 		)

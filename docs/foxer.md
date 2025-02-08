@@ -51,7 +51,7 @@ Prognostic and Health Management (PHM)
 
 ### 5. Sensors 
 
-1. Cảm biến đô độ rung, nhiệt độ, và áp suất
+1. Cảm biến đo độ rung, nhiệt độ, và áp suất
 - Giám sát tình trạng của máy móc theo thời gian thực. 
 - ... 
 

@@ -62,7 +62,9 @@ python ./third_3rdparty/vllm-0.7.1/benchmarks/benchmark_serving.py \
 --parallel 8 \
 --mlock \
 --temp 0 \
---no-webui 
+--no-webui \
+--jinja \
+--json-schema {} 
 
 # chroma_db runserver 
 chroma run \

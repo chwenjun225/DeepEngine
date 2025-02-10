@@ -74,7 +74,7 @@ def add_data_to_collection(
 		add_start_index=True
 	)
 	split_docs = text_splitter.split_documents(documents)
-	vector_db = Chroma.from_documents(
+	_ = Chroma.from_documents(
 		documents=split_docs, 
 		embedding=embedding_model, 
 		persist_directory=persist_directory, 
@@ -102,28 +102,32 @@ def remove_collection(port, host, collection_name):
 	print(f">>> Danh sách Collections sau khi xóa: {client.list_collections()}")
 
 if __name__ == "__main__":
+	import sys 
 	# TODO: How to make all of these code become ArgParser.
 	# Dự kiến hoàn thiện sau khi hoàn chỉnh các module chính.
-	HOST, PORT = "127.0.0.1", 2027
-	RUN = "add_data_to_collection"
+	with open("chroma_logs.txt", "a") as f:
+		sys.stdout = f  # Chuyển tất cả print() vào file
+		HOST, PORT = "127.0.0.1", 2027
+		RUN = "add_data_to_collection"
 
-	if "show_collections" == RUN:
-		show_collections(host=HOST, port=PORT)
+		if "show_collections" == RUN:
+			show_collections(host=HOST, port=PORT)
 
-	elif "show_all_collections_data" == RUN:
-		show_all_collections_data(port=PORT, host=HOST)
+		elif "show_all_collections_data" == RUN:
+			show_all_collections_data(port=PORT, host=HOST)
 
-	elif "remove_collection" == RUN:
-		remove_collection(port=PORT, host=HOST, collection_name="state_of_the_union")
+		elif "remove_collection" == RUN:
+			remove_collection(port=PORT, host=HOST, collection_name="state_of_the_union")
 
-	elif "add_data_to_collection" == RUN:
-		add_data_to_collection(
-			host=HOST, 
-			port=PORT,
-			chunk_size=256, 
-			chunk_overlap=200, 
-			embedding_model="sentence-transformers/all-MiniLM-L6-v2", 
-			name_of_collection="foxconn_ai_research", 
-			file_path="/home/chwenjun225/Projects/Foxer/datasets/state_of_the_union.txt", 
-			persist_directory="/home/chwenjun225/Projects/Foxer/ai_agentic/chroma_db"
-		)
+		elif "add_data_to_collection" == RUN:
+			add_data_to_collection(
+				host=HOST, 
+				port=PORT,
+				chunk_size=256, 
+				chunk_overlap=200, 
+				embedding_model="sentence-transformers/all-MiniLM-L6-v2", 
+				name_of_collection="foxconn_ai_research", 
+				file_path="/home/chwenjun225/Projects/Foxer/datasets/state_of_the_union.txt", 
+				persist_directory="/home/chwenjun225/Projects/Foxer/ai_agentic/chroma_db"
+			)
+		sys.stdout = sys.__stdout__  # Reset lại stdout về mặc định

@@ -1,9 +1,8 @@
 import sys
-# from typing_extensions import List, TypedDict
+from typing_extensions import List, TypedDict
 from datetime import datetime
 
 from openai import OpenAI # TODO: Sử dụng sau với multi-model language model
-# from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from langchain_openai import ChatOpenAI
@@ -11,7 +10,7 @@ from langchain_core.prompts import ChatPromptTemplate
 
 if "Khai báo RAG-Prompt":
 	prompt = ChatPromptTemplate.from_messages([
-		("human", "You are an assistant for question-answering tasks. \
+		("human", "You are a friendly and helpful assistant. \
 Use the following pieces of retrieved context to answer the question. \
 If you don't know the answer, just say that you don't know. \
 Use three sentences maximum and keep the answer concise. \
@@ -75,35 +74,23 @@ def save_chat_history_to_chroma_db(user_input, assistant_response):
 
 def rag(query, num_retrieved_docs=3):
 # TODO: 
-	# 1. Thêm RAG-Prompt ("""Nếu không tìm thấy hãy nói rằng tôi không biết""")
 	# 2. Cải Thiện Tốc Độ Truy Vấn RAG
 	# Hiện tại: Hệ thống tìm kiếm trong ChromaDB bằng similarity_search(), có thể chậm khi dữ liệu lớn.
 	# ✅ Giải pháp: Dùng FAISS Index hoặc Hybrid Search (tìm kiếm kết hợp từ khóa + vector).
 	"""
 	Truy vấn RAG từ ChromaDB.
 	"""
-# 	prompt = ChatPromptTemplate.from_messages([
-# 		("human", """
-# You are an assistant for question-answering tasks. 
-# Use the following pieces of retrieved context to answer the question. 
-# If you don't know the answer, just say that you don't know.
-# Use three sentences maximum and keep the answer concise. 
-# Question: {question} 
-# Context: {context} 
-# Answer:"""),
-# 	])
 	retriever_docs = vector_db.similarity_search(query, k=num_retrieved_docs)
 	retrieved_texts = "\n".join([retriever_doc.page_content for retriever_doc in retriever_docs])
 	return retrieved_texts
 
 def planning_module(prompt_user, rag_output):
 # TODO:
-	# Hiện tại: Planning chỉ ghép prompt_user + rag_output.
+	# Hiện tại: Planning chỉ ghép prompt_user + rag_output. 
 	# ✅ Giải pháp:
-
-	# Dùng prompt templates chuyên biệt để tối ưu phản hồi.
-	# Sử dụng Chain of Thought (CoT) hoặc ReAct để tăng cường reasoning.
-	# Nếu dùng LLM mạnh hơn, có thể áp dụng Multi-Step Planning.
+	# Dùng prompt templates chuyên biệt để tối ưu phản hồi. ==> DONE
+	# Sử dụng Chain of Thought (CoT) hoặc ReAct để tăng cường reasoning. ==> Finish in afternoon
+	# Nếu dùng LLM mạnh hơn, có thể áp dụng Multi-Step Planning. ==> Tham khảo buổi chiều
 	"""
 	Xử lý thông tin từ RAG để tạo prompt phù hợp cho LLM.
 	"""
@@ -111,14 +98,6 @@ def planning_module(prompt_user, rag_output):
 		"question": prompt_user,
 		"context": rag_output
 	})
-# 	planning_prompt = f"""
-# User Question: {prompt_user}
-# Retrieved Knowledge from RAG:
-# {rag_output}
-
-# Generate the best response considering the retrieved knowledge. 
-# Keep it concise yet informative.
-# 	"""
 	return planning_prompt
 
 if __name__ == "__main__":

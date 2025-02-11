@@ -7,31 +7,28 @@ from langgraph.prebuilt import create_react_agent
 
 from langchain_openai import ChatOpenAI
 from langchain_chroma import Chroma
-from langchain_core.prompts import PromptTemplate, ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain.tools import Tool
 from tools_use import (
-	rag, planning, search, add, multiply, check_weather, 
+	rag, planning, add, multiply, check_weather, 
 	recommend_maintenance_strategy, 
 	diagnose_fault_of_machine, 
 	remaining_useful_life_prediction, 
 )
 
-if "Khai báo cấu hình":
-	checkpointer=MemorySaver()
-	store = InMemoryStore()
-	persist_directory = "/home/chwenjun225/Projects/Foxer/ai_agentic/chroma_db"
-	collection_name = "foxconn_ai_research"
-	embedding_model_name = "sentence-transformers/all-MiniLM-L6-v2"
-	planning_prompt = ChatPromptTemplate.from_messages([("human", """Use the following pieces of retrieved context to answer the question. 
-If you don't know the answer, just say that you don't know. 
-Use three sentences maximum and keep the answer concise. 
-Question: {question}\nContext: {context}\nAnswer:""")]) 
-	embedding_model = HuggingFaceEmbeddings(model_name=embedding_model_name)
-	vector_db = Chroma(persist_directory=persist_directory, embedding_function=embedding_model, collection_name=collection_name)
-	system_prompt = """You are a friendly and helpful assistant. 
-Your job is to answer human questions with care and detail. 
-Keep your answers short and concise when possible."""
+checkpointer=MemorySaver()
+store = InMemoryStore()
+persist_directory = "/home/chwenjun225/Projects/Foxer/ai_agentic/chroma_db"
+collection_name = "foxconn_ai_research"
+embedding_model_name = "sentence-transformers/all-MiniLM-L6-v2"
+prompt = ChatPromptTemplate.from_messages([
+	("system", "You are a helpful bot named Fred."),
+	("placeholder", "{messages}"),
+	("user", "Remember, always be polite!"),
+])
+embedding_model = HuggingFaceEmbeddings(model_name=embedding_model_name)
+vector_db = Chroma(persist_directory=persist_directory, embedding_function=embedding_model, collection_name=collection_name)
+system_prompt = """You are a friendly and helpful assistant. Your job is to answer human questions with care and detail. Keep your answers short and concise when possible."""
 
 def save_chat_history(user_input, assistant_response):
 	"""Lưu lịch sử hội thoại vào ChromaDB."""
@@ -60,9 +57,9 @@ def main():
 		temperature=0, openai_api_key="chwenjun225",
 		model_name="/home/chwenjun225/Projects/Foxer/notebooks/DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct"
 	)
-	tools = [check_weather]
-	graph = create_react_agent(model=model, tools=tools)
-	inputs = {"messages": [("user", "What is the weather in Hanoi?")]}
+	tools = [check_weather] # TODO: Add quá nhiều tool ko cùng định dạng sẽ gây ra lỗi 
+	graph = create_react_agent(model=model, tools=tools, prompt=prompt)
+	inputs = {"messages": [("user", "What's your name? And what's the weather in Hanoi?")]}
 	for s in graph.stream(inputs, stream_mode="values"):
 		message = s["messages"][-1]
 		if isinstance(message, tuple):

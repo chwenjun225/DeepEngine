@@ -26,12 +26,6 @@ def remaining_useful_life_prediction(input_str=""):
 	}
 	return json.dumps(result, indent=2)
 
-def search(query: str):
-    """Call to surf the web."""
-    if "vn" in query.lower() or "Vietnam" in query.lower():
-        return "It's 60 degrees and foggy."
-    return "It's 90 degrees and sunny."
-
 def rag(query, vector_db, num_retrieved_docs=3):
 	"""Truy vấn RAG từ ChromaDB."""
 	retriever_docs = vector_db.similarity_search(query, k=num_retrieved_docs)
@@ -44,23 +38,23 @@ def planning(prompt_user, prompt_planning, rag_output):
 	return planning_prompt
 
 def add(a: int, b: int) -> int:
-    """Add two integers.
+	"""Add two integers.
 
-    Args:
-        a: First integer
-        b: Second integer
-    """
-    return a + b
+	Args:
+		a: First integer
+		b: Second integer
+	"""
+	return a + b
 
 def multiply(a: int, b: int) -> int:
-    """Multiply two integers.
+	"""Multiply two integers.
 
-    Args:
-        a: First integer
-        b: Second integer
-    """
-    return a * b
+	Args:
+		a: First integer
+		b: Second integer
+	"""
+	return a * b
 
 def check_weather(location: str, at_time: datetime | None = None) -> str:
 	"""Return the weather forecast for the specified location."""
-	return f"It's always sunny in Hanoi"
+	return f"It's always sunny in {location}"

@@ -5,21 +5,10 @@ lm_eval --model hf \
 --device cuda \
 --batch_size auto 
 
-# TODO: How to apply this (LLMCompiler: An LLM Compiler for Parallel Function Calling) to our system
-python run_llm_compiler.py \
---model_type vllm \
---model_name /home/chwenjun225/Projects/Foxer/notebooks/DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct \
---benchmark_name parallelqa \
---store /home/chwenjun225/Projects/Foxer/evals/LLMCompiler_store \
---logging \
---api_key "chwenjun225" \
---host 127.0.0.1 \
---vllm_port 2025
-
 # VLLM runserver 
 vllm serve /home/chwenjun225/Projects/Foxer/notebooks/DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct \
 --host 127.0.0.1 \
---port 2025 \
+--port 2026 \
 --gpu-memory-utilization 0.3 \
 --guided-decoding-backend lm-format-enforcer \
 --dtype auto \
@@ -63,8 +52,8 @@ python ./third_3rdparty/vllm-0.7.1/benchmarks/benchmark_serving.py \
 --mlock \
 --temp 0 \
 --no-webui \
---jinja \
---json-schema {} 
+--log-colors \
+--jinja 
 
 # chroma_db runserver 
 chroma run \

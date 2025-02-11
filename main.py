@@ -16,9 +16,9 @@ logging.basicConfig(level=logging.INFO)
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
+	st.session_state.chat_history = []
 if "agent_executor" not in st.session_state:
-    st.session_state.agent_executor = None
+	st.session_state.agent_executor = None
 
 def remaining_useful_life_prediction(input_str=""):
 	"""Dự đoán tuổi thọ còn lại của một thành phần thiết bị."""
@@ -139,7 +139,7 @@ def initialize_agent():
 				"strategy": "Preventive Maintenance",
 				"justification": "Failure probability is 0.03, making preventive maintenance the most cost-effective solution."
 				}}
-    		Final Answer: Based on the analysis, I recommend implementing a Preventive Maintenance strategy to minimize downtime and costs.
+			Final Answer: Based on the analysis, I recommend implementing a Preventive Maintenance strategy to minimize downtime and costs.
 
 		**Begin!**
 

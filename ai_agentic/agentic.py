@@ -56,7 +56,7 @@ def get_llm(
 
 def main():
 	model = get_llm(
-		port=11434, host="0.0.0.0", version="v1", 
+		port=2026, host="127.0.0.1", version="v1", 
 		temperature=0, openai_api_key="chwenjun225",
 		model_name="/home/chwenjun225/Projects/Foxer/notebooks/DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct"
 	)

@@ -39,7 +39,7 @@ python ./third_3rdparty/vllm-0.7.1/benchmarks/benchmark_serving.py \
 --trust-remote-code \
 --use-beam-search 
 
-# llama_cpp runserver
+# llama_cpp runserver --support tool call for deepseek-r1 successfully 
 ./third_3rdparty/llama.cpp-b4641/build/bin/llama-server -m /home/chwenjun225/Projects/Foxer/notebooks/DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/gguf/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct-1.8B-1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct-F32.gguf \
 --host 127.0.0.1 \
 --port 2026 \

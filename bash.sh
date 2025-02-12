@@ -6,7 +6,8 @@ lm_eval --model hf \
 --batch_size auto 
 
 # VLLM runserver 
-vllm serve /home/chwenjun225/Projects/Foxer/notebooks/DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct \
+# vllm serve /home/chwenjun225/Projects/Foxer/notebooks/DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct \
+vllm serve /home/chwenjun225/Projects/Foxer/models/Llama-3.2-1B-Instruct \
 --host 127.0.0.1 \
 --port 2026 \
 --gpu-memory-utilization 0.3 \
@@ -40,22 +41,31 @@ python ./third_3rdparty/vllm-0.7.1/benchmarks/benchmark_serving.py \
 --use-beam-search 
 
 # llama_cpp runserver --support tool call for deepseek-r1 successfully 
+# Either "json_schema" or "grammar" can be specified, but not both'
 ./third_3rdparty/llama.cpp-b4641/build/bin/llama-server -m /home/chwenjun225/Projects/Foxer/notebooks/DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/gguf/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct-1.8B-1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct-F32.gguf \
 --host 127.0.0.1 \
 --port 2026 \
+--no-escape \
+--parallel 8 \
+--temp 0 \
+--top-k 0 \
+--top-p 1.0 \
+--min-p 0.0 \
+--repeat-penalty 1.0 \
+--presence-penalty 0.0 \
+--frequency-penalty 0.0 \
+--no-webui \
+--ctx-size 4096 \
 --n-gpu-layers 256 \
 --batch-size 4096 \
 --ubatch-size 1024 \
 --flash-attn \
---no-escape \
---parallel 8 \
 --mlock \
---temp 0 \
---no-webui \
---log-colors \
+--no-mmap \
+--mirostat 1 \
 --jinja \
---grammar \
---json_schema
+--json-schema {} \
+--grammar ""	
 
 # chroma_db runserver 
 chroma run \

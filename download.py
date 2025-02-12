@@ -1,8 +1,8 @@
 from huggingface_hub import snapshot_download
-model_id="deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
+model_id="meta-llama/Llama-3.2-1B-Instruct"
 snapshot_download(
     repo_id=model_id, 
-    local_dir="/home/kali/Projects/Models/DeepSeek-R1-Distill-Qwen-1.5B",
+    local_dir="/home/chwenjun225/Projects/Foxer/models/Llama-3.2-1B-Instruct",
     local_dir_use_symlinks=False, 
     revision="main"
 )

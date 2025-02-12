@@ -53,7 +53,9 @@ python ./third_3rdparty/vllm-0.7.1/benchmarks/benchmark_serving.py \
 --temp 0 \
 --no-webui \
 --log-colors \
---jinja 
+--jinja \
+--grammar \
+--json_schema
 
 # chroma_db runserver 
 chroma run \

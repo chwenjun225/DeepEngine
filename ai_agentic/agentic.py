@@ -1,18 +1,34 @@
+from pprint import pprint
 import fire 
 from datetime import datetime
-
+from transformers import AutoTokenizer
 from langchain_openai import ChatOpenAI
 from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
 
+from langchain_core.messages import (
+	AIMessage, 
+	SystemMessage, 
+	HumanMessage, 
+	trim_messages, 
+	filter_messages
+)
+from langgraph.graph import (StateGraph, START, END)
 from langgraph.checkpoint.memory import MemorySaver 
-from langgraph.store.memory import InMemoryStore
-from langgraph.prebuilt import (create_react_agent, ToolNode)
 
-from tools_use import (add, multiply, get_weather, get_coolest_cities, recommend_maintenance_strategy, diagnose_fault_of_machine, remaining_useful_life_prediction)
+from tools_use import (
+	add, multiply, get_weather, get_coolest_cities, 
+	recommend_maintenance_strategy, diagnose_fault_of_machine, 
+	remaining_useful_life_prediction
+)
 from state import State
 from prompts import prompt
-from langchain.agents import AgentExecutor
+
+def token_counter(messages):
+    """Đếm số lượng token từ danh sách tin nhắn"""
+    text = " ".join([msg.content for msg in messages])
+    return len(tokenizer.encode(text)) 
+
 def save_chat_history(user_input, assistant_response):
 	"""Lưu lịch sử hội thoại vào ChromaDB."""
 	timestamp =  datetime.now().strftime("%Y-%m-%d_%H:%M:%S-%f")
@@ -25,7 +41,7 @@ def save_chat_history(user_input, assistant_response):
 def get_llm(
 		port=2026, host="127.0.0.1", version="v1", 
 		temperature=0, openai_api_key="chwenjun225",
-		model_name="/home/chwenjun225/Projects/Foxer/notebooks/DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct"
+		model_name="/home/chwenjun225/Projects/Foxer/models/Llama-3.2-1B-Instruct"
 	):
 	"""Khởi tạo mô hình ngôn ngữ lớn DeepSeek-R1 từ LlamaCpp-Server."""
 	openai_api_base = f"""http://{host}:{port}/{version}""" 
@@ -47,18 +63,9 @@ def planning(prompt_user, prompt_planning, rag_output):
 	planning_prompt = prompt_planning.invoke({"question": prompt_user, "context": rag_output})
 	return planning_prompt
 
-def print_stream(stream):
-	"""A utility to pretty print the stream."""
-	for s in stream:
-		message = s["messages"][-1]
-		if isinstance(message, tuple):
-			print(message)
-		else:
-			message.pretty_print()
-
 if True:
-	checkpointer=MemorySaver()
-	store = InMemoryStore()
+	tokenizer = AutoTokenizer.from_pretrained("/home/chwenjun225/Projects/Foxer/models/DeepSeek-R1-Distill-Qwen-1.5B")
+	builder = StateGraph(State)
 	persist_directory = "/home/chwenjun225/Projects/Foxer/ai_agentic/chroma_db"
 	collection_name = "foxconn_ai_research"
 	embedding_model = "sentence-transformers/all-MiniLM-L6-v2"
@@ -73,8 +80,6 @@ if True:
 		diagnose_fault_of_machine, 
 		remaining_useful_life_prediction
 	]
-	tool_node = ToolNode(tools)
-	tools_by_name = {tool.name: tool for tool in tools}
 	checkpointer = MemorySaver()
 	model = get_llm(
 		port=2026, 
@@ -84,33 +89,39 @@ if True:
 		openai_api_key="chwenjun225",
 		model_name="/home/chwenjun225/Projects/Foxer/models/Llama-3.2-1B-Instruct"
 	)
+	trimmer = trim_messages(
+		max_tokens=65,
+		strategy="last",
+		token_counter=token_counter,
+		include_system=True,
+		allow_partial=False,
+		start_on="human",
+	)
+
+def chatbot(state: State):
+	answer = model.invoke(state["messages"])
+	return {"messages": [answer]}
 
 def main():
-	config = {
-		"configurable": {"thread_id": "42"}, 
-		"recursion_limit": 5,
-		"memory_saving": True
-	}
-	graph = create_react_agent(
-		model=model, 
-		tools=tool_node, 
-		checkpointer=checkpointer, 
-		prompt=prompt, 
-		response_format=State
-	)
-	messages = []
-	while True:
-		user_input = input(">>> 👨 User: ")
-		if user_input.lower() == "exit":
-			print("\n >>>👋 Bye! See you again!\n")
-			break
-		messages.append(("user", user_input))
-		inputs = {"messages": messages}
-		stream = graph.stream(inputs, config=config, stream_mode="values")
-		print_stream(stream)
-		for response in stream:
-			assistant_response = response["messages"][-1]
-			messages.append(("assistant", assistant_response))
+	builder.add_node("chatbot", chatbot)
+	builder.add_edge(START, 'chatbot')
+	builder.add_edge('chatbot', END)
+	messages = [
+		SystemMessage("you are a good assistant", id="1"),
+		HumanMessage("example input", id="2", name="example_user"),
+		AIMessage("example output", id="3", name="example_assistant"),
+		HumanMessage("real input", id="4", name="bob"),
+		AIMessage("real output", id="5", name="alice"),
+	]
+	messages = [
+		SystemMessage("you are a good assistant", id="1"),
+		HumanMessage("example input", id="2", name="example_user"),
+		AIMessage("example output", id="3", name="example_assistant"),
+		HumanMessage("real input", id="4", name="bob"),
+		AIMessage("real output", id="5", name="alice"),
+	]
+	pprint(filter_messages(messages, include_types="human"))
+	# TODO: https://learning.oreilly.com/library/view/learning-langchain/9781098167271/ch05.html
 
 if __name__ == "__main__":
 	fire.Fire(main)

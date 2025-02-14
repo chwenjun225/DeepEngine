@@ -1,3 +1,4 @@
+from uuid import uuid4 
 from pprint import pprint
 import fire 
 from datetime import datetime
@@ -5,179 +6,97 @@ from transformers import AutoTokenizer
 from typing_extensions import Literal
 
 from langchain_openai import ChatOpenAI
-from langchain_chroma import Chroma
+from langchain_core.documents import Document 
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_core.messages import (
-	HumanMessage, 
-	trim_messages
-)
-from langgraph.graph import (
-	StateGraph, 
-	START, END
-)
+from langchain_core.vectorstores.in_memory import InMemoryVectorStore
+from langchain_core.messages import ToolCall, AIMessage, HumanMessage, ToolMessage, trim_messages # TODO: Cần thêm tính năng lọc và cắt tin nhắn
+
+from langgraph.prebuilt import ToolNode, tools_condition
+from langgraph.checkpoint.memory import MemorySaver
+from langgraph.graph import StateGraph, START, END
+
 from state import State, Input, Output
-from prompts import (
-	generate_prompt, 
-	explain_prompt, 
-	router_prompt, 
-	medical_records_prompt, 
-	insurance_faqs_prompt
-)
-
-def token_counter(messages):
-    """Đếm số lượng token từ danh sách tin nhắn."""
-    text = " ".join([msg.content for msg in messages])
-    return len(tokenizer.encode(text)) 
-
-def save_chat_history(user_input, assistant_response):
-	"""Lưu lịch sử hội thoại vào ChromaDB."""
-	timestamp =  datetime.now().strftime("%Y-%m-%d_%H:%M:%S-%f")
-	text_to_store = f"""[{timestamp}] User: {user_input}\n[{timestamp}] Assistant: {assistant_response}"""
-	vector_db.add_texts(
-		texts=[text_to_store],
-		metadatas=[{"source": "chat_history"}]
-	)
-
-def generate_sql(state: State) -> State:
-	"""Update conversation history
-
-	Args:
-		state (State): _description_
-
-	Returns:
-		State: _description_
-	"""
-	user_message = HumanMessage(state["user_query"])
-	messages = [generate_prompt, *state["messages"], user_message]
-	respond = model_low_temp.invoke(messages)
-	return {
-		"sql_query": respond.content,
-		"messages": [user_message, respond],
-	}
-
-def explain_sql(state: State) -> State:
-	"""Contains user's query, SQL query from prev step and update update conversation history.
-	
-	Args:
-		state (State): _description_
-	
-	Returns:
-		State: _description_
-	"""
-	messages = [
-		explain_prompt,
-		*state["messages"]
-	]
-	respond = model_high_temp.invoke(messages)
-	return {
-		"sql_explanation": respond.content,
-		"messages": respond,
-	}
-
-def router_node(state: State) -> State:
-	"""_summary_.
-
-	Args:
-		state (State): _description_
-
-	Returns:
-		State: _description_
-	"""
-	user_message = HumanMessage(state["user_query"])
-	messages = [router_prompt, *state["messages"], user_message]
-	respond = model_low_temp.invoke(messages)
-	return {
-		"domain": respond.content,
-		"messages": [user_message, respond],
-	}
-
-def pick_retriever(state: State) -> Literal["retrieve_medical_records", "retrieve_insurance_faqs"]:
-	if state["domain"] == "records":
-		return "retrieve_medical_records"
-	else:
-		return "retrieve_insurance_faqs"
-
-def retrieve_medical_records(state: State) -> State:
-	documents = medical_records_retriever.invoke(state["user_query"])
-	return {"documents": documents}
-
-def retrieve_insurance_faqs(state: State) -> State:
-	documents = insurance_faqs_retriever.invoke(state["user_query"])
-	return {"documents": documents}
-
-def generate_answer(state: State) -> State:
-	if state["domain"] == "records":
-		prompt = medical_records_prompt
-	else:
-		prompt = insurance_faqs_prompt
-	messages = [
-		prompt,
-		*state["messages"],
-		HumanMessage(f"Documents: {state["documents"]}"),
-	]
-	respond = model_high_temp.invoke(messages)
-	return {
-		"answer": respond.content,
-		"messages": respond,
-	}
+from prompts import generate_prompt, reflection_prompt
+from tools_use import DuckDuckGoSearchRun, calculator
 
 if True:
 	tokenizer = AutoTokenizer.from_pretrained("/home/chwenjun225/Projects/Foxer/models/DeepSeek-R1-Distill-Qwen-1.5B")
-	persist_directory = "/home/chwenjun225/Projects/Foxer/ai_agentic/chroma_db"
-	collection_name = "medical_and_insurance"
-	embedding_model_name = "sentence-transformers/all-MiniLM-L6-v2"
-	
-	embeddings = HuggingFaceEmbeddings(model_name=embedding_model_name)
-	vector_db = Chroma(
-		persist_directory=persist_directory, 
-		embedding_function=embeddings, 
-		collection_name=collection_name
-	)
+	embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
-	medical_records_store = vector_db.from_documents([], embeddings )
-	medical_records_retriever = medical_records_store.as_retriever()
+	search = DuckDuckGoSearchRun()
+	tools = [search, calculator]
 
-	insurance_faqs_store = vector_db.from_documents([], embeddings )
-	insurance_faqs_retriever = insurance_faqs_store.as_retriever()
-
-	model_low_temp = ChatOpenAI(
+	model = ChatOpenAI(
 		model_name="/home/chwenjun225/Projects/Foxer/models/Llama-3.2-1B-Instruct", 
 		openai_api_base="http://127.0.0.1:2026/v1", 
-		openai_api_key="model_low_temp",
+		openai_api_key="chwenjun225",
 		temperature=0.1
 	)
-	model_high_temp = ChatOpenAI(
-		model_name="/home/chwenjun225/Projects/Foxer/models/Llama-3.2-1B-Instruct", 
-		openai_api_base="http://127.0.0.1:2026/v1", 
-		openai_api_key="model_higt_temp",
-		temperature=0.7
-	)
-	trimmer = trim_messages(
-		max_tokens=65,
-		strategy="last",
-		token_counter=token_counter,
-		include_system=True,
-		allow_partial=False,
-		start_on="human",
-	)
+
+	tools_retriever = InMemoryVectorStore.from_documents(
+		[Document(tool.description, metadata={"name": tool.name}) for tool in tools],
+		embeddings,
+	).as_retriever()
+
+	config = {"configurable": {"thread_id": "1"}}
+
+def token_counter(messages):
+	"""Đếm số lượng token từ danh sách tin nhắn."""
+	text = " ".join([msg.content for msg in messages])
+	return len(tokenizer.encode(text)) 
+
+def chatbot(state: State) -> State:
+	selected_tools = [tool for tool in tools if tool.name in state["selected_tools"]]
+	answer = model.bind_tools(selected_tools).invoke([generate_prompt] + state["messages"])
+	return {"messages": [answer]}
+
+def select_tools(state: State) -> State:
+	query = state["messages"][-1].content
+	tool_docs = tools_retriever.invoke(query)
+	return {"selected_tools": [doc.metadata["name"] for doc in tool_docs]}
+
+def reflect(state: State) -> State:
+	class_map = {
+		AIMessage: HumanMessage, 
+		HumanMessage: AIMessage, 
+		ToolMessage: HumanMessage 
+	}
+	translated = [reflection_prompt, state["messages"][0]] + [
+		class_map[msg.__class__](content=msg.content) 
+		for msg in state["messages"][1:]
+	]
+	answer = model.invoke(translated)
+	return {"messages": [HumanMessage(content=answer.content)]}
+
+def should_continue(state: State):
+	if len(state["messages"]) > 6:
+		return END
+	else:
+		return "reflect"
 
 def main():
 	"""Thực thi chương trình."""
-	builder = StateGraph(State, input=Input, output=Output)
-	builder.add_node("generate_sql", generate_sql)
-	builder.add_node("explain_sql", explain_sql)
+	builder = StateGraph(State)
 
-	builder.add_edge(START, "generate_sql")
-	builder.add_edge("generate_sql", "explain_sql")
-	builder.add_edge("explain_sql", END)
+	builder.add_node("select_tools", select_tools)
+	builder.add_node("chatbot", chatbot)
+	builder.add_node("tools", ToolNode(tools))
+	builder.add_node("reflect", reflect)
 
-	graph = builder.compile()
-	graph.invoke({
-		"user_query": "What is the total sales for each product?"
-	})
-	input = {"messages": [HumanMessage('hi!')]}
-	for chunk in graph.stream(input):
-		pprint(chunk)
+	builder.add_edge(START, "select_tools")
+	builder.add_edge("select_tools", "chatbot")
+	builder.add_conditional_edges("chatbot", tools_condition)
+	builder.add_edge("tools", "chatbot")
+	builder.add_conditional_edges("chatbot", should_continue)
+	builder.add_edge("reflect", "chatbot")
+	
+	graph = builder.compile(checkpointer=MemorySaver())
+
+	user_input = {
+		"messages": [HumanMessage("""What is Large Language Model?""")]
+	}
+	for chunk in graph.stream(user_input, config):
+		print(chunk)
 
 if __name__ == "__main__":
 	fire.Fire(main)

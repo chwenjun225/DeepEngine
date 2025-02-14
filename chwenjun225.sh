@@ -67,6 +67,9 @@ python ./third_3rdparty/vllm-0.7.1/benchmarks/benchmark_serving.py \
 --json-schema {} \
 --grammar ""	
 
+# Docker pgvector 
+postgresql+psycopg://langchain:langchain@localhost:6024/langchain
+
 # chroma_db runserver 
 chroma run \
 --path /home/chwenjun225/Projects/Foxer/ai_agentic/chroma_db \

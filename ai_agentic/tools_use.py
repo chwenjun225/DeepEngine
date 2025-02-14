@@ -1,9 +1,16 @@
+import ast 
 import json 
 from typing_extensions import Union
 
 from langchain_core.tools import tool
+from langchain_community.tools import DuckDuckGoSearchRun
 
 from state import State
+
+@tool
+def calculator(query: str) -> str:
+	"""A simple calculator tool. Input should be a mathematical expression."""
+	return ast.literal_eval(query)
 
 @tool
 def get_weather(state: State):

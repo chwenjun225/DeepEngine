@@ -1,0 +1,1 @@
+1. Những rủi ro hỏng hóc dây chuyền sản xuất mà B09 đang phải đối mặt trong quý vừa qua là gì?

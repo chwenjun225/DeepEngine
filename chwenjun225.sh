@@ -89,5 +89,4 @@ watch -n0.3 gpustat -cp --color
 htop
 
 # Kill port
-sudo fuser -k your_port/tcp
 sudo fuser -k 2026/tcp

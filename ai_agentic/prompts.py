@@ -1,6 +1,10 @@
 from langchain_core.messages import SystemMessage
 from langchain_core.prompts import ChatPromptTemplate
 
+system_prompt_part_1 = """You are a supervisor tasked with managing a conversation between the following workers: {}. Given the following user request, respond with the worker to act next. Each worker will perform a task and respond with their results and status. When finished, respond with FINISH."""
+
+system_prompt_part_2 = """Given the conversation above, who should act next? Or should we FINISH? Select one of: {}, FINISH"""
+
 reflection_prompt = SystemMessage(
 """You are a teacher grading an essay submission. Generate critique and recommendations for the user's submission. Provide detailed recommendations, including requests for length, depth, style, etc."""
 )

@@ -58,28 +58,28 @@ def remaining_useful_life_prediction(input_str: str):
 
 @tool
 def add(*numbers: Union[int, float]) -> Union[int, float]:
-    """Add multiple numbers (integers or floats).
-    Args:
-        numbers: A list of numbers to add.
-    Returns:
-        The sum of all given numbers, as an integer if all inputs are integers, otherwise a float.
-    """
-    if not numbers:
-        raise ValueError("At least one number must be provided for addition.")
-    result = sum(numbers)
-    return int(result) if all(isinstance(num, int) for num in numbers) else result
+	"""Add multiple numbers (integers or floats).
+	Args:
+		numbers: A list of numbers to add.
+	Returns:
+		The sum of all given numbers, as an integer if all inputs are integers, otherwise a float.
+	"""
+	if not numbers:
+		raise ValueError("At least one number must be provided for addition.")
+	result = sum(numbers)
+	return int(result) if all(isinstance(num, int) for num in numbers) else result
 
 @tool
 def multiply(*numbers: Union[int, float]) -> Union[int, float]:
-    """Multiply multiple numbers (integers or floats).
-    Args:
-        numbers: A list of numbers to multiply.
-    Returns:
-        The product of all given numbers, as an integer if all inputs are integers, otherwise a float.
-    """
-    if not numbers:
-        raise ValueError("At least one number must be provided for multiplication.")
-    result = 1
-    for num in numbers:
-        result *= num
-    return int(result) if all(isinstance(num, int) for num in numbers) else result
+	"""Multiply multiple numbers (integers or floats).
+	Args:
+		numbers: A list of numbers to multiply.
+	Returns:
+		The product of all given numbers, as an integer if all inputs are integers, otherwise a float.
+	"""
+	if not numbers:
+		raise ValueError("At least one number must be provided for multiplication.")
+	result = 1
+	for num in numbers:
+		result *= num
+	return int(result) if all(isinstance(num, int) for num in numbers) else result

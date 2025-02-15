@@ -93,7 +93,7 @@ def main():
 	graph = builder.compile(checkpointer=MemorySaver())
 
 	user_input = {
-		"messages": [HumanMessage("""What is Large Language Model?""")]
+		"messages": [HumanMessage("""What is the capital of Japan?""")]
 	}
 	for chunk in graph.stream(user_input, config):
 		print(chunk)

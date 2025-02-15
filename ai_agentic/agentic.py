@@ -59,7 +59,7 @@ def reflect(state: State) -> State:
 	class_map = {
 		AIMessage: HumanMessage, 
 		HumanMessage: AIMessage, 
-		ToolMessage: HumanMessage 
+		# ToolMessage: HumanMessage 
 	}
 	translated = [reflection_prompt, state["messages"][0]] + [
 		class_map[msg.__class__](content=msg.content) 
@@ -84,12 +84,12 @@ def main():
 	builder.add_node("reflect", reflect)
 
 	builder.add_edge(START, "select_tools")
-	builder.add_edge("select_tools", "chatbot")
-	builder.add_conditional_edges("chatbot", tools_condition)
+	builder.add_edge("select_tools", "tools")
 	builder.add_edge("tools", "chatbot")
+	builder.add_conditional_edges("chatbot", tools_condition)
 	builder.add_conditional_edges("chatbot", should_continue)
 	builder.add_edge("reflect", "chatbot")
-	
+
 	graph = builder.compile(checkpointer=MemorySaver())
 
 	user_input = {

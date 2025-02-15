@@ -17,73 +17,73 @@ sensor_data = []
 timestamps = []
 
 def generate_vibration_data():
-    elapsed_time = time.time() - start_time  # Time since app started
+	elapsed_time = time.time() - start_time  # Time since app started
 
-    if elapsed_time < 20:
-        return np.random.uniform(0.2, 1.0) + np.sin(time.time())  # Normal vibration
-    else:
-        return 0.05 ** 2 + np.random.uniform(0.1, 0.2)  # Parabolic increase
+	if elapsed_time < 20:
+		return np.random.uniform(0.2, 1.0) + np.sin(time.time())  # Normal vibration
+	else:
+		return 0.05 ** 2 + np.random.uniform(0.1, 0.2)  # Parabolic increase
 
 # Chatbot messages history
 if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
+	st.session_state.chat_history = []
 
 # Layout: Three Columns (Equal Width)
 col1, col2 = st.columns([2.5, 2.5])  # Adjusted to fit better on the screen
 
 with col1:
-    st.header("Camera 360")
-    
-    if video_file:
-        video_bytes = video_file.read()
-        video_path = "temp_video.mp4"
-        with open(video_path, "wb") as f:
-            f.write(video_bytes)
-        st.video(video_path)
+	st.header("Camera 360")
+	
+	if video_file:
+		video_bytes = video_file.read()
+		video_path = "temp_video.mp4"
+		with open(video_path, "wb") as f:
+			f.write(video_bytes)
+		st.video(video_path)
 
-    # Sensor Vibration Graph (Real-time)
-    st.header("CNC Machine Vibration Tracking")
-    graph_placeholder = st.empty()  # Placeholder for real-time graph
+	# Sensor Vibration Graph (Real-time)
+	st.header("CNC Machine Vibration Tracking")
+	graph_placeholder = st.empty()  # Placeholder for real-time graph
 
-    for _ in range(100):  # Simulate real-time updates
-        new_vibration = generate_vibration_data()
-        sensor_data.append(new_vibration)
-        timestamps.append(time.time() - start_time)
+	for _ in range(100):  # Simulate real-time updates
+		new_vibration = generate_vibration_data()
+		sensor_data.append(new_vibration)
+		timestamps.append(time.time() - start_time)
 
-        # Keep history but limit display range for better visualization
-        if len(sensor_data) > 200:  # Limit display to last 200 points
-            sensor_data.pop(0)
-            timestamps.pop(0)
+		# Keep history but limit display range for better visualization
+		if len(sensor_data) > 200:  # Limit display to last 200 points
+			sensor_data.pop(0)
+			timestamps.pop(0)
 
-        # Create figure
-        fig, ax = plt.subplots(figsize=(6, 3))  # Smaller figure for better fit
-        ax.plot(timestamps, sensor_data, color="red", linestyle="-", marker="o", markersize=3)
-        ax.set_xlabel("Time (s)")
-        ax.set_ylabel("Vibration Level")
-        ax.set_title("Real-time CNC Machine Vibration Data")
-        ax.grid(True)
+		# Create figure
+		fig, ax = plt.subplots(figsize=(6, 3))  # Smaller figure for better fit
+		ax.plot(timestamps, sensor_data, color="red", linestyle="-", marker="o", markersize=3)
+		ax.set_xlabel("Time (s)")
+		ax.set_ylabel("Vibration Level")
+		ax.set_title("Real-time CNC Machine Vibration Data")
+		ax.grid(True)
 
-        # Update graph in Streamlit
-        graph_placeholder.pyplot(fig)
+		# Update graph in Streamlit
+		graph_placeholder.pyplot(fig)
 
-        time.sleep(0.2)  # Simulate sensor reading every 200ms
+		time.sleep(0.2)  # Simulate sensor reading every 200ms
 
 with col2:
-    st.header("💬 AI Chatbot")
-    user_input = st.text_input("AI-Agent PHM", "")
+	st.header("💬 AI Chatbot")
+	user_input = st.text_input("AI-Agent PHM", "")
 
-    if st.button("Send"):
-        if user_input:
-            # Simulating chatbot response (Replace with actual AI model call)
-            response = "**Danger!**\n\nGet far away of the machine\n\nAnomaly detected in the CNC machine vibration data. Please check the machine immediately."
-            st.session_state.chat_history.append(("🧑 User:", user_input))
-            st.session_state.chat_history.append(("🤖 AI:", response))
+	if st.button("Send"):
+		if user_input:
+			# Simulating chatbot response (Replace with actual AI model call)
+			response = "**Danger!**\n\nGet far away of the machine\n\nAnomaly detected in the CNC machine vibration data. Please check the machine immediately."
+			st.session_state.chat_history.append(("🧑 User:", user_input))
+			st.session_state.chat_history.append(("🤖 AI:", response))
 
-    # Display Chat History
-    chat_area = st.container()
-    with chat_area:
-        for role, text in st.session_state.chat_history[-5:]:  # Show only last 5 messages
-            st.markdown(f"**{role}** {text}")
+	# Display Chat History
+	chat_area = st.container()
+	with chat_area:
+		for role, text in st.session_state.chat_history[-5:]:  # Show only last 5 messages
+			st.markdown(f"**{role}** {text}")
 
 
 

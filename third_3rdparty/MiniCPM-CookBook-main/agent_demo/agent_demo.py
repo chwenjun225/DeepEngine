@@ -36,7 +36,7 @@ class SequenceStoppingCriteria(StoppingCriteria):
         
         :param current_tokens: 当前生成的 tokens 列表
         :param sequences: 包含多个连续数字序列的列表
-        :return: 如果 current_tokens 中出现了任何序列，则返回 True；否则返回 False
+        :return: 如果 current_tokens 中出现了任何序列，则返回 True; 否则返回 False
         """
         for i in range(len(current_tokens) - max(map(len, sequences)) + 1):
             for seq in sequences:

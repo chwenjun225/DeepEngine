@@ -1,0 +1,1 @@
+工业大模型+AI视觉软件，提升AI软件在不同产品间的泛化能力，当新产品加入后，利用这一新算法软件就可以少样本或零样本检测出新产品（包含质量异常 Industrial large models + AI visual software, to improve the generalization ability of AI software between different products. When new products are added, this new algorithm software can be used to detect new products (including quality anomalies) with few or no samples.

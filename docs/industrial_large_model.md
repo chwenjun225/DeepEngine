@@ -1,4 +1,4 @@
-# 工业大模型: 体系架构、关键技术与典型应用 Industrial foundation model: architecture, key technologies, and typical applications
+# 工业大模型: 体系架构、关键技术与典型应用 Industrial foundation model: Architecture, Key Technologies, and Yypical Applications
 
 # 1. 引言 Introduction
 ## Thách thức 1: Khó khăn trong việc phối hợp giữa các đầu vào đa phương thức trong công nghiệp (CAD, CAE, CAM).
@@ -15,9 +15,9 @@ Các mô hình lớn tổng quát (General Large Models) không có tiêu chuẩ
 
 Các mô hình lớn hiện nay chủ yếu dựa trên dự đoán xác suất, dẫn đến tính không chắc chắn cao trong kết quả đầu ra, điều này khiến chúng khó đáp ứng các yêu cầu khắt khe về độ chính xác trong công nghiệp. Nguyên nhân của vấn đề này là do:
 
-Tính xác suất của mô hình: Các mô hình AI hiện tại không học được đầy đủ các cơ chế và quy luật vật lý/logic trong công nghiệp.
-Tính không định hướng mục tiêu (non-target-driven nature): Mô hình không tập trung vào một nhiệm vụ cụ thể mà học theo kiểu tổng quát, khiến nó khó nắm bắt được các quy luật chặt chẽ của từng bài toán công nghiệp.
-Xung đột giữa tối ưu hóa đa nhiệm và đơn nhiệm: Khi mô hình AI xử lý nhiều nhiệm vụ cùng lúc, có thể xảy ra xung đột thông tin và hiện tượng "lãng quên" kiến thức cần thiết, làm giảm hiệu suất trong các nhiệm vụ yêu cầu độ chính xác cao.
+* **Tính xác suất của mô hình**: Các mô hình AI hiện tại không học được đầy đủ các cơ chế và quy luật vật lý/logic trong công nghiệp.
+* **Tính không định hướng mục tiêu (non-target-driven nature)**: Mô hình không tập trung vào một nhiệm vụ cụ thể mà học theo kiểu tổng quát, khiến nó khó nắm bắt được các quy luật chặt chẽ của từng bài toán công nghiệp.
+* **Xung đột giữa tối ưu hóa đa nhiệm và đơn nhiệm**: Khi mô hình AI xử lý nhiều nhiệm vụ cùng lúc, có thể xảy ra xung đột thông tin và hiện tượng "lãng quên" kiến thức cần thiết, làm giảm hiệu suất trong các nhiệm vụ yêu cầu độ chính xác cao.
 
 ## Thách thứ 3: Khó khăn trong việc tổng quát hóa AI cho nhiều bối cảnh công nghiệp
 
@@ -27,9 +27,9 @@ Tuy nhiên, trong lĩnh vực công nghiệp, vòng đời sản phẩm bao gồ
 
 Nguyên nhân chính của vấn đề này là:
 
-Khả năng tổng quát hóa của AI đối với tri thức liên ngành trong công nghiệp còn hạn chế, khiến nó khó thích nghi với nhiều loại tác vụ khác nhau.
-Sự phụ thuộc vào thiết bị phần cứng: Nhiều nhiệm vụ công nghiệp yêu cầu AI phối hợp với hệ thống điều khiển và máy móc, nhưng hầu hết các mô hình AI hiện tại được thiết kế để hoạt động chủ yếu trên dữ liệu số (text, hình ảnh) thay vì tương tác vật lý.
-Sự không phù hợp của mô hình AI hiện tại với bối cảnh công nghiệp: Các ứng dụng AI phổ biến như chatbot, phân tích ngôn ngữ tự nhiên không đủ khả năng xử lý các tình huống công nghiệp phức tạp, đòi hỏi quy trình kỹ thuật chính xác cao.
+* Khả năng tổng quát hóa của AI đối với tri thức liên ngành trong công nghiệp còn hạn chế, khiến nó khó thích nghi với nhiều loại tác vụ khác nhau.
+* Sự phụ thuộc vào thiết bị phần cứng: Nhiều nhiệm vụ công nghiệp yêu cầu AI phối hợp với hệ thống điều khiển và máy móc, nhưng hầu hết các mô hình AI hiện tại được thiết kế để hoạt động chủ yếu trên dữ liệu số (text, hình ảnh) thay vì tương tác vật lý.
+* Sự không phù hợp của mô hình AI hiện tại với bối cảnh công nghiệp, các ứng dụng AI phổ biến như chatbot, phân tích ngôn ngữ tự nhiên không đủ khả năng xử lý các tình huống công nghiệp phức tạp, đòi hỏi quy trình kỹ thuật chính xác cao.
 
 ## Thách thức 4: Khó khăn trong việc liên kết nhiều quy trình công nghiệp. 
 
@@ -41,9 +41,9 @@ Các mối liên kết và sự phụ thuộc giữa các quy trình này rất 
 
 Nguyên nhân chính của vấn đề này là:
 
-Mô hình AI không có khả năng ghi nhớ lâu dài và kết nối dữ liệu giữa các quy trình → Không thể theo dõi và hiểu mối quan hệ giữa nhiều giai đoạn sản xuất.
-Thiếu khả năng nhận diện quy luật liên kết giữa các nhiệm vụ phức tạp → AI gặp khó khăn trong việc xác định nguyên nhân lỗi và tối ưu hóa chuỗi cung ứng.
-Không thể thích ứng với sự thay đổi trong quy trình sản xuất → Mỗi doanh nghiệp có quy trình khác nhau, điều này làm cho AI khó có thể tổng quát hóa và áp dụng rộng rãi.
+* Mô hình AI không có khả năng ghi nhớ lâu dài và kết nối dữ liệu giữa các quy trình → Không thể theo dõi và hiểu mối quan hệ giữa nhiều giai đoạn sản xuất.
+* Thiếu khả năng nhận diện quy luật liên kết giữa các nhiệm vụ phức tạp → AI gặp khó khăn trong việc xác định nguyên nhân lỗi và tối ưu hóa chuỗi cung ứng.
+* Không thể thích ứng với sự thay đổi trong quy trình sản xuất → Mỗi doanh nghiệp có quy trình khác nhau, điều này làm cho AI khó có thể tổng quát hóa và áp dụng rộng rãi.
 
 ## Thách thức 5: Khó khăn trong suy luận thời gian thực trong công nghiệp
 
@@ -53,8 +53,8 @@ Hiện tại, các phương pháp tối ưu hóa mô hình như cắt tỉa tham
 
 Nguyên nhân chính của vấn đề này là:
 
-Các mô hình lớn có quy mô tham số quá lớn, đòi hỏi nhiều tài nguyên tính toán để hoạt động. Phần lớn các đơn vị tính toán trong mô hình phải được kích hoạt khi xử lý nhiệm vụ công nghiệp, dẫn đến mức tiêu thụ tài nguyên cao.
-Thiếu khả năng tối ưu hóa cho môi trường tính toán giới hạn, khiến các mô hình lớn khó có thể chạy trong môi trường công nghiệp biên với tài nguyên hạn chế.
+* Các mô hình lớn có quy mô tham số quá lớn, đòi hỏi nhiều tài nguyên tính toán để hoạt động, vì phần lớn các đơn vị tính toán trong mô hình phải được kích hoạt khi xử lý nhiệm vụ công nghiệp, dẫn đến mức tiêu thụ tài nguyên cao.
+* Thiếu khả năng tối ưu hóa cho môi trường tính toán giới hạn, khiến các mô hình lớn khó có thể chạy trong môi trường công nghiệp biên với tài nguyên hạn chế.
 
 ---
 
@@ -71,47 +71,47 @@ Bài viết này đề xuất một **định nghĩa mới cho mô hình lớn t
 
 Bên cạnh đó, bài viết đề xuất **phương pháp xây dựng mô hình lớn trong công nghiệp theo bốn giai đoạn**, giải thích các **công nghệ cốt lõi** của mô hình này. Dựa trên sáu **khả năng ứng dụng trọng tâm của mô hình lớn trong công nghiệp**, bài viết cũng **khảo sát các kịch bản ứng dụng điển hình** trong toàn bộ vòng đời sản xuất công nghiệp.  
 
-Ngoài ra, bài viết giới thiệu hệ thống nguyên mẫu **"基石" (Keystone) – một mô hình lớn trong công nghiệp**, và các **ứng dụng của nó trong lĩnh vực trí tuệ nhân tạo tạo sinh (Generative AI)**. Cuối cùng, bài viết thảo luận về **hướng nghiên cứu tương lai và các vấn đề mở trong mô hình lớn công nghiệp**.  
+Ngoài ra, bài viết giới thiệu hệ thống nguyên mẫu **基石 (Keystone) – một mô hình lớn trong công nghiệp**, và các **ứng dụng của nó trong lĩnh vực trí tuệ nhân tạo tạo sinh (Generative AI)**. Cuối cùng, bài viết thảo luận về **hướng nghiên cứu tương lai và các vấn đề mở trong mô hình lớn công nghiệp**.  
 
 ---
 
 1. **Vấn đề cốt lõi**  
-   - **Mô hình AI tổng quát hiện tại không phù hợp để áp dụng trực tiếp vào công nghiệp**, do thiếu khả năng thích ứng với dữ liệu chuyên ngành, tính thời gian thực, và sự phức tạp của quy trình sản xuất.  
-   - **Cần xây dựng một hệ sinh thái AI riêng biệt cho công nghiệp**, không chỉ là việc ứng dụng AI tổng quát vào sản xuất mà còn phải nghiên cứu **từ lý thuyết nền tảng đến công nghệ cốt lõi**.  
-   - **Hiện tại chưa có nghiên cứu đầy đủ và có hệ thống về mô hình lớn trong công nghiệp**, cho thấy đây là một lĩnh vực **mới và chưa được khai thác triệt để**, mở ra nhiều cơ hội cho nghiên cứu và phát triển.  
+- **Mô hình AI tổng quát hiện tại không phù hợp để áp dụng trực tiếp vào công nghiệp**, do thiếu khả năng thích ứng với dữ liệu chuyên ngành, tính thời gian thực, và sự phức tạp của quy trình sản xuất.  
+- **Cần xây dựng một hệ sinh thái AI riêng biệt cho công nghiệp**, không chỉ là việc ứng dụng AI tổng quát vào sản xuất mà còn phải nghiên cứu **từ lý thuyết nền tảng đến công nghệ cốt lõi**.  
+- **Hiện tại chưa có nghiên cứu đầy đủ và có hệ thống về mô hình lớn trong công nghiệp**, cho thấy đây là một lĩnh vực **mới và chưa được khai thác triệt để**, mở ra nhiều cơ hội cho nghiên cứu và phát triển.  
 
 2. **Giá trị của nghiên cứu này**  
-   - **Định nghĩa mô hình lớn trong công nghiệp** giúp tạo ra một cách hiểu thống nhất về khái niệm này.  
-   - **Đề xuất kiến trúc 5 lớp**, giúp phân tách các thành phần quan trọng trong hệ thống mô hình lớn công nghiệp.  
-   - **Xây dựng phương pháp luận với 4 giai đoạn phát triển**, giúp hướng dẫn quy trình phát triển một mô hình lớn chuyên biệt cho công nghiệp.  
-   - **Xác định 6 khả năng ứng dụng trọng tâm**, làm cơ sở để triển khai AI vào các kịch bản sản xuất cụ thể.  
-   - **Giới thiệu hệ thống nguyên mẫu Keystone**, giúp minh họa tính khả thi của mô hình trong thực tế.  
+	- **Định nghĩa mô hình lớn trong công nghiệp** giúp tạo ra một cách hiểu thống nhất về khái niệm này.  
+	- **Đề xuất kiến trúc 5 lớp**, giúp phân tách các thành phần quan trọng trong hệ thống mô hình lớn công nghiệp.  
+	- **Xây dựng phương pháp luận với 4 giai đoạn phát triển**, giúp hướng dẫn quy trình phát triển một mô hình lớn chuyên biệt cho công nghiệp.  
+	- **Xác định 6 khả năng ứng dụng trọng tâm**, làm cơ sở để triển khai AI vào các kịch bản sản xuất cụ thể.  
+	- **Giới thiệu hệ thống nguyên mẫu Keystone**, giúp minh họa tính khả thi của mô hình trong thực tế.  
 
 3. **Hệ quả của nghiên cứu**  
-   - **Đặt nền tảng cho việc phát triển AI công nghiệp có hệ thống**, thay vì chỉ áp dụng AI tổng quát một cách rời rạc.  
-   - **Tạo ra một mô hình tham chiếu** để giúp các công ty và tổ chức nghiên cứu có hướng phát triển AI công nghiệp hiệu quả hơn.  
-   - **Mở ra nhiều cơ hội mới trong AI công nghiệp**, đặc biệt là các nghiên cứu liên quan đến Generative AI trong sản xuất.  
+	- **Đặt nền tảng cho việc phát triển AI công nghiệp có hệ thống**, thay vì chỉ áp dụng AI tổng quát một cách rời rạc.  
+	- **Tạo ra một mô hình tham chiếu** để giúp các công ty và tổ chức nghiên cứu có hướng phát triển AI công nghiệp hiệu quả hơn.  
+	- **Mở ra nhiều cơ hội mới trong AI công nghiệp**, đặc biệt là các nghiên cứu liên quan đến Generative AI trong sản xuất.  
 
 ---
 
 ### **Hướng giải quyết tiềm năng**  
 
 1. **Phát triển mô hình lớn trong công nghiệp theo hướng chuyên biệt**  
-   - Xây dựng AI có khả năng **hiểu và xử lý dữ liệu công nghiệp đặc thù**, thay vì chỉ dựa trên dữ liệu phổ thông từ Internet.  
-   - Phát triển mô hình có thể thích ứng với **các quy trình sản xuất phức tạp**, bao gồm thiết kế, sản xuất, kiểm tra chất lượng và bảo trì.  
+	- Xây dựng AI có khả năng **hiểu và xử lý dữ liệu công nghiệp đặc thù**, thay vì chỉ dựa trên dữ liệu phổ thông từ Internet.  
+	- Phát triển mô hình có thể thích ứng với **các quy trình sản xuất phức tạp**, bao gồm thiết kế, sản xuất, kiểm tra chất lượng và bảo trì.  
 
 2. **Xây dựng cơ sở hạ tầng AI cho công nghiệp**  
-   - Phát triển **các nền tảng AI công nghiệp mở**, giúp kết nối dữ liệu từ nhiều nguồn khác nhau.  
-   - Tích hợp AI với **hệ thống quản lý sản xuất thông minh (MES, ERP, SCADA)** để đảm bảo AI có thể hoạt động trong môi trường công nghiệp thực tế.  
+	- Phát triển **các nền tảng AI công nghiệp mở**, giúp kết nối dữ liệu từ nhiều nguồn khác nhau.  
+	- Tích hợp AI với **hệ thống quản lý sản xuất thông minh (MES, ERP, SCADA)** để đảm bảo AI có thể hoạt động trong môi trường công nghiệp thực tế.  
 
 3. **Tạo ra hệ sinh thái AI công nghiệp đa tầng**  
-   - **Hạ tầng AI công nghiệp (Industrial AI Infrastructure)**: Cung cấp các công cụ, bộ dữ liệu, và nền tảng điện toán cho AI công nghiệp.  
-   - **Mô hình AI công nghiệp (Industrial AI Models)**: Xây dựng các thuật toán phù hợp với các tác vụ công nghiệp.  
-   - **Ứng dụng AI công nghiệp (Industrial AI Applications)**: Triển khai AI vào từng lĩnh vực cụ thể như tự động hóa sản xuất, tối ưu hóa vận hành, kiểm tra chất lượng sản phẩm.  
+	- **Hạ tầng AI công nghiệp (Industrial AI Infrastructure)**: Cung cấp các công cụ, bộ dữ liệu, và nền tảng điện toán cho AI công nghiệp.  
+	- **Mô hình AI công nghiệp (Industrial AI Models)**: Xây dựng các thuật toán phù hợp với các tác vụ công nghiệp.  
+	- **Ứng dụng AI công nghiệp (Industrial AI Applications)**: Triển khai AI vào từng lĩnh vực cụ thể như tự động hóa sản xuất, tối ưu hóa vận hành, kiểm tra chất lượng sản phẩm.  
 
 4. **Mở rộng nghiên cứu về Generative AI trong công nghiệp**  
-   - Áp dụng AI tạo sinh vào **thiết kế sản phẩm tự động**, **mô phỏng quy trình sản xuất**, **tối ưu hóa chuỗi cung ứng**, v.v.  
-   - Phát triển **Digital Twin (Bản sao số)** kết hợp với AI tạo sinh để mô phỏng và dự đoán các kịch bản sản xuất.  
+	- Áp dụng AI tạo sinh vào **thiết kế sản phẩm tự động**, **mô phỏng quy trình sản xuất**, **tối ưu hóa chuỗi cung ứng**, v.v.  
+	- Phát triển **Digital Twin (Bản sao số)** kết hợp với AI tạo sinh để mô phỏng và dự đoán các kịch bản sản xuất.  
 
 ---
 

@@ -3,7 +3,7 @@ import argparse
 import json
 import pandas as pd
 from transformers import AutoTokenizer
-import re,os
+import re, os
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--model_path", type=str, default="/root/ld/ld_model_pretrained/qwen2-72b-instruct-gptq-int4")

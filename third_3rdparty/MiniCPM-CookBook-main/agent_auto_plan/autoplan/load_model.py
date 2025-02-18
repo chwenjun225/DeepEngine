@@ -15,7 +15,7 @@ def get_model(args):
             model = model.to(device="cuda:0")
             generation_config.max_length=4096
             model.generation_config = generation_config
-            
+
             model.generation_config.do_sample = False
 
             #加载任务分解全量微调模型

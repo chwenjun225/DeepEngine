@@ -1,3 +1,42 @@
+# BASH CLI
+
+# Absolute path of
+# 	base model: /home/chwenjun225/.llama/checkpoints/MiniCPM-o-2_6-gguf/Model-7.6B-Q4_K_M.gguf
+# 	multi-modal-proj: /home/chwenjun225/.llama/checkpoints/MiniCPM-o-2_6-gguf/mmproj-model-f16.gguf
+
+# Launch multi-modal model server 
+python /home/chwenjun225/projects/DeepEngine/third_3rdparty/MiniCPM-o-main/web_demos/minicpm-o_2.6/model_server.py
+
+# Run in interactive mode with ./llama-minicpmv-cli
+/home/chwenjun225/projects/DeepEngine/third_3rdparty/MiniCPM-o-main/llama.cpp/build/bin/llama-minicpmv-cli \
+	--flash-attn \
+	--model /home/chwenjun225/.llama/checkpoints/MiniCPM-o-2_6-gguf/Model-7.6B-Q4_K_M.gguf \
+	--mmproj /home/chwenjun225/.llama/checkpoints/MiniCPM-o-2_6-gguf/mmproj-model-f16.gguf \
+	--ctx-size 4096 \
+	--temp 0.1 \
+	--top-p 0.1 \
+	--top-k 1 \
+	--repeat-penalty 1.05 \
+	--image /home/chwenjun225/projects/DeepEngine/third_3rdparty/MiniCPM-o-main/images/cong_nhan_tren_day_chuyen_san_xuat1.jpg \
+	--prompt "Describe the image in detail."
+
+# Host model on server with ./llama-server
+/home/chwenjun225/projects/DeepEngine/third_3rdparty/MiniCPM-o-main/llama.cpp/build/bin/llama-server \
+	--flash-attn \
+	--model /home/chwenjun225/.llama/checkpoints/MiniCPM-o-2_6-gguf/Model-7.6B-Q4_K_M.gguf \
+	--n-gpu-layers 999 \
+	--ctx-size 4096 \
+	--temp 0.1 \
+	--top-p 0.1 \
+	--top-k 1 \
+	--json-schema {} \
+	--grammar "" \
+	--host 0.0.0.0 \
+	--port 2026 \
+	--timeout 10 \
+	--no-webui \
+	--slot-save-path ./kv_cache
+
 # Docker pgvector connection
 postgresql+psycopg://langchain:langchain@localhost:6024/langchain
 # Docker run pgvector16
@@ -74,7 +113,6 @@ python ./third_3rdparty/vllm-0.7.1/benchmarks/benchmark_serving.py \
 	--jinja 
 	# --no-context-shift 	
 
-
 # chroma_db runserver 
 chroma run \
 	--path /home/chwenjun225/Projects/Foxer/ai_agentic/chroma_db \
@@ -83,9 +121,13 @@ chroma run \
 	--log-path /home/chwenjun225/Projects/Foxer/ai_agentic/chroma_db.log
 
 # Convert DeepSeek-R1-Distill-Qwen-1.5B hf to gguf
-python convert_hf_to_gguf.py /home/chwenjun225/Projects/Foxer/notebooks/DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct --outtype f32 --outfile /home/chwenjun225/Projects/Foxer/notebooks/DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/gguf
+python convert_hf_to_gguf.py \
+	/home/chwenjun225/Projects/Foxer/notebooks/DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct \
+	--outtype f32 \
+	--outfile /home/chwenjun225/Projects/Foxer/notebooks/DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/gguf
 # Convert Llama-3.2-1B-Instruct hf to gguf
-python convert_hf_to_gguf.py /home/chwenjun225/Projects/Foxer/models/Llama-3.2-1B-Instruct \
+python convert_hf_to_gguf.py \
+	/home/chwenjun225/Projects/Foxer/models/Llama-3.2-1B-Instruct \
 	--outtype f32 \
 	--outfile /home/chwenjun225/Projects/Foxer/models/Llama-3.2-1B-Instruct/gguf
 
@@ -93,7 +135,7 @@ python convert_hf_to_gguf.py /home/chwenjun225/Projects/Foxer/models/Llama-3.2-1
 nvidia-smi | grep 'python' | awk '{ print $5 }' | xargs -n1 kill -9
 
 # CUDA static realtime
-watch -n0.3 gpustat -cp --color
+watch -n0.2 nvidia-smi
 
 # CPU & RAM static realtime
 htop

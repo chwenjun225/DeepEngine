@@ -45,7 +45,7 @@ Do là mô hình ngôn ngữ lớn nên thời gian xử lý của tôi rất ch
 ```
 
 
-![alt text](image.png)
+![alt text](./images/chu_in_tren_thung_carton.png)
 
 ```
 🤖: Tôi là một mô hình ngôn ngữ lớn có khả năng xử lý hình ảnh, tuy nhiên, quá trình này có thể gây ra độ trễ cao. Vì vậy, tôi sẽ **tự huấn luyện một mô hình AI-Vision** chuyên biệt để xử lý hình ảnh một cách hiệu quả hơn.  

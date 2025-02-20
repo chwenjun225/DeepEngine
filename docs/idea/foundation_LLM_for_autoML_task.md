@@ -1,0 +1,1 @@
+Ý tưởng: Tạo ra mô hình Foundation LLM (thông thạo các pipeline training AI) cho riêng task AutoML.

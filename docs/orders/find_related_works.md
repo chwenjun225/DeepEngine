@@ -20,6 +20,10 @@
 
 11. Ishizaki, R. & Sugiyama, Mahito (forthcoming). Large Language Models: Assessment for Singularity. AI and Society. URL: https://philpapers.org/rec/ISHLLM
 
+12. Ishibashi Y, Yano T, Oyamada M. Can Large Language Models Invent Algorithms to Improve Themselves?. arXiv preprint arXiv:2410.15639. 2024 Oct 21.
+
+
+
 12.  Patara Trirat , Wonyong Jeong, Sung Ju Hwang. AUTOML-AGENT: AMULTI-AGENT LLM FRAMEWORK FOR FULL-PIPELINE AUTOML. URL https://arxiv.org/pdf/2410.02958
 
 13.  Taicheng Guo, Xiuying Chen, Yaqi Wang, Ruidi Chang, Shichao Pei, Nitesh V. Chawla , Olaf Wiest, Xiangliang Zhang. Large Language Model based Multi-Agents: A Survey of Progress and Challenges. URL: https://arxiv.org/pdf/2402.01680

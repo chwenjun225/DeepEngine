@@ -39,7 +39,7 @@ from tools_use import DuckDuckGoSearchRun, calculator
 
 
 
-# Cấu hình các biến hằng số 
+# Cấu hình các biến hằng số aaaa
 TOKENIZER = AutoTokenizer.from_pretrained("/home/chwenjun225/Projects/Foxer/models/DeepSeek-R1-Distill-Qwen-1.5B")
 EMBEDDING_MODEL = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 MODEL = ChatOpenAI(model_name="/home/chwenjun225/Projects/Foxer/models/Llama-3.2-1B-Instruct", openai_api_base="http://127.0.0.1:2026/v1", openai_api_key="chwenjun225", temperature=0.1)
@@ -101,7 +101,7 @@ def llm_with_plugin(prompt: str, history, list_of_plugin_info=()):
 			# action và action_input lần lượt là mã của plugin cần gọi và tham số đầu vào
 			# observation là kết quả trả về từ plugin, dưới dạng chuỗi
 			observation = call_plugin(action, action_input)
-			output += f'\nObservation: {observation}\nThought:'
+			output += f"\nObservation: {observation}\nThought:"
 			text += output
 		else:  # Quá trình sinh nội dung kết thúc và không cần gọi plugin nữa
 			text += output

@@ -19,15 +19,20 @@ import torch
 from uuid import uuid4 
 from pprint import pprint
 from datetime import datetime
-from transformers import AutoTokenizer, StoppingCriteria, StoppingCriteriaList
+from transformers import (
+	AutoTokenizer, StoppingCriteria, 
+	StoppingCriteriaList)
 from typing_extensions import Literal
 
 
-from langchain_ollama import OllamaLLM
-from langchain_core.documents import Document 
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_core.vectorstores.in_memory import InMemoryVectorStore
-from langchain_core.messages import ToolCall, AIMessage, HumanMessage, ToolMessage, trim_messages # TODO: Tính năng lọc và cắt tin nhắn
+from langchain_ollama.chat_models import ChatOllama
+# from langchain_core.documents import Document 
+# from langchain_huggingface import HuggingFaceEmbeddings
+# from langchain_core.vectorstores.in_memory import InMemoryVectorStore
+from langchain_core.messages import (
+	ToolCall, AIMessage, 
+	HumanMessage, ToolMessage, 
+	trim_messages) # TODO: Tính năng lọc và cắt tin nhắn
 
 
 from langgraph.prebuilt import ToolNode, tools_condition
@@ -41,31 +46,11 @@ from state import SupervisorDecision, State, Input, Output
 # cấu hình các biến hằng số 
 # TOKENIZER = AutoTokenizer.from_pretrained("/home/chwenjun225/Projects/Foxer/models/DeepSeek-R1-Distill-Qwen-1.5B")
 # EMBEDDING_MODEL = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-MODEL = OllamaLLM(
-	# model_name="/home/chwenjun225_laptop/.llama/checkpoints/Phi-3.5-vision-instruct", 
-	# openai_api_base="http://localhost:11434/v1", 
-	# openai_api_key="chwenjun225", 
-	# temperature=0.1
+MODEL = ChatOllama(
 	name="tranvantuan_research", 
-	model: str,
-	mirostat: int | None = None,
-	mirostat_eta: float | None = None,
-	mirostat_tau: float | None = None,
-	num_ctx: int | None = None,
-	num_gpu: int | None = None,
-	num_thread: int | None = None,
-	num_predict: int | None = None,
-	repeat_last_n: int | None = None,
-	repeat_penalty: float | None = None,
-	temperature: float | None = None,
-	stop: List[str] | None = None,
-	tfs_z: float | None = None,
-	top_k: int | None = None,
-	top_p: float | None = None,
-	format: Literal['', 'json'] = "",
-	keep_alive: int | str | None = None,
-	base_url: str | None = None,
-	client_kwargs: dict | None = {}
+	model="llama3.2:1b-instruct-fp16", 
+	num_ctx=4096, 
+	temperature=0.1
 )
 TOOL_DESC = """{name_for_model}: Call this tool to interact with the {name_for_human} API. What is the {name_for_human} API useful for? {description_for_model} Parameters: {parameters}"""
 PROMPT_REACT = """Answer the following questions as best you can. You have access to the following APIs:
@@ -159,7 +144,6 @@ def build_input_text(list_of_plugin_info) -> str:
 
 
 def text_completion(input_text: str, stop_words) -> str:  # 作为一个文本续写模型来使用
-	tokenizer = TOKENIZER
 	model = MODEL
 	im_end = "<|im_end|>"
 	if im_end not in stop_words:

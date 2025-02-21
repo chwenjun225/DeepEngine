@@ -27,10 +27,10 @@ from io import BytesIO
 
 # 忽略所有警告 Hūlüè suǒyǒu jǐnggào Bỏ qua tất cả các cảnh báo
 warnings.filterwarnings("ignore")
-# model_path='/root/ld/ld_model_pretrained/Minicpmv2_6'
-model_path = "/home/chwenjun225/.llama/checkpoints/Llama-3.2-1B-Instruct"
-# img_save_path = "/root/ld/ld_project/pull_request/MiniCPM_Series_Tutorial/agent_demo/local_image.jpg"
-img_save_path = "/home/chwenjun225/projects/DeepEngine/nexus_mind/images/sample_image.jpg"
+model_path='/root/ld/ld_model_pretrained/Minicpmv2_6'
+# model_path = "/home/chwenjun225/.llama/checkpoints/Llama-3.2-1B-Instruct"
+img_save_path = "/root/ld/ld_project/pull_request/MiniCPM_Series_Tutorial/agent_demo/local_image.jpg"
+# img_save_path = "/home/chwenjun225/projects/DeepEngine/nexus_mind/images/sample_image.jpg"
 
 # 定义自定义的 StoppingCriteria 类 Dìngyì zì dìngyì de Stopping_Criteria lèi Định nghĩa lớp StoppingCriteria tùy chỉnh
 class SequenceStoppingCriteria(StoppingCriteria):

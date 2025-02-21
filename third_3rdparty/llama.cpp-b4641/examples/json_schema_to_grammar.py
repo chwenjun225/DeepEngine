@@ -577,8 +577,8 @@ class SchemaConverter:
             return self._add_rule(rule_name, rule)
 
         elif schema_type in (None, 'object') and \
-            ('properties' in schema or \
-            ('additionalProperties' in schema and schema['additionalProperties'] is not True)):
+             ('properties' in schema or \
+              ('additionalProperties' in schema and schema['additionalProperties'] is not True)):
             required = set(schema.get('required', []))
             properties = list(schema.get('properties', {}).items())
             return self._add_rule(rule_name, self._build_object_rule(properties, required, name, schema.get('additionalProperties')))

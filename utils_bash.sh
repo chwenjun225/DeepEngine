@@ -119,11 +119,11 @@ chroma run \
 	--port 2027 \
 	--log-path /home/chwenjun225/Projects/Foxer/ai_agentic/chroma_db.log
 
-# HF-Transformers convert .pth to .safetensors format
+# HF-Transformers convert .pth to .safetensors format, sentencepiece and protobuf work with python3.13
 python /home/chwenjun225/.llama/checkpoints/transformers/src/transformers/models/llama/convert_llama_weights_to_hf.py \
-	--input_dir /home/chwenjun225/.llama/checkpoints/Llama3.2-11B-Vision-Instruct/pth \
+	--input_dir /home/chwenjun225/.llama/checkpoints/Llama3.2-11B-Vision-Instruct \
 	--model_size 11B \
-	--output_dir /home/chwenjun225/.llama/checkpoints/Llama3.2-11B-Vision-Instruct
+	--output_dir /home/chwenjun225/.llama/checkpoints/Llama3.2-11B-Vision-Instruct/hf
 # Convert DeepSeek-R1-Distill-Qwen-1.5B hf to gguf
 python convert_hf_to_gguf.py \
 	/home/chwenjun225/Projects/Foxer/notebooks/DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct \

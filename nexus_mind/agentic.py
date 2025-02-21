@@ -12,7 +12,6 @@ import warnings
 warnings.filterwarnings("ignore")
 
 
-
 import json 
 from uuid import uuid4 
 from pprint import pprint
@@ -22,7 +21,6 @@ from transformers import AutoTokenizer, StoppingCriteria
 from typing_extensions import Literal
 
 
-
 from langchain_openai import ChatOpenAI
 from langchain_core.documents import Document 
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -30,11 +28,9 @@ from langchain_core.vectorstores.in_memory import InMemoryVectorStore
 from langchain_core.messages import ToolCall, AIMessage, HumanMessage, ToolMessage, trim_messages # TODO: Tính năng lọc và cắt tin nhắn
 
 
-
 from langgraph.prebuilt import ToolNode, tools_condition
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import StateGraph, START, END
-
 
 
 from state import SupervisorDecision, State, Input, Output

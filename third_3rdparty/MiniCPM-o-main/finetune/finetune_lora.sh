@@ -5,8 +5,9 @@ NNODES=1
 NODE_RANK=0
 MASTER_ADDR=localhost
 MASTER_PORT=6001
- 
-MODEL="openbmb/MiniCPM-o-2_6"
+
+# MODEL="openbmb/MiniCPM-o-2_6"
+MODEL="/home/chwenjun225/.llama/checkpoints/MiniCPM-o-2_6"
 # or openbmb/MiniCPM-V-2, openbmb/MiniCPM-Llama3-V-2_5, openbmb/MiniCPM-V-2_6
 # ATTENTION: specify the path to your training data, which should be a json file consisting of a list of conversations.
 # See the section for finetuning in README for more information.

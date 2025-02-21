@@ -8,6 +8,8 @@
 # 			(chế độ tiếp tục viết), phức tạp hơn so với chế độ chat:  
 #       https://github.com/QwenLM/Qwen-7B/blob/main/examples/react_demo.py (tệp này)  
 
+
+
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -16,36 +18,15 @@ import json
 import json5
 import fire 
 import torch 
-from uuid import uuid4 
-from pprint import pprint
-from datetime import datetime
-from transformers import (
-	AutoTokenizer, StoppingCriteria, 
-	StoppingCriteriaList)
-from typing_extensions import Literal
+from transformers import (StoppingCriteria, StoppingCriteriaList)
 
 
-from langchain_ollama.chat_models import ChatOllama
-# from langchain_core.documents import Document 
-# from langchain_huggingface import HuggingFaceEmbeddings
-# from langchain_core.vectorstores.in_memory import InMemoryVectorStore
-from langchain_core.messages import (
-	ToolCall, AIMessage, 
-	HumanMessage, ToolMessage, 
-	trim_messages) # TODO: Tính năng lọc và cắt tin nhắn
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_ollama import ChatOllama
+from langchain_core.messages import (AIMessage, HumanMessage, ToolMessage)
 
 
-from langgraph.prebuilt import ToolNode, tools_condition
-from langgraph.checkpoint.memory import MemorySaver
-from langgraph.graph import StateGraph, START, END
-
-
-from state import SupervisorDecision, State, Input, Output
-
-
-# cấu hình các biến hằng số 
-# TOKENIZER = AutoTokenizer.from_pretrained("/home/chwenjun225/Projects/Foxer/models/DeepSeek-R1-Distill-Qwen-1.5B")
-# EMBEDDING_MODEL = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+# TODO: Watch this https://python.langchain.com/docs/integrations/providers/ollama/
 MODEL = ChatOllama(
 	name="tranvantuan_research", 
 	model="llama3.2:1b-instruct-fp16", 
@@ -71,11 +52,16 @@ Final Answer: the final answer to the original input question
 Begin!
 
 Question: {query}"""
-# search = DuckDuckGoSearchRun()
-# tools = [search, calculator]
-# tools_retriever = InMemoryVectorStore.from_documents([Document(tool.description, metadata={"name": tool.name}) for tool in tools], EMBEDDING_MODEL).as_retriever()
-# config = {"configurable": {"thread_id": "1"}}
 
+PROMPT = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            "You are a helpful assistant that translates {input_language} to {output_language}.",
+        ),
+        ("human", "{input}"),
+    ]
+)
 
 
 #

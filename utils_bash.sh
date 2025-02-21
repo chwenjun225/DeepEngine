@@ -126,21 +126,11 @@ python /home/chwenjun225_laptop/projects/DeepEngine/third_3rdparty/transformers-
 	--output_dir /home/chwenjun225_laptop/.llama/checkpoints/Llama3.2-11B-Vision-Instruct/gguf \
 	--llama_version 3.2 \
 	--model_size 13B
-# Convert DeepSeek-R1-Distill-Qwen-1.5B hf to gguf
+# Convert hf to gguf
 python /home/chwenjun225_laptop/projects/DeepEngine/third_3rdparty/llama.cpp-b4641/convert_hf_to_gguf.py \
-	/home/chwenjun225/Projects/Foxer/notebooks/DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct \
-	--outtype f32 \
-	--outfile /home/chwenjun225/Projects/Foxer/notebooks/DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/gguf
-# Convert Llama-3.2-1B-Instruct hf to gguf
-python /home/chwenjun225_laptop/projects/DeepEngine/third_3rdparty/llama.cpp-b4641/convert_hf_to_gguf.py \
-	/home/chwenjun225/Projects/Foxer/models/Llama-3.2-1B-Instruct \
-	--outtype f32 \
-	--outfile /home/chwenjun225/Projects/Foxer/models/Llama-3.2-1B-Instruct/gguf
-# Convert Phi-3.5-vision-instruct hf to gguf
-python /home/chwenjun225_laptop/projects/DeepEngine/third_3rdparty/llama.cpp-b4641/convert_hf_to_gguf.py \
-	/home/chwenjun225_laptop/.llama/checkpoints/Phi-3.5-vision-instruct \
+	/home/chwenjun225_laptop/.llama/checkpoints/Llama-3.2-11B-Vision-Instruct \
 	--outtype f16 \
-	--outfile /home/chwenjun225_laptop/.llama/checkpoints/Phi-3.5-vision-instruct/gguf
+	--outfile /home/chwenjun225_laptop/.llama/checkpoints/Llama-3.2-11B-Vision-Instruct/gguf
 # Kill the loaded model VRAM 
 nvidia-smi | grep 'python' | awk '{ print $5 }' | xargs -n1 kill -9
 

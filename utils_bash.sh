@@ -120,12 +120,12 @@ chroma run \
 	--port 2027 \
 	--log-path /home/chwenjun225/Projects/Foxer/ai_agentic/chroma_db.log
 
-# HF-Transformers convert .pth to .safetensors format, sentencepiece and protobuf work with python3.13
-python /home/chwenjun225_laptop/projects/DeepEngine/third_3rdparty/transformers-4.49.0-SigLIP-2/src/transformers/models/llama/convert_llama_weights_to_hf.py \
-	--input_dir /home/chwenjun225_laptop/.llama/checkpoints/Llama3.2-11B-Vision-Instruct/pth \
-	--output_dir /home/chwenjun225_laptop/.llama/checkpoints/Llama3.2-11B-Vision-Instruct/gguf \
-	--llama_version 3.2 \
-	--model_size 13B
+# HF-Transformers convert .pth to .safetensors 
+python /home/chwenjun225/.llama/checkpoints/transformers-4.49.0-SmolVLM-2/src/transformers/models/llama/convert_llama_weights_to_hf.py \
+	--input_dir /home/chwenjun225/.llama/checkpoints/Llama3.1-8B-Instruct \
+	--output_dir /home/chwenjun225/.llama/checkpoints/Llama3.1-8B-Instruct/hf \
+	--llama_version 3.1 \
+	--model_size 8B
 # Convert hf to gguf
 python /home/chwenjun225_laptop/projects/DeepEngine/third_3rdparty/llama.cpp-b4641/convert_hf_to_gguf.py \
 	/home/chwenjun225_laptop/.llama/checkpoints/Llama-3.2-11B-Vision-Instruct \

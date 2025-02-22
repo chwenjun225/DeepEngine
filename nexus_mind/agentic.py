@@ -61,16 +61,6 @@ Begin!
 
 Question: {query}"""
 
-PROMPT = ChatPromptTemplate.from_messages(
-	[
-		(
-			"system",
-			"You are a helpful assistant that translates {input_language} to {output_language}.",
-		),
-		("human", "{input}"),
-	]
-)
-
 
 
 #

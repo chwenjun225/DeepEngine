@@ -33,24 +33,22 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_ollama import ChatOllama
 from langchain_core.messages import (AIMessage, HumanMessage, ToolMessage)
 
-# ZimaBlueAI/MiniCPM-o-2_6
-# MFDoom/deepseek-r1-tool-calling:1.5
-# ollama run llama3.2:1b-instruct-fp16
 
-# Cấu hình các hằng số biến 
-MODEL = ChatOllama(name="tranvantuan_research", model="MFDoom/deepseek-r1-tool-calling:1.5b", num_ctx=4096, temperature=0.1)
+
+# Constant vars 
+MODEL = ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0.1)
 EMBEDDING_MODEL = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-TOKENIZER = AutoTokenizer.from_pretrained("/home/chwenjun225/.llama/checkpoints/DeepSeek-R1-Distill-Qwen-1.5B")
+TOKENIZER = AutoTokenizer.from_pretrained("/home/chwenjun225_laptop/.llama/checkpoints/Llama-3.2-1B-Instruct")
 TOOL_DESC = """{name_for_model}: Call this tool to interact with the {name_for_human} API. What is the {name_for_human} API useful for? {description_for_model} Parameters: {parameters}"""
 PROMPT_REACT = """Answer the following questions as best you can. You have access to the following APIs:
 
-{tools_text}
+{tools_desc}
 
 Use the following format:
 
 Question: the input question you must answer
 Thought: you should always think about what to do
-Action: the action to take, should be one of [{tools_name_text}]
+Action: the action to take, should be one of [{tools_name}]
 Action Input: the input to the action
 Observation: the result of the action
 ... (this Thought/Action/Action Input/Observation can be repeated zero or more times)
@@ -70,26 +68,32 @@ Question: {query}"""
 # prompt: query mới nhất từ ​​người dùng.
 #   history: Lịch sử hội thoại giữa người dùng và mô hình, dưới dạng một list.
 #       mỗi phần tử trong danh sách có dạng:
-#           {"user": "query của người dùng", "bot": "respond của mô hình"}.
+#           {"user": "query của user", "agent": "respond của agent"}.
 #       hội thoại mới nhất sẽ nằm ở cuối danh sách. Không bao gồm câu hỏi mới nhất. 
-#   list_of_tools_info: Danh sách các plugin có thể sử dụng, được lưu trong một list.
-#       ví dụ list_of_tools_info = [tool_info_0, tool_info_1, tool_info_2]，
+#   tools: Danh sách các tools có thể sử dụng, được lưu trong một list.
+#       ví dụ tools = [tool_info_0, tool_info_1, tool_info_2]，
 #       trong đó tool_info_0, tool_info_1, tool_info_2 là thông tin chi tiết của 
 #           từng plugin, đã được đề cập trước đó trong tài liệu này.
 #
 # output:
-#   câu trả lời của mô hình cho câu hỏi mới nhất của người dùng. 
+#   phản hồi của agent cho query của người dùng. 
 #
 
 
 
-def llm_with_tools(prompt: str, history, list_of_tools_info=()):
-	chat_history = [(x["user"], x["bot"]) for x in history] + [(prompt, "")]
+def llm_with_tools(query, history, tools):
+	chat_history = [(x["user"], x["agent"]) for x in history] + [(query, "")]
 	# Ngữ cảnh trò chuyện để mô hình tiếp tục nội dung
-	planning_prompt = build_input_text(chat_history, list_of_tools_info)
+	planning_prompt = build_input_text(
+		chat_history=chat_history, 
+		tools=tools
+	)
 	text = ""
 	while True:
-		output = text_completion(planning_prompt + text, stop_words=["Observation:", "Observation:\n"])
+		output = text_completion(
+			planning_prompt + text, 
+			stop_words=["Observation:", "Observation:\n"]
+		)
 		action, action_input, output = parse_latest_tool_call(output)
 		if action: # Cần phải gọi tools
 			# action và action_input lần lượt là mã của tool cần gọi và tham số đầu vào
@@ -102,15 +106,17 @@ def llm_with_tools(prompt: str, history, list_of_tools_info=()):
 			break
 	new_history = []
 	new_history.extend(history)
-	new_history.append({'user': prompt, 'bot': text})
+	new_history.append(
+		{'user': query, 'bot': text}
+	)
 	return text, new_history
 
 
 
-def build_input_text(chat_history, list_of_tools_info) -> str:
+def build_input_text(chat_history, tools):
 	"""Tổng hợp lịch sử hội thoại và thông tin plugin thành một văn bản đầu vào (context history)."""
 	tools_text = []
-	for tool_info in list_of_tools_info:
+	for tool_info in tools:
 		tool = TOOL_DESC.format(
 			name_for_model=tool_info["name_for_model"],
 			name_for_human=tool_info["name_for_human"],
@@ -118,27 +124,27 @@ def build_input_text(chat_history, list_of_tools_info) -> str:
 			parameters=json.dumps(tool_info["parameters"], ensure_ascii=False)
 		)
 		if tool_info.get("args_format", "json") == "json":
-			tool += " Format the arguments as a JSON object."
+			tool += ". Format the arguments as a JSON object."
 		elif tool_info["args_format"] == "code":
 			tool += " Enclose the code within triple backticks (`) at the beginning and end of the code."
 		else:
 			raise NotImplementedError
 		tools_text.append(tool)
-	tools_text = "\n\n".join(tools_text)
-
-	# Tool name 
-	tools_name_text = ", ".join([plugin_info["name_for_model"] for plugin_info in list_of_tools_info])
+	# tool desc
+	tools_desc = "\n\n".join(tools_text)
+	# tool name
+	tools_name = ", ".join([tool_info["name_for_model"] for tool_info in tools])
 
 	im_start = "<|im_start|>"
 	im_end = "<|im_end|>"
 	prompt = f"{im_start}system\nYou are a helpful assistant.{im_end}"
 	for i, (query, response) in enumerate(chat_history):
-		if list_of_tools_info:  # Nếu có gọi tool
+		if tools:  # Nếu có gọi tool
 			# Quyết định điền thông tin chi tiết của tool vào cuối hội thoại hoặc trước cuối hội thoại.
 			if (len(chat_history) == 1) or (i == len(chat_history) - 2):
-				query = PROMPT_REACT.format(
-					tools_text=tools_text,
-					tools_name_text=tools_name_text,
+				query =  PROMPT_REACT.format(
+					tools_desc=tools_desc,
+					tools_name=tools_name,
 					query=query
 				)
 		query = query.lstrip("\n").rstrip() # Quan trọng! Nếu không áp dụng strip, cấu trúc dữ liệu sẽ khác so với cách được xây dựng trong quá trình huấn luyện.
@@ -159,12 +165,12 @@ def text_completion(input_text: str, stop_words) -> str:  # Sử dụng cho task
 	im_end = "<|im_end|>"
 	if im_end not in stop_words:
 		stop_words = stop_words + [im_end]
-	res = model.invoke(prompt=input_text, stop=stop_words, max_tokens=4096, temperature=0.1)
+	res = model.invoke(input=input_text)
 	# Xử lý kết quả trả về: nếu kết quả bao gồm cả input_text ban đầu, loại bỏ nó đi.
-	if res.startswith(input_text):
-		res = res[len(input_text):]
+	if res.content.startswith(input_text):
+		res = res.content[len(input_text):]
 	# Loại bỏ các token đặc biệt nếu có
-	res = res.replace("<|endoftext|>", "").replace(im_end, "")
+	res = res.content.replace("<|endoftext|>", "").replace(im_end, "")
 	# Cắt kết quả nếu gặp từ dừng nào trong stop_words
 	for stop_str in stop_words:
 		idx = res.find(stop_str)
@@ -173,30 +179,6 @@ def text_completion(input_text: str, stop_words) -> str:  # Sử dụng cho task
 	return output # Trả về phần tiếp nối của input_text
 
 
-# def text_completion(input_text: str, stop_words) -> str:  # Sử dụng cho task text completion
-# 	model = MODEL
-# 	tokenizer = TOKENIZER
-# 	im_end = "<|im_end|>"
-# 	if im_end not in stop_words:
-# 		stop_words = stop_words + [im_end]
-# 	stop_words_ids = [tokenizer.encode(w) for w in stop_words]
-# 	# stop_words_ids = [tokenizer.encode(word, add_special_tokens=False) for word in stop_words]
-# 	# stop_words_ids = [token_id for sublist in stop_words_ids for token_id in sublist]
-# 	stopping_criteria = StoppingCriteriaList([SequenceStoppingCriteria(stop_words_ids)])
-
-# 	# TODO: Add sample implementation of streaming output
-# 	input_ids = torch.tensor([tokenizer.encode(input_text)]).to(model.device)
-# 	output = model.llm.generate(input_ids, stopping_criteria=stopping_criteria,max_length=4096,do_sample=False)
-# 	output = output.tolist()[0]
-# 	output = tokenizer.decode(output, errors="ignore")
-# 	assert output.startswith(input_text)
-# 	output = output[len(input_text):].replace('<|endoftext|>', '').replace(im_end, '')
-
-# 	for stop_str in stop_words:
-# 		idx = output.find(stop_str)
-# 		if idx != -1:
-# 			output = output[: idx + len(stop_str)]
-# 	return output  # Tiếp tục ghi kết quả của input_text, loại trừ nội dung của input_text
 
 
 
@@ -340,23 +322,10 @@ def token_counter(messages):
 
 def main():
 	tools = [
-		# {
-		# 	"name_for_human": "Generate Image from Sample Image",
-		# 	"name_for_model": "image_gen",
-		# 	"description_for_model": "Creates a new image based on a sample image.",
-		# 	"parameters": [
-		# 		{
-		# 			"name": "sample_image_path",
-		# 			"description": "Path to the sample image. Generates variations of the sample image for data augmentation.",
-		# 			"required": True,
-		# 			"schema": {"type": "string"}
-		# 		}
-		# 	]
-		# },
 		{
-			"name_for_human": "wenshengtu",
-			"name_for_model": "image_gen_prompt",
-			"description_for_model": "wenshengtu is a service that generates textual descriptions from images. By providing the URL of an image, it returns a detailed and realistic description of the image.",
+			"name_for_human": "image_to_text", 
+			"name_for_model": "image_to_text", 
+			"description_for_model": "image_to_text is a service that generates textual descriptions from images. By providing the URL of an image, it returns a detailed and realistic description of the image.",
 			"parameters": [
 				{
 					"name": "image_path",
@@ -367,12 +336,12 @@ def main():
 			],
 		},
 		{
-			"name_for_human": "wenshengtu",
-			"name_for_model": "image_gen",
-			"description_for_model": "wenshengtu is an AI image generation service. It takes a text description as input and returns a URL of the generated image.",
+			"name_for_human": "text_to_image",
+			"name_for_model": "text_to_image",
+			"description_for_model": "text_to_image is an AI image generation service. It takes a text description as input and returns a URL of the generated image.",
 			"parameters": [
 				{
-					"name": "prompt",
+					"name": "text",
 					"description": "english keywords or a text prompt describing what you want in the image.",
 					"required": True,
 					"schema": {"type": "string"}
@@ -380,9 +349,9 @@ def main():
 			]
 		},
 		{
-			"name_for_human": "modify text",
+			"name_for_human": "modify_text",
 			"name_for_model": "modify_text",
-			"description_for_model": "modify Text changes the original prompt based on the input request to make it more suitable.",
+			"description_for_model": "modify_text changes the original prompt based on the input request to make it more suitable.",
 			"parameters": [
 				{
 					"name": "describe_before",
@@ -400,11 +369,15 @@ def main():
 		}
 	]
 	history = []
-	for query in ["Hello", "Who is Jay Chou", "Who is his wife", "Draw me a cute kitten, preferably a black cat", "exit"]:
+	for query in ["Hello", "Who is Jay Chou?", "Who is his wife?", "Draw me a cute kitten, preferably a black cat", "exit"]:
 		if query.lower() == "exit":
 			break 
-		response, history = llm_with_tools(prompt=query, history=history, list_of_tools_info=tools)
-		print(f">>>🤖Deepseek-r1 response:\n{response}\n")
+		response, history = llm_with_tools(
+			query=query, 
+			history=history, 
+			tools=tools
+		)
+		print(f">>> 🤖 response:\n{response}\n")
 
 
 

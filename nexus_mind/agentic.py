@@ -40,24 +40,28 @@ MODEL = ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0.1)
 EMBEDDING_MODEL = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 TOKENIZER = AutoTokenizer.from_pretrained("/home/chwenjun225_laptop/.llama/checkpoints/Llama-3.2-1B-Instruct")
 TOOL_DESC = """{name_for_model}: Call this tool to interact with the {name_for_human} API. What is the {name_for_human} API useful for? {description_for_model} Parameters: {parameters}"""
-PROMPT_REACT = """Answer the following questions as best you can. You have access to the following APIs:
+PROMPT_REACT = """You are an AI assistant that follows the ReAct reasoning framework. 
+You have access to the following APIs:
 
 {tools_desc}
 
-Use the following format:
+Use the following strict format:
 
-Question: the input question you must answer
-Thought: you should always think about what to do
-Action: the action to take, should be one of [{tools_name}]
-Action Input: the input to the action
-Observation: the result of the action
-... (this Thought/Action/Action Input/Observation can be repeated zero or more times)
+### Input Format:
+
+Question: [The input question]
+Thought: [Think logically about the next step]
+Action: [Select from available tools: {tools_name}]
+Action Input: [Provide the required input]
+Observation: [Record the output from the action]
+... (Repeat the Thought/Action/Observation loop as needed)
 Thought: I now know the final answer
-Final Answer: the final answer to the original input question
+Final Answer: [Provide the final answer]
 
 Begin!
 
 Question: {query}"""
+STOP_WORDS = ["Observation:", "Observation:\n"]
 
 
 
@@ -85,17 +89,14 @@ def llm_with_tools(query, history, tools):
 	chat_history = [(x["user"], x["agent"]) for x in history] + [(query, "")]
 	# Ngữ cảnh trò chuyện để mô hình tiếp tục nội dung
 	planning_prompt = build_input_text(
-		chat_history=chat_history, 
-		tools=tools
+		chat_history=chat_history, tools=tools
 	)
 	text = ""
 	while True:
-		output = text_completion(
-			planning_prompt + text, 
-			stop_words=["Observation:", "Observation:\n"]
-		)
-		action, action_input, output = parse_latest_tool_call(output)
-		if action: # Cần phải gọi tools
+		planning_prompt += text
+		output = model_invoke(input_text=planning_prompt)
+		action, action_input, output = parse_latest_tool_call(text=output) 
+		if action: # Cần phải gọi tools 
 			# action và action_input lần lượt là mã của tool cần gọi và tham số đầu vào
 			# observation là kết quả trả về từ tool, dưới dạng chuỗi
 			observation = call_tool(action, action_input)
@@ -113,8 +114,9 @@ def llm_with_tools(query, history, tools):
 
 
 
-def build_input_text(chat_history, tools):
+def build_input_text(chat_history, tools, im_start = "<|im_start|>", im_end = "<|im_end|>"):
 	"""Tổng hợp lịch sử hội thoại và thông tin plugin thành một văn bản đầu vào (context history)."""
+	prompt = f"{im_start}system\nYou are a helpful assistant.{im_end}"
 	tools_text = []
 	for tool_info in tools:
 		tool = TOOL_DESC.format(
@@ -123,78 +125,68 @@ def build_input_text(chat_history, tools):
 			description_for_model=tool_info["description_for_model"],
 			parameters=json.dumps(tool_info["parameters"], ensure_ascii=False)
 		)
-		if tool_info.get("args_format", "json") == "json":
+		if dict(tool_info).get("args_format", "json") == "json":
 			tool += ". Format the arguments as a JSON object."
-		elif tool_info["args_format"] == "code":
-			tool += " Enclose the code within triple backticks (`) at the beginning and end of the code."
+		elif dict(tool_info).get("args_format", "code") == "code":
+			tool += ". Enclose the code within triple backticks (`) at the beginning and end of the code."
 		else:
 			raise NotImplementedError
 		tools_text.append(tool)
-	# tool desc
 	tools_desc = "\n\n".join(tools_text)
-	# tool name
 	tools_name = ", ".join([tool_info["name_for_model"] for tool_info in tools])
-
-	im_start = "<|im_start|>"
-	im_end = "<|im_end|>"
-	prompt = f"{im_start}system\nYou are a helpful assistant.{im_end}"
 	for i, (query, response) in enumerate(chat_history):
-		if tools:  # Nếu có gọi tool
+		# TODO: Nghiên cứu thêm RAG-tools-call xử lý gọi tool 
+		if tools:  # Nếu có gọi tool 
 			# Quyết định điền thông tin chi tiết của tool vào cuối hội thoại hoặc trước cuối hội thoại.
 			if (len(chat_history) == 1) or (i == len(chat_history) - 2):
-				query =  PROMPT_REACT.format(
-					tools_desc=tools_desc,
-					tools_name=tools_name,
+				query = PROMPT_REACT.format(
+					tools_desc=tools_desc, 
+					tools_name=tools_name, 
 					query=query
 				)
-		query = query.lstrip("\n").rstrip() # Quan trọng! Nếu không áp dụng strip, cấu trúc dữ liệu sẽ khác so với cách được xây dựng trong quá trình huấn luyện.
-		response = response.lstrip("\n").rstrip() # Quan trọng! Nếu không áp dụng strip, cấu trúc dữ liệu sẽ khác so với cách được xây dựng trong quá trình huấn luyện.
-		# Khi sử dụng chế độ hoàn thành văn bản, bạn cần sử dụng định dạng sau để phân biệt giữa người dùng và AI:
+		query = query.strip() # Quan trọng! Nếu không áp dụng strip, cấu trúc dữ liệu sẽ khác so với cách được xây dựng trong quá trình huấn luyện.
+		if isinstance(response, str):
+			response = response.strip()
+		elif not response:
+			raise ValueError(">>> Error: response is None or empty, expected a string.")  
+		else:
+			try:
+				response = str(response).strip() # Quan trọng! Nếu không áp dụng strip, cấu trúc dữ liệu sẽ khác so với cách được xây dựng trong quá trình huấn luyện.
+			except Exception as e:
+				raise e
+		# Khi sử dụng chế độ text_completion, bạn cần sử dụng định dạng sau để phân biệt giữa người dùng và AI 
 		prompt += f"\n{im_start}user\n{query}{im_end}"
 		prompt += f"\n{im_start}assistant\n{response}{im_end}"
-
 	assert prompt.endswith(f"\n{im_start}assistant\n{im_end}")
 	prompt = prompt[: -len(f"{im_end}")]
 	return prompt
 
 
 
-def text_completion(input_text: str, stop_words) -> str:  # Sử dụng cho task text completion
-	model = MODEL
-	tokenizer = TOKENIZER
+# TODO: Nghiên cứu triển có nên thay bằng FakeLLM không. 
+# LLM cho ra kết quả ra là có nên gọi tool hay không, sau đó 
+# sử dụng xử lý chuỗi để execution tools 
+def model_invoke(input_text):
+	"""Text completion sau đó chỉnh sửa kết quả inference output."""
 	im_end = "<|im_end|>"
-	if im_end not in stop_words:
-		stop_words = stop_words + [im_end]
-	res = model.invoke(input=input_text)
-	# Xử lý kết quả trả về: nếu kết quả bao gồm cả input_text ban đầu, loại bỏ nó đi.
-	if res.content.startswith(input_text):
-		res = res.content[len(input_text):]
-	# Loại bỏ các token đặc biệt nếu có
-	res = res.content.replace("<|endoftext|>", "").replace(im_end, "")
-	# Cắt kết quả nếu gặp từ dừng nào trong stop_words
-	for stop_str in stop_words:
-		idx = res.find(stop_str)
-		if idx != -1:
-			output = res[:idx + len(stop_str)]
-	return output # Trả về phần tiếp nối của input_text
-
-
+	end_of_text = "<|endoftext|>"
+	res = MODEL.invoke(input=input_text)
+	if not res or not hasattr(res, "content") or not isinstance(res.content, str):
+		raise ValueError(">>> [Error] MODEL.invoke() did not return a valid response.") # TODO: có thể thay thế với logging được không ?
+	# Loại bỏ các token đặc biệt 
+	output  = res.content.replace(end_of_text, "").replace(im_end, "")
+	return output 
 
 
 
 def parse_latest_tool_call(text):
 	tool_name, tool_args = "", ""
-	i = text.rfind("\nAction:")
-	j = text.rfind("\nAction Input:")
-	k = text.rfind("\nObservation:")
-	if 0 <= i < j:  # If the text has `Action` and `Action input`,
-		if k < j:  # but does not contain `Observation`,
-			# then it is likely that `Observation` is skipped by the LLM,
-			# because the output text may have discarded the stop word.
-			text = text.rstrip() + "\nObservation:"  # Add it back.
-		k = text.rfind("\nObservation:")
-		tool_name = text[i + len("\nAction:") : j].strip()
-		tool_args = text[j + len("\nAction Input:") : k].strip()
+	i = str(text).rfind("\nAction:")
+	j = str(text).rfind("\nAction Input:")
+	k = str(text).rfind("\nObservation:")
+	if 0 <= i < j < k:
+		tool_name = str(text[i + len("\nAction:") : j]).strip()
+		tool_args = str(text[j + len("\nAction Input:") : k]).strip()
 		text = text[:k]
 	return tool_name, tool_args, text
 

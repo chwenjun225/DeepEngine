@@ -27,10 +27,10 @@ from io import BytesIO
 
 # 忽略所有警告 Hūlüè suǒyǒu jǐnggào Bỏ qua tất cả các cảnh báo
 warnings.filterwarnings("ignore")
-# model_path='/root/ld/ld_model_pretrained/Minicpmv2_6'
-model_path = "/home/chwenjun225/.llama/checkpoints/Llama-3.2-1B-Instruct"
-# img_save_path = "/root/ld/ld_project/pull_request/MiniCPM_Series_Tutorial/agent_demo/local_image.jpg"
-img_save_path = "/home/chwenjun225/projects/DeepEngine/nexus_mind/images/sample_image.jpg"
+model_path='/root/ld/ld_model_pretrained/Minicpmv2_6'
+# model_path = "/home/chwenjun225/.llama/checkpoints/Llama-3.2-1B-Instruct"
+img_save_path = "/root/ld/ld_project/pull_request/MiniCPM_Series_Tutorial/agent_demo/local_image.jpg"
+# img_save_path = "/home/chwenjun225/projects/DeepEngine/nexus_mind/images/sample_image.jpg"
 
 # 定义自定义的 StoppingCriteria 类 Dìngyì zì dìngyì de Stopping_Criteria lèi Định nghĩa lớp StoppingCriteria tùy chỉnh
 class SequenceStoppingCriteria(StoppingCriteria):
@@ -247,13 +247,13 @@ def call_plugin(plugin_name: str, plugin_args: str) -> str:
 			image_path = json5.loads(plugin_args)["image_path"]
 			if image_path.startswith('http'):
 				headers = {
-			'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3',
-			'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-			'Accept-Language': 'en-US,en;q=0.5',
-			'Accept-Encoding': 'gzip, deflate, br',
-			'Connection': 'keep-alive',
-			'Upgrade-Insecure-Requests': '1'
-		}
+'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3',
+'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+'Accept-Language': 'en-US,en;q=0.5',
+'Accept-Encoding': 'gzip, deflate, br',
+'Connection': 'keep-alive',
+'Upgrade-Insecure-Requests': '1'
+				}
 				yzmdata = requests.get(image_path,headers=headers)
 				tempIm = BytesIO(yzmdata.content)
 				image1 = Image.open(tempIm).convert('RGB')
@@ -265,13 +265,13 @@ def call_plugin(plugin_name: str, plugin_args: str) -> str:
 			image_path=input("请输入图片地址或网址：")
 			if image_path.startswith('http'):
 				headers = {
-			'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3',
-			'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-			'Accept-Language': 'en-US,en;q=0.5',
-			'Accept-Encoding': 'gzip, deflate, br',
-			'Connection': 'keep-alive',
-			'Upgrade-Insecure-Requests': '1'
-		}
+'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3',
+'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+'Accept-Language': 'en-US,en;q=0.5',
+'Accept-Encoding': 'gzip, deflate, br',
+'Connection': 'keep-alive',
+'Upgrade-Insecure-Requests': '1'
+				}
 				yzmdata = requests.get(image_path,headers=headers)
 				tempIm = BytesIO(yzmdata.content)
 				image1 = Image.open(tempIm).convert('RGB')

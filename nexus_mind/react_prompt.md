@@ -22,7 +22,7 @@ TOOLS = [
 		"""description_for_model""": """Generate an output image based on the sample image""", 
 		"""parameters""": [
 			{
-				"""name""": """path_sample_image""", 
+				"""name""": """sample_image_path""", 
 				"""description""": """This is sample image path. Generates image variations from a sample image for data augmentation""", 
 				"""required""": True, 
 				"""schema""": {"""type""": """string"""}

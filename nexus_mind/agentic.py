@@ -11,12 +11,14 @@
 # 		 https://python.langchain.com/docs/integrations/providers/ollama/
 
 
+
+import streamlit as st 
+from datetime import datetime 
 import tqdm
 import requests
 import json
 import json5
 import fire 
-import torch 
 from PIL import Image
 from io import BytesIO
 
@@ -35,7 +37,61 @@ from langchain_core.messages import (AIMessage, HumanMessage, ToolMessage)
 
 
 
+idx=0
+
+
+
 # Constant vars 
+TOOLS = [
+	{
+		"name_for_human": "image_to_text", 
+		"name_for_model": "image_to_text", 
+		"description_for_model": "image_to_text is a service that generates textual descriptions from images. By providing the URL of an image, it returns a detailed and realistic description of the image.",
+		"parameters": [
+			{
+				"name": "image_path",
+				"description": "the URL of the image to be described",
+				"required": True,
+				"schema": {"type": "string"},
+			}
+		],
+	},
+	{
+		"name_for_human": "text_to_image",
+		"name_for_model": "text_to_image",
+		"description_for_model": "text_to_image is an AI image generation service. It takes a text description as input and returns a URL of the generated image.",
+		"parameters": [
+			{
+				"name": "text",
+				"description": "english keywords or a text prompt describing what you want in the image.",
+				"required": True,
+				"schema": {"type": "string"}
+			}
+		]
+	},
+	{
+		"name_for_human": "modify_text",
+		"name_for_model": "modify_text",
+		"description_for_model": "modify_text changes the original prompt based on the input request to make it more suitable.",
+		"parameters": [
+			{
+				"name": "describe_before",
+				"description": "the prompt or image description before modification.",
+				"required": True,
+				"schema": {"type": "string"}
+			},
+			{
+				"name": "modification_request",
+				"description": "the request to modify the prompt or image description, e.g., change 'cat' to 'dog' in the text.",
+				"required": True,
+				"schema": {"type": "string"}
+			}
+		]
+	}
+]
+
+
+
 FAKE_RESPONSES = [
 # "Hello, Good afternoon!", -- Fake resp id 0 -- No tool
 	"""
@@ -74,7 +130,9 @@ FAKE_RESPONSES = [
 	"""
 	Thought: The user wants to modify a text description. They want change from `A blue honda car parked on the street` to `A red Mazda car parked on the street`.
 	Final Answer: "A red Mazda car parked on the street."
-	"""
+	""", 
+# "exit", -- Fake resp id 6 -- No tool	
+	"""Goodbye! Have a great day! 😊"""
 ]
 
 
@@ -181,20 +239,21 @@ class SequenceStoppingCriteria(StoppingCriteria):
 
 
 
-def llm_with_tools(query, history, tools, idx):
+def llm_with_tools(query, history, tools):
+	global idx
 	# TODO: Lịch sử hội thoại càng to, thời gian thực thi vòng lặp for càng lớn. Làm sao để giải quyết?
 	chat_history = [(x["user"], x["bot"]) for x in history] + [(query, "")]
 	# Ngữ cảnh trò chuyện để mô hình tiếp tục nội dung
 	planning_prompt = build_input_text(chat_history=chat_history, tools=tools)
 	text = ""
 	while True:
-		resp = model_invoke(input_text=planning_prompt+text, idx=idx)
+		resp = model_invoke(input_text=planning_prompt+text)
 		action, action_input, output = parse_latest_tool_call(resp=resp) 
 		if action: # Cần phải gọi tools 
 			# action và action_input lần lượt là tool cần gọi và tham số đầu vào
 			# observation là kết quả trả về từ tool, dưới dạng chuỗi
 			res = tool_exe(
-				tool_name=action, tool_args=action_input, idx=idx
+				tool_name=action, tool_args=action_input
 			)
 			text += res
 			break
@@ -206,6 +265,7 @@ def llm_with_tools(query, history, tools, idx):
 	new_history.append(
 		{'user': query, 'bot': text}
 	)
+	idx += 1
 	return text, new_history
 
 
@@ -265,15 +325,15 @@ def build_input_text(
 
 
 
-def model_invoke(input_text, idx):
+def model_invoke(input_text):
 	"""Text completion, sau đó chỉnh sửa kết quả inference output."""
 	res = MODEL.invoke(input=input_text)
-	res = llm_fake_response(idx=idx)
+	res = llm_fake_response()
 	return res 
 
 
 
-def llm_fake_response(idx):
+def llm_fake_response():
 	"""Giả lập kết quả inference LLM."""
 	return DICT_FAKE_RESPONSES[idx]
 
@@ -302,7 +362,7 @@ def parse_latest_tool_call(resp):
 
 
 
-def tool_exe(tool_name: str, tool_args: str, idx: int) -> str:
+def tool_exe(tool_name: str, tool_args: str) -> str:
 	"""Thực thi công cụ (tool execution) được LLM gọi."""
 	img_save_path = "./"
 	tokenizer = TOKENIZER
@@ -314,7 +374,7 @@ def tool_exe(tool_name: str, tool_args: str, idx: int) -> str:
 				tool_args=tool_args, 
 				img_save_path=img_save_path
 			)
-		resp = llm_fake_response(idx)
+		resp = llm_fake_response()
 		return resp[resp.rfind("Final Answer") :]
 	elif tool_name == "text_to_image":
 		import urllib.parse
@@ -379,74 +439,43 @@ def token_counter(messages):
 
 
 def main():
-	tools = [
-		{
-			"name_for_human": "image_to_text", 
-			"name_for_model": "image_to_text", 
-			"description_for_model": "image_to_text is a service that generates textual descriptions from images. By providing the URL of an image, it returns a detailed and realistic description of the image.",
-			"parameters": [
-				{
-					"name": "image_path",
-					"description": "the URL of the image to be described",
-					"required": True,
-					"schema": {"type": "string"},
-				}
-			],
-		},
-		{
-			"name_for_human": "text_to_image",
-			"name_for_model": "text_to_image",
-			"description_for_model": "text_to_image is an AI image generation service. It takes a text description as input and returns a URL of the generated image.",
-			"parameters": [
-				{
-					"name": "text",
-					"description": "english keywords or a text prompt describing what you want in the image.",
-					"required": True,
-					"schema": {"type": "string"}
-				}
-			]
-		},
-		{
-			"name_for_human": "modify_text",
-			"name_for_model": "modify_text",
-			"description_for_model": "modify_text changes the original prompt based on the input request to make it more suitable.",
-			"parameters": [
-				{
-					"name": "describe_before",
-					"description": "the prompt or image description before modification.",
-					"required": True,
-					"schema": {"type": "string"}
-				},
-				{
-					"name": "modification_request",
-					"description": "the request to modify the prompt or image description, e.g., change 'cat' to 'dog' in the text.",
-					"required": True,
-					"schema": {"type": "string"}
-				}
-			]
-		}
-	]
-	history = []
-	for idx, query in tqdm.tqdm(enumerate([
-		"Hello, Good afternoon!", # -- id 0 
-		"Who is Jay Chou?", # -- id 1
-		"Who is his wife?", # -- id 2
-		"Describe what is in this image, this is URL of the image: https://www.night_city_img.com", # -- id 3
-		"Draw me a cute kitten, preferably a black cat", # -- id 4
-		"Modify this description: 'A blue Honda car parked on the street' to 'A red Mazda car parked on the street'", # --id 5
-		"exit"
-	])):
-		print(f">>> 🧑 query:\n{query}\n")
-		if query.lower() == "exit":
-			print(f">>> 🤖 response:\nGoodbye! Have a great day! 😊\n")
-			break 
-		response, history = llm_with_tools(
-			query=query, 
-			history=history, 
-			tools=tools, 
-			idx=idx
-		)
-		print(f">>> 🤖 response:\n{response}\n")
+	HISTORY = []
+	st.title("Research Demo")
+	st.markdown("AI Agent create AI")
+
+
+
+	# Initialize chat history
+	if "messages" not in st.session_state:
+		st.session_state.messages = []
+		
+
+
+	# Display chat messages from history on app rerun
+	for message in st.session_state.messages:
+		with st.chat_message(message["role"]):
+			st.markdown(message["content"])
+
+
+
+	# Accept user input
+	if query := st.chat_input("Type your messages..."):
+		# Add user message to chat history
+		st.session_state.messages.append({"role": "user", "content": query})
+		# Display user message in chat message container
+		with st.chat_message("user"):
+			st.markdown(query)
+
+		# Display assistant response in chat message container
+		with st.chat_message("assistant"):
+			# TODO: BUG output trên giao diện của streamlit -- DeltaGenerator(_provided_cursor=LockedCursor(_parent_path=(3,), _props={'delta_type': 'markdown', 'add_rows_metadata': None}), _parent=DeltaGenerator(_provided_cursor=RunningCursor(_parent_path=(3,), _index=1), _parent=DeltaGenerator(), _block_type='chat_message', _form_data=FormData(form_id='')))
+			response, HISTORY = llm_with_tools(
+					query=query, 
+					history=HISTORY, 
+					tools=TOOLS
+				)
+			response  = st.markdown(response)
+		st.session_state.messages.append({"role": "assistant", "content": response})
 
 
 
@@ -455,74 +484,37 @@ if __name__ == "__main__":
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+	# "Hello, Good afternoon!", # -- id 0 
+	# "Who is Jay Chou?", # -- id 1
+	# "Who is his wife?", # -- id 2
+	# "Describe what is in this image, this is URL of the image: https://www.night_city_img.com", # -- id 3
+	# "Draw me a cute kitten, preferably a black cat", # -- id 4
+	# "Modify this description: 'A blue Honda car parked on the street' to 'A red Mazda car parked on the street'", # --id 5
+	# "exit" # -- id 6 
+
+
+
+	# if False:
+	# 	for idx, query in tqdm.tqdm(enumerate([
+	# 		"Hello, Good afternoon!", # -- id 0 
+	# 		"Who is Jay Chou?", # -- id 1
+	# 		"Who is his wife?", # -- id 2
+	# 		"Describe what is in this image, this is URL of the image: https://www.night_city_img.com", # -- id 3
+	# 		"Draw me a cute kitten, preferably a black cat", # -- id 4
+	# 		"Modify this description: 'A blue Honda car parked on the street' to 'A red Mazda car parked on the street'", # --id 5
+	# 		"exit"
+	# 	])):
+	# 		print(f">>> 🧑 query:\n{query}\n")
+	# 		if query.lower() == "exit":
+	# 			print(f">>> 🤖 response:\nGoodbye! Have a great day! 😊\n")
+	# 			break 
+	# 		response, history = llm_with_tools(
+	# 			query=query, 
+	# 			history=history, 
+	# 			tools=TOOLS, 
+	# 			idx=idx
+	# 		)
+	# 		print(f">>> 🤖 response:\n{response}\n")
 
 
 

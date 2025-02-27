@@ -12,7 +12,6 @@
 
 
 
-import streamlit as st 
 from datetime import datetime 
 import tqdm
 import requests
@@ -25,7 +24,6 @@ from io import BytesIO
 
 
 from pydantic import BaseModel, Field
-from transformers import (StoppingCriteria, StoppingCriteriaList, AutoTokenizer)
 
 
 
@@ -34,10 +32,6 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_community.llms.fake import FakeStreamingListLLM
 from langchain_core.messages import (AIMessage, HumanMessage, ToolMessage)
-
-
-
-idx=0
 
 
 
@@ -87,7 +81,20 @@ TOOLS = [
 				"schema": {"type": "string"}
 			}
 		]
-	}
+	}, 
+	{
+		"name_for_human": "ai_vision", 
+		"name_for_model": "ai_vision", 
+		"description_for_model": "ai_vision is a service that detects and extracts characters from a product image. It processes the image and returns the recognized text to the AI agent for further analysis.",
+		"parameters": [
+			{
+				"name": "video_path",
+				"description": "The file path of a video or the IP address of a camera for real-time character detection.",
+				"required": True,
+				"schema": {"type": "string"}
+			}
+		],
+	},
 ]
 
 
@@ -131,7 +138,12 @@ FAKE_RESPONSES = [
 	Thought: The user wants to modify a text description. They want change from `A blue honda car parked on the street` to `A red Mazda car parked on the street`.
 	Final Answer: "A red Mazda car parked on the street."
 	""", 
-# "exit", -- Fake resp id 6 -- No tool	
+# Check chữ trên sản phẩm
+	"""
+	Tạm Thời:
+	Nhận được tín hiệu xử lý từ AI-Vision, bao gồm 1. fuzetea, Fuzetea là một nhãn hiệu trà giải khát được phân phối tại Việt nam, các thông tin chuỗi nhận diện được còn lại như passion fruit tea and chia seeds and youthful-life-every day đều đầy đủ ngữ nghĩa -- sản phẩm OK.
+	"""
+# "exit",
 	"""Goodbye! Have a great day! 😊"""
 ]
 
@@ -146,10 +158,6 @@ MODEL = FakeStreamingListLLM(responses=[""])
 
 
 EMBEDDING_MODEL = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-
-
-
-TOKENIZER = AutoTokenizer.from_pretrained("google-bert/bert-base-uncased")
 
 
 
@@ -188,36 +196,15 @@ STOP_WORDS = ["Observation:", "Observation:\n"]
 
 
 
-class SequenceStoppingCriteria(StoppingCriteria):
-	"""Tùy chỉnh điều kiện dừng sinh chuỗi cho LLM."""
-	def __init__(self, sequence_ids):
-		self.sequence_ids = sequence_ids
-		self.current_sequence = []
-	def check_sequences(self, current_tokens, sequences):
-		"""
-		Kiểm tra các tokens được tạo có chứa một chuỗi ký tự lặp hay không.
-
-		:param current_tokens: 
-			Danh sách các tokens hiện đang được tạo.
-		:param sequences: 
-			Một danh sách chứa nhiều chuỗi ký tự lặp.
-		:return: 
-			Trả về True nếu chuỗi ký tự lặp nào xuất hiện trong current_token, nếu không thì trả về False.
-		"""
-		for i in range(len(current_tokens) - max(map(len, sequences)) + 1):
-			for seq in sequences:
-				if current_tokens[i:i+len(seq)] == seq:
-					return True
-		return False
-	def __call__(self, input_ids, scores, **kwargs):
-		# Nhận các tokens hiện tại đang được tạo.
-		current_tokens = [input_ids[-1][-1]]
-		# Kiểm tra các tokens liên tiếp có khớp với chuỗi dừng không
-		self.current_sequence.extend(current_tokens)
-		# Kiểm tra xem các mã thông báo hiện được tạo có chứa một chuỗi số liên tiếp cụ thể hay không
-		if self.check_sequences(self.current_sequence, self.sequence_ids):
-			return True  # Dừng tạo
-		return False
+class ResponseWithChainOfThought(BaseModel):
+	"""LLM xuất output định dạng ReAct khi gặp truy vấn cần CoT."""
+	question: str
+	thought: str
+	action: str
+	action_input: str
+	observation: str
+	final_thought: str
+	final_answer: str
 
 
 
@@ -239,21 +226,20 @@ class SequenceStoppingCriteria(StoppingCriteria):
 
 
 
-def llm_with_tools(query, history, tools):
-	global idx
+def llm_with_tools(query, history, tools, idx):
 	# TODO: Lịch sử hội thoại càng to, thời gian thực thi vòng lặp for càng lớn. Làm sao để giải quyết?
 	chat_history = [(x["user"], x["bot"]) for x in history] + [(query, "")]
 	# Ngữ cảnh trò chuyện để mô hình tiếp tục nội dung
 	planning_prompt = build_input_text(chat_history=chat_history, tools=tools)
 	text = ""
 	while True:
-		resp = model_invoke(input_text=planning_prompt+text)
+		resp = model_invoke(input_text=planning_prompt+text, idx=idx)
 		action, action_input, output = parse_latest_tool_call(resp=resp) 
 		if action: # Cần phải gọi tools 
 			# action và action_input lần lượt là tool cần gọi và tham số đầu vào
 			# observation là kết quả trả về từ tool, dưới dạng chuỗi
 			res = tool_exe(
-				tool_name=action, tool_args=action_input
+				tool_name=action, tool_args=action_input, idx=idx
 			)
 			text += res
 			break
@@ -325,15 +311,15 @@ def build_input_text(
 
 
 
-def model_invoke(input_text):
+def model_invoke(input_text, idx):
 	"""Text completion, sau đó chỉnh sửa kết quả inference output."""
 	res = MODEL.invoke(input=input_text)
-	res = llm_fake_response()
+	res = llm_fake_response(idx=idx)
 	return res 
 
 
 
-def llm_fake_response():
+def llm_fake_response(idx):
 	"""Giả lập kết quả inference LLM."""
 	return DICT_FAKE_RESPONSES[idx]
 
@@ -353,6 +339,64 @@ def parse_latest_tool_call(resp):
 
 
 
+def text_to_image(tool_args):
+	import urllib.parse
+	prompt = json5.loads(tool_args)["text"]
+	prompt = urllib.parse.quote(prompt)
+	return json.dumps({"image_url": f"https://image.pollinations.ai/prompt/{prompt}"}, ensure_ascii=False)
+
+
+
+def image_to_text(tool_args, idx, img_save_path="./"):
+	# Giả lập thực thi công cụ image_to_text
+	if "": 
+		img = request_image_from_web(
+			tool_args=tool_args, 
+			img_save_path=img_save_path
+		)
+	resp = llm_fake_response(idx=idx)
+	return resp[resp.rfind("Final Answer") :]
+
+
+
+def llm_vision(tool_args, idx):
+	import numpy as np 
+	import cv2 
+	from paddleocr import PaddleOCR, draw_ocr
+	from PIL import Image 
+	vid_path = "G:/tranvantuan/fuzetea_vid2.mp4"
+	ocr = PaddleOCR(use_angle_cls=True, lang='en') 
+	cap = cv2.VideoCapture(vid_path)
+	if not cap.isOpened():
+		print(">>> Can not open camera")
+		exit()
+	print(">>> Starting real-time OCR. Press 'q' to exit.")
+	while True:
+		ret, frame = cap.read()
+		if not ret:
+			print(">>> Can't receive frame (stream end?). Exiting...")
+			break 
+		# Perform OCR on the current frame
+		result = ocr.ocr(frame, cls=False)
+		# Draw detected text on the frame
+		for res in result:
+			for line in res:
+				box, (text, score) = line 
+				box = np.array(box, dtype=np.int32)
+				# Draw bounding box
+				cv2.polylines(frame, [box], isClosed=True, color=(0, 255, 0), thickness=2)
+				# Display text near the bounding box
+				x, y = box[0]
+				cv2.putText(frame, f"{text} ({score:.2f})", (x, y - 10), 
+				cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+
+		cv2.imshow("Research Demo AI-Agent create AI-Vision", frame)
+		if cv2.waitKey(1) & 0xFF == ord('q'):
+			break 
+
+	cap.release()
+	cv2.destroyAllWindows()
+	print(">>> OCR session ended.")
 # Input:
 #   tool_name: Tool được gọi, tương ứng với name_for_model.
 #   tool_args：Tham số đầu vào của tool, là một dict. key và value của dict lần lượt là tên tham số và giá trị tham số
@@ -362,25 +406,21 @@ def parse_latest_tool_call(resp):
 
 
 
-def tool_exe(tool_name: str, tool_args: str) -> str:
+def tool_exe(tool_name: str, tool_args: str, idx: int, video_path: str) -> str:
 	"""Thực thi công cụ (tool execution) được LLM gọi."""
-	img_save_path = "./"
-	tokenizer = TOKENIZER
-	model = MODEL
 	if tool_name == "image_to_text":
-		# Giả lập thực thi công cụ image_to_text
-		if "": 
-			img = request_image_from_web(
-				tool_args=tool_args, 
-				img_save_path=img_save_path
-			)
-		resp = llm_fake_response()
-		return resp[resp.rfind("Final Answer") :]
+		resp = image_to_text(
+			tool_args=tool_args, idx=idx
+		)
+		return resp
 	elif tool_name == "text_to_image":
-		import urllib.parse
-		prompt = json5.loads(tool_args)["text"]
-		prompt = urllib.parse.quote(prompt)
-		return json.dumps({"image_url": f"https://image.pollinations.ai/prompt/{prompt}"}, ensure_ascii=False)
+		resp = text_to_image(tool_args=tool_args)
+	elif tool_name == "llm_vision":
+		resp = llm_vision(
+			tool_args=tool_args, 
+			idx=idx, 
+		)
+		return resp
 	else:
 		raise NotImplementedError
 
@@ -430,52 +470,30 @@ def request_image_from_web(tool_args, img_save_path="./"):
 
 
 
-def token_counter(messages):
-	"""Đếm số lượng token từ danh sách tin nhắn."""
-	tokenizer = TOKENIZER
-	text = " ".join([msg.content for msg in messages])
-	return len(tokenizer.encode(text)) 
-
-
-
 def main():
-	HISTORY = []
-	st.title("Research Demo")
-	st.markdown("AI Agent create AI")
-
-
-
-	# Initialize chat history
-	if "messages" not in st.session_state:
-		st.session_state.messages = []
-		
-
-
-	# Display chat messages from history on app rerun
-	for message in st.session_state.messages:
-		with st.chat_message(message["role"]):
-			st.markdown(message["content"])
-
-
-
-	# Accept user input
-	if query := st.chat_input("Type your messages..."):
-		# Add user message to chat history
-		st.session_state.messages.append({"role": "user", "content": query})
-		# Display user message in chat message container
-		with st.chat_message("user"):
-			st.markdown(query)
-
-		# Display assistant response in chat message container
-		with st.chat_message("assistant"):
-			# TODO: BUG output trên giao diện của streamlit -- DeltaGenerator(_provided_cursor=LockedCursor(_parent_path=(3,), _props={'delta_type': 'markdown', 'add_rows_metadata': None}), _parent=DeltaGenerator(_provided_cursor=RunningCursor(_parent_path=(3,), _index=1), _parent=DeltaGenerator(), _block_type='chat_message', _form_data=FormData(form_id='')))
-			response, HISTORY = llm_with_tools(
-					query=query, 
-					history=HISTORY, 
-					tools=TOOLS
-				)
-			response  = st.markdown(response)
-		st.session_state.messages.append({"role": "assistant", "content": response})
+	history = []
+	for idx, query in tqdm.tqdm(enumerate([
+		"Hello, Good afternoon!", # -- id 0 
+		"Who is Jay Chou?", # -- id 1
+		"Who is his wife?", # -- id 2
+		"Describe what is in this image, this is URL of the image: https://www.night_city_img.com", # -- id 3
+		"Draw me a cute kitten, preferably a black cat", # -- id 4
+		"Modify this description: 'A blue Honda car parked on the street' to 'A red Mazda car parked on the street'", # --id 5
+		"I need to verify the characters on this product. Here is the image path of the product: G:/tranvantuan/fuzetea.jpg", # --id 6
+		"exit" 
+	])):
+		print("\n")
+		print(f">>> 🧑 query:\n\t{query}\n")
+		if query.lower() == "exit":
+			print(f">>> 🤖 response:\nGoodbye! Have a great day! 😊\n")
+			break 
+		response, history = llm_with_tools(
+			query=query, 
+			history=history, 
+			tools=TOOLS, 
+			idx=idx
+		)
+		print(f">>> 🤖 response:\n{response}\n")
 
 
 
@@ -484,92 +502,76 @@ if __name__ == "__main__":
 
 
 
-	# "Hello, Good afternoon!", # -- id 0 
-	# "Who is Jay Chou?", # -- id 1
-	# "Who is his wife?", # -- id 2
-	# "Describe what is in this image, this is URL of the image: https://www.night_city_img.com", # -- id 3
-	# "Draw me a cute kitten, preferably a black cat", # -- id 4
-	# "Modify this description: 'A blue Honda car parked on the street' to 'A red Mazda car parked on the street'", # --id 5
-	# "exit" # -- id 6 
+# TODO: 
+# Kịch bản Demo -- Tôi cần bạn giúp tôi tracking chữ trên vật thể này, 
+# với các yêu cầu sau: 
+# 1. Chữ có đủ không. 
+# 2. Có bị sai nghĩa không
+
+
+if False:
+		
+	import numpy as np 
+	import cv2 
+	from paddleocr import PaddleOCR, draw_ocr
+	from PIL import Image
+
+
+	vid_path = "G:/tranvantuan/fuzetea_vid2.mp4"
 
 
 
-	# if False:
-	# 	for idx, query in tqdm.tqdm(enumerate([
-	# 		"Hello, Good afternoon!", # -- id 0 
-	# 		"Who is Jay Chou?", # -- id 1
-	# 		"Who is his wife?", # -- id 2
-	# 		"Describe what is in this image, this is URL of the image: https://www.night_city_img.com", # -- id 3
-	# 		"Draw me a cute kitten, preferably a black cat", # -- id 4
-	# 		"Modify this description: 'A blue Honda car parked on the street' to 'A red Mazda car parked on the street'", # --id 5
-	# 		"exit"
-	# 	])):
-	# 		print(f">>> 🧑 query:\n{query}\n")
-	# 		if query.lower() == "exit":
-	# 			print(f">>> 🤖 response:\nGoodbye! Have a great day! 😊\n")
-	# 			break 
-	# 		response, history = llm_with_tools(
-	# 			query=query, 
-	# 			history=history, 
-	# 			tools=TOOLS, 
-	# 			idx=idx
-	# 		)
-	# 		print(f">>> 🤖 response:\n{response}\n")
+	ocr = PaddleOCR(use_angle_cls=True, lang='en') 
 
 
 
-# def select_tools(state: State) -> State:
-# 	query = state["messages"][-1].content
-# 	tool_docs = tools_retriever.invoke(query)
-# 	return {"selected_tools": [doc.metadata["name"] for doc in tool_docs]}
+	cap = cv2.VideoCapture(vid_path)
+	if not cap.isOpened():
+		print(">>> Can not open camera")
+		exit()
+	print(">>> Starting real-time OCR. Press 'q' to exit.")
+	while True:
+		ret, frame = cap.read()
+		if not ret:
+			print(">>> Can't receive frame (stream end?). Exiting...")
+			break 
+		# Perform OCR on the current frame
+		result = ocr.ocr(frame, cls=False)
+		# Draw detected text on the frame
+		for res in result:
+			for line in res:
+				box, (text, score) = line 
+				box = np.array(box, dtype=np.int32)
+				# Draw bounding box
+				cv2.polylines(frame, [box], isClosed=True, color=(0, 255, 0), thickness=2)
+				# Display text near the bounding box
+				x, y = box[0]
+				cv2.putText(frame, f"{text} ({score:.2f})", (x, y - 10), 
+				cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
 
-# def reflect(state: State) -> State:
-# 	class_map = {
-# 		AIMessage: HumanMessage, 
-# 		HumanMessage: AIMessage, 
-# 		ToolMessage: HumanMessage 
-# 	}
-# 	translated = [reflection_prompt, state["messages"][0]] + [
-# 		class_map[msg.__class__](content=msg.content) 
-# 		for msg in state["messages"][1:]
-# 	]
-# 	answer = model.invoke(translated)
-# 	return {"messages": [HumanMessage(content=answer.content)]}
+		cv2.imshow("Research Demo AI-Agent create AI-Vision", frame)
+		if cv2.waitKey(1) & 0xFF == ord('q'):
+			break 
 
-# def should_continue(state: State):
-# 	if len(state["messages"]) > 6:
-# 		return END
-# 	else:
-# 		return "reflect"
+	cap.release()
+	cv2.destroyAllWindows()
+	print(">>> OCR session ended.")
 
-# def chatbot(state: State) -> State:
-# 	selected_tools = [tool for tool in tools if tool.name in state["selected_tools"]]
-# 	answer = model.bind_tools(selected_tools).invoke([generate_prompt] + state["messages"])
-# 	return {"messages": [answer]}
+	# img_path = 'G:/tranvantuan/fuzetea.jpg'
+	# result = ocr.ocr(image, cls=True)
+	# for idx in range(len(result)):
+	#     res = result[idx]
+	#     for line in res:
+	#         print(line)
 
-# def main():
-# 	"""Thực thi chương trình."""
-# 	builder = StateGraph(State)
 
-# 	builder.add_node("select_tools", select_tools)
-# 	builder.add_node("chatbot", chatbot)
-# 	builder.add_node("tools", ToolNode(tools))
-# 	builder.add_node("reflect", reflect)
 
-# 	builder.add_edge(START, "select_tools")
-# 	builder.add_edge("select_tools", "chatbot")
-# 	builder.add_conditional_edges("chatbot", tools_condition)
-# 	builder.add_edge("tools", "chatbot")
-# 	builder.add_conditional_edges("chatbot", should_continue)
-# 	builder.add_edge("reflect", "chatbot")
-	
-# 	graph = builder.compile(checkpointer=MemorySaver())
-
-# 	user_input = {
-# 		"messages": [HumanMessage("""What is Large Language Model?""")]
-# 	}
-# 	for chunk in graph.stream(user_input, config):
-# 		print(chunk)
-
-# if __name__ == "__main__":
-# 	fire.Fire(main)
+	# # draw result
+	# result = result[0]
+	# image = Image.open(img_path).convert('RGB')
+	# boxes = [line[0] for line in result]
+	# txts = [line[1][0] for line in result]
+	# scores = [line[1][1] for line in result]
+	# im_show = draw_ocr(image, boxes, txts, scores)
+	# im_show = Image.fromarray(im_show)
+	# im_show.save('result.jpg')

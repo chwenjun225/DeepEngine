@@ -82,7 +82,7 @@ TOOLS = [
 			}
 		]
 	}, 
-	{
+	{ # TODO: Đã tạo fake tool cho llm_vision 
 		"name_for_human": "ai_vision_ocr", 
 		"name_for_model": "ai_vision_ocr", 
 		"description_for_model": "ai_vision_ocr is a service that detects and extracts characters from a product image. It processes the image and returns the recognized text to the AI agent for further analysis.",
@@ -138,6 +138,8 @@ FAKE_RESPONSES = [
 	Thought: The user wants to modify a text description. They want change from `A blue honda car parked on the street` to `A red Mazda car parked on the street`.
 	Final Answer: "A red Mazda car parked on the street."
 	""", 
+# TODO: Tạo fake kịch bản đầu ra cho llm_vision 
+# ""
 # "exit",
 	"""Goodbye! Have a great day! 😊"""
 ]
@@ -474,6 +476,8 @@ def main():
 		"Describe what is in this image, this is URL of the image: https://www.night_city_img.com", # -- id 3
 		"Draw me a cute kitten, preferably a black cat", # -- id 4
 		"Modify this description: 'A blue Honda car parked on the street' to 'A red Mazda car parked on the street'", # --id 5
+		# TODO: Đã tạo xong kịch bản đầu vào
+		"I need to check the text on this product in real-time to see if it is accurate and complete. Here is the link of video product: /home/chwenjun225/projects/DeepEngine/nexus_mind/images/fuzetea_vid1.mp4", # -- id 6
 		"exit" 
 	])):
 		print("\n")

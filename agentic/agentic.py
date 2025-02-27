@@ -1,24 +1,45 @@
-from langchain_community.llms.fake import FakeListLLM
-from langchain_core.messages import (AIMessage, HumanMessage, ToolMessage, SystemMessage)
-from langchain_core.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate 
+from langchain_ollama import ChatOllama
 
 
 
-tool_desc = PromptTemplate.from_template("""{name_for_model}: Call this tool to interact with the {name_for_human} API. What is the {name_for_human} API useful for? {description_for_model} Parameters: {parameters}""")
-react_prompt = PromptTemplate.from_template("""Answer the following questions as best you can. You have access to the following APIs:
+from pydantic import BaseModel
 
-{tools_text}
 
-Use the following format:
 
-Question: the input question you must answer
-Thought: you should always think about what to do
-Action: the action to take, should be one of [{tools_name_text}]
-Action Input: the input to the action
-Observation: the result of the action
-... (this Thought/Action/Action Input/Observation can be repeated zero or more times)
+class AnswerWithJustification(BaseModel):
+	"""An answer to the user's question along with justification for the answer."""
+	answer: str
+	justification: str
+
+
+
+tool_desc = PromptTemplate.from_template(
+	"""{name_for_model}: Call this tool to interact with the {name_for_human} API. 
+What is the {name_for_human} API useful for? 
+{description_for_model}.
+Parameters: {parameters}"""
+)
+
+
+
+prompt_react = PromptTemplate.from_template("""You are an AI assistant that follows the ReAct reasoning framework. 
+You have access to the following APIs:
+
+{tools_desc}
+
+Use the following strict format:
+
+### Input Format:
+
+Question: [The input question]
+Thought: [Think logically about the next step]
+Action: [Select from available tools: {tools_name}]
+Action Input: [Provide the required input]
+Observation: [Record the output from the action]
+... (Repeat the Thought/Action/Observation loop as needed)
 Thought: I now know the final answer
-Final Answer: the final answer to the original input question
+Final Answer: [Provide the final answer]
 
 Begin!
 
@@ -26,13 +47,18 @@ Question: {query}""")
 
 
 
-MODEL = FakeListLLM(responses=["""Chúc bạn có một ngày mới tốt lành, đây là FakeLMM!"""])
+STOP_WORDS = ["Observation:", "Observation:\n"]
+
+model = ChatOllama(
+	model="llama3.2:1b-instruct-fp16", 
+	temperature=0.1, 
+	num_predict="1024"
+)
 
 
 
-res = MODEL.invoke([
-	SystemMessage(content="""You're a helpful assistant"""),
-	HumanMessage(content="""What is the purpose of model regularization?""")    
-])
+model_structured_outptu = model.with_structured_output(AnswerWithJustification)
 
-print(res)
+resp = model_structured_outptu.invoke("""What weighs more, a pound of bricks or a pound of feathers""")
+
+print(resp)

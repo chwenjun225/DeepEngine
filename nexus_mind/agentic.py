@@ -12,18 +12,18 @@
 
 
 
+from datetime import datetime 
+import tqdm
 import requests
 import json
 import json5
 import fire 
-import torch 
 from PIL import Image
 from io import BytesIO
 
 
 
 from pydantic import BaseModel, Field
-from transformers import (StoppingCriteria, StoppingCriteriaList, AutoTokenizer)
 
 
 
@@ -36,6 +36,69 @@ from langchain_core.messages import (AIMessage, HumanMessage, ToolMessage)
 
 
 # Constant vars 
+TOOLS = [
+	{
+		"name_for_human": "image_to_text", 
+		"name_for_model": "image_to_text", 
+		"description_for_model": "image_to_text is a service that generates textual descriptions from images. By providing the URL of an image, it returns a detailed and realistic description of the image.",
+		"parameters": [
+			{
+				"name": "image_path",
+				"description": "the URL of the image to be described",
+				"required": True,
+				"schema": {"type": "string"},
+			}
+		],
+	},
+	{
+		"name_for_human": "text_to_image",
+		"name_for_model": "text_to_image",
+		"description_for_model": "text_to_image is an AI image generation service. It takes a text description as input and returns a URL of the generated image.",
+		"parameters": [
+			{
+				"name": "text",
+				"description": "english keywords or a text prompt describing what you want in the image.",
+				"required": True,
+				"schema": {"type": "string"}
+			}
+		]
+	},
+	{
+		"name_for_human": "modify_text",
+		"name_for_model": "modify_text",
+		"description_for_model": "modify_text changes the original prompt based on the input request to make it more suitable.",
+		"parameters": [
+			{
+				"name": "describe_before",
+				"description": "the prompt or image description before modification.",
+				"required": True,
+				"schema": {"type": "string"}
+			},
+			{
+				"name": "modification_request",
+				"description": "the request to modify the prompt or image description, e.g., change 'cat' to 'dog' in the text.",
+				"required": True,
+				"schema": {"type": "string"}
+			}
+		]
+	}, 
+	{
+		"name_for_human": "ai_vision", 
+		"name_for_model": "ai_vision", 
+		"description_for_model": "ai_vision is a service that detects and extracts characters from a product image. It processes the image and returns the recognized text to the AI agent for further analysis.",
+		"parameters": [
+			{
+				"name": "video_path",
+				"description": "The file path of a video or the IP address of a camera for real-time character detection.",
+				"required": True,
+				"schema": {"type": "string"}
+			}
+		],
+	},
+]
+
+
+
 FAKE_RESPONSES = [
 # "Hello, Good afternoon!", -- Fake resp id 0 -- No tool
 	"""
@@ -56,7 +119,7 @@ FAKE_RESPONSES = [
 	"""
 	Thought: The user wants a description of an image. I should use the image_to_text API.
 	Action: image_to_text
-	Action Input: {"image_path": "[User provided image URL]"}
+	Action Input: {"image_path": "https://www.tushengwen.com"}
 	Observation: "The image depicts a vibrant cityscape at night, illuminated by neon lights and tall skyscrapers."
 	Thought: I now know the final answer.
 	Final Answer: The image depicts a vibrant cityscape at night, illuminated by neon lights and tall skyscrapers.
@@ -72,13 +135,11 @@ FAKE_RESPONSES = [
 	""", 
 # "Modify this description: 'A blue Honda car parked on the street' to 'A red Mazda car parked on the street'", -- Fake resp id 5 -- Tool-use: modify_text
 	"""
-	Thought: The user wants to modify a text description. I should use the modify_text API.
-	Action: modify_text
-	Action Input: {"describe_before": "A blue honda car parked on the street", "modification_request": "Change 'blue Honda' to 'red Mazda'"}
-	Observation: "A red Mazda car parked on the street"
-	Thought: I now know the final answer.
-	Final Answer: "A red Mazda car parked on the street"
-	"""
+	Thought: The user wants to modify a text description. They want change from `A blue honda car parked on the street` to `A red Mazda car parked on the street`.
+	Final Answer: "A red Mazda car parked on the street."
+	""", 
+# "exit",
+	"""Goodbye! Have a great day! 😊"""
 ]
 
 
@@ -88,14 +149,6 @@ DICT_FAKE_RESPONSES = {idx: fresp for idx, fresp in enumerate(FAKE_RESPONSES)}
 
 
 MODEL = FakeStreamingListLLM(responses=[""])
-
-
-
-EMBEDDING_MODEL = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-
-
-
-TOKENIZER = AutoTokenizer.from_pretrained("google-bert/bert-base-uncased")
 
 
 
@@ -134,36 +187,15 @@ STOP_WORDS = ["Observation:", "Observation:\n"]
 
 
 
-class SequenceStoppingCriteria(StoppingCriteria):
-	"""Tùy chỉnh điều kiện dừng sinh chuỗi cho LLM."""
-	def __init__(self, sequence_ids):
-		self.sequence_ids = sequence_ids
-		self.current_sequence = []
-	def check_sequences(self, current_tokens, sequences):
-		"""
-		Kiểm tra các tokens được tạo có chứa một chuỗi ký tự lặp hay không.
-
-		:param current_tokens: 
-			Danh sách các tokens hiện đang được tạo.
-		:param sequences: 
-			Một danh sách chứa nhiều chuỗi ký tự lặp.
-		:return: 
-			Trả về True nếu chuỗi ký tự lặp nào xuất hiện trong current_token, nếu không thì trả về False.
-		"""
-		for i in range(len(current_tokens) - max(map(len, sequences)) + 1):
-			for seq in sequences:
-				if current_tokens[i:i+len(seq)] == seq:
-					return True
-		return False
-	def __call__(self, input_ids, scores, **kwargs):
-		# Nhận các tokens hiện tại đang được tạo.
-		current_tokens = [input_ids[-1][-1]]
-		# Kiểm tra các tokens liên tiếp có khớp với chuỗi dừng không
-		self.current_sequence.extend(current_tokens)
-		# Kiểm tra xem các mã thông báo hiện được tạo có chứa một chuỗi số liên tiếp cụ thể hay không
-		if self.check_sequences(self.current_sequence, self.sequence_ids):
-			return True  # Dừng tạo
-		return False
+class ResponseWithChainOfThought(BaseModel):
+	"""LLM xuất output định dạng ReAct khi gặp truy vấn cần CoT."""
+	question: str
+	thought: str
+	action: str
+	action_input: str
+	observation: str
+	final_thought: str
+	final_answer: str
 
 
 
@@ -186,20 +218,23 @@ class SequenceStoppingCriteria(StoppingCriteria):
 
 
 def llm_with_tools(query, history, tools, idx):
+	# TODO: Lịch sử hội thoại càng to, thời gian thực thi vòng lặp for càng lớn. Làm sao để giải quyết?
 	chat_history = [(x["user"], x["bot"]) for x in history] + [(query, "")]
 	# Ngữ cảnh trò chuyện để mô hình tiếp tục nội dung
 	planning_prompt = build_input_text(chat_history=chat_history, tools=tools)
 	text = ""
 	while True:
 		resp = model_invoke(input_text=planning_prompt+text, idx=idx)
-		action, action_input, output = parse_latest_tool_call(response=resp) 
+		action, action_input, output = parse_latest_tool_call(resp=resp) 
 		if action: # Cần phải gọi tools 
 			# action và action_input lần lượt là tool cần gọi và tham số đầu vào
 			# observation là kết quả trả về từ tool, dưới dạng chuỗi
-			observation = call_tool(action, action_input)
-			output += f"\nObservation: {observation}\nThought:"
-			text += output
-		else:  # Quá trình sinh nội dung kết thúc và không cần gọi tool nữa 
+			res = tool_exe(
+				tool_name=action, tool_args=action_input, idx=idx
+			)
+			text += res
+			break
+		else:  # Quá trình sinh nội dung kết thúc và không cần gọi tool 
 			text += output
 			break
 	new_history = []
@@ -207,6 +242,7 @@ def llm_with_tools(query, history, tools, idx):
 	new_history.append(
 		{'user': query, 'bot': text}
 	)
+	idx += 1
 	return text, new_history
 
 
@@ -257,7 +293,7 @@ def build_input_text(
 				response = str(response).strip() # Quan trọng! Nếu không áp dụng strip, cấu trúc dữ liệu sẽ khác so với cách được xây dựng trong quá trình huấn luyện.
 			except Exception as e:
 				raise e
-		# Khi sử dụng chế độ text_completion, bạn cần sử dụng định dạng sau để phân biệt giữa người dùng và AI 
+		# Trong text_completion, sử dụng định dạng sau để phân biệt giữa User và AI 
 		prompt += f"\n{im_start}user\n{query}{im_end}"
 		prompt += f"\n{im_start}assistant\n{response}{im_end}"
 	assert prompt.endswith(f"\n{im_start}assistant\n{im_end}")
@@ -267,29 +303,91 @@ def build_input_text(
 
 
 def model_invoke(input_text, idx):
-	# TODO: Giả lập, mô phỏng response từ LLM
-	"""Text completion sau đó chỉnh sửa kết quả inference output."""
+	"""Text completion, sau đó chỉnh sửa kết quả inference output."""
 	res = MODEL.invoke(input=input_text)
-	res = DICT_FAKE_RESPONSES[idx]
+	res = llm_fake_response(idx=idx)
 	return res 
 
 
 
-def llm_fake_response():
-	fake_responses = {}
+def llm_fake_response(idx):
+	"""Giả lập kết quả inference LLM."""
+	return DICT_FAKE_RESPONSES[idx]
 
 
 
-def parse_latest_tool_call(response):
+def parse_latest_tool_call(resp):
+	"""Xử lý kết quả inference LLM, phân tích chuỗi để thực thi công cụ."""
 	tool_name, tool_args = "", ""
-	i = str(response).rfind("\nAction:")
-	j = str(response).rfind("\nAction Input:")
-	k = str(response).rfind("\nObservation:")
-	if 0 <= i < j < k:
-		tool_name = str(response[i + len("\nAction:") : j]).strip()
-		tool_args = str(response[j + len("\nAction Input:") : k]).strip()
-		response = response[:k]
-	return tool_name, tool_args, response
+	action = str(resp).rfind("Action:")
+	action_input = str(resp).rfind("Action Input:")
+	observation = str(resp).rfind("Observation:")
+	if 0 <= action < action_input < observation:
+		tool_name = str(resp[action + len("Action:") : action_input]).strip()
+		tool_args = str(resp[action_input + len("Action Input:") : observation]).strip()
+		resp = resp[:observation]
+	return tool_name, tool_args, resp
+
+
+
+def text_to_image(tool_args):
+	import urllib.parse
+	prompt = json5.loads(tool_args)["text"]
+	prompt = urllib.parse.quote(prompt)
+	return json.dumps({"image_url": f"https://image.pollinations.ai/prompt/{prompt}"}, ensure_ascii=False)
+
+
+
+def image_to_text(tool_args, idx, img_save_path="./"):
+	# Giả lập thực thi công cụ image_to_text
+	# if "": 
+	# 	img = request_image_from_web(
+	# 		tool_args=tool_args, 
+	# 		img_save_path=img_save_path
+	# 	)
+	resp = llm_fake_response(idx=idx)
+	return resp[resp.rfind("Final Answer") :]
+
+
+
+def llm_vision(tool_args, idx):
+	import numpy as np 
+	import cv2 
+	from paddleocr import PaddleOCR, draw_ocr
+	from PIL import Image 
+	vid_path = "G:/tranvantuan/fuzetea_vid2.mp4"
+	ocr = PaddleOCR(use_angle_cls=True, lang='en') 
+	cap = cv2.VideoCapture(vid_path)
+	if not cap.isOpened():
+		print(">>> Can not open camera")
+		exit()
+	print(">>> Starting real-time OCR. Press 'q' to exit.")
+	while True:
+		ret, frame = cap.read()
+		if not ret:
+			print(">>> Can't receive frame (stream end?). Exiting...")
+			break 
+		# Perform OCR on the current frame
+		result = ocr.ocr(frame, cls=False)
+		# Draw detected text on the frame
+		for res in result:
+			for line in res:
+				box, (text, score) = line 
+				box = np.array(box, dtype=np.int32)
+				# Draw bounding box
+				cv2.polylines(frame, [box], isClosed=True, color=(0, 255, 0), thickness=2)
+				# Display text near the bounding box
+				x, y = box[0]
+				cv2.putText(frame, f"{text} ({score:.2f})", (x, y - 10), 
+				cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+
+		cv2.imshow("Research Demo AI-Agent create AI-Vision", frame)
+		if cv2.waitKey(1) & 0xFF == ord('q'):
+			break 
+
+	cap.release()
+	cv2.destroyAllWindows()
+	print(">>> OCR session ended.")
 
 
 
@@ -302,148 +400,91 @@ def parse_latest_tool_call(response):
 
 
 
-def call_tool(tool_name: str, tool_args: str) -> str:
-	img_save_path = "./"
-	tokenizer = TOKENIZER
-	model = MODEL
-	if tool_name == "image_gen_prompt":
-		try:
-			img_path = json5.loads(tool_args)["image_path"]
-			if img_path.startswith("http"):
-				headers = {
-					"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3",
-					"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-					"Accept-Language": "en-US,en;q=0.5",
-					"Accept-Encoding": "gzip, deflate, br",
-					"Connection": "keep-alive",
-					"Upgrade-Insecure-Requests": "1"
-				}
-				yzmdata = requests.get(img_path, headers=headers)
-				tmp_img = BytesIO(yzmdata.content)
-				img = Image.open(tmp_img).convert('RGB')
-				img.save(img_save_path)
-				img = Image.open(img_save_path).convert('RGB')
-			else:
-				img = Image.open(img_path).convert('RGB')
-		except:
-			img_path = input(">>> Vui lòng nhập địa chỉ hình ảnh hoặc URL: ")
-			if img_path.startswith('http'):
-				headers = {
-					"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3",
-					"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-					"Accept-Language": "en-US,en;q=0.5",
-					"Accept-Encoding": "gzip, deflate, br",
-					"Connection": "keep-alive",
-					"Upgrade-Insecure-Requests": "1"
-				}
-				yzmdata = requests.get(img_path,headers=headers)
-				tmp_img = BytesIO(yzmdata.content)
-				img = Image.open(tmp_img).convert('RGB')
-				img.save(img_save_path)
-				img = Image.open(img_save_path).convert('RGB')
-			else:
-				img = Image.open(img_path).convert('RGB')
-		question = "Please describe all the details in this picture in detail?"
-		msgs = [{"role": "user", "content": question}]
-		res = model.chat(image=img, msgs=msgs, tokenizer=tokenizer)
-		return res
-	elif tool_name == "image_gen":
-		import urllib.parse
-		prompt = json5.loads(tool_args)["prompt"]
-		prompt = urllib.parse.quote(prompt)
-		return json.dumps({"image_url": f"https://image.pollinations.ai/prompt/{prompt}"}, ensure_ascii=False)
-	elif tool_name == "modify_text":
-		import urllib.parse
-		prompt_input = json5.loads(tool_args)["describe_before"]
-		modification_request = json5.loads(tool_args)["modification_request"]
-		input_prompt = "Please modify the prompt: {}. According to the following requirements:{}. The modified prompt is: ".format(prompt_input, modification_request)
-		im_start = "<|im_start|>"
-		im_end = "<|im_end|>"
-		prompt = f"{im_start}system\nYou are a helpful assistant.{im_end}"+f"\n{im_start}user\n{input_prompt}{im_end}"
-		input_ids = torch.tensor([tokenizer.encode(prompt)]).to(model.device)
-		output = model.llm.generate(input_ids, max_length=4096)
-		output = output.tolist()[0]
-		output = tokenizer.decode(output, errors="ignore")
-		return output
+def tool_exe(tool_name: str, tool_args: str, idx: int) -> str:
+	"""Thực thi công cụ (tool execution) được LLM gọi."""
+	if tool_name == "image_to_text":
+		resp = image_to_text(
+			tool_args=tool_args, idx=idx
+		)
+		return resp
+	elif tool_name == "text_to_image":
+		resp = text_to_image(tool_args=tool_args)
+		return resp
+	elif tool_name == "llm_vision":
+		resp = llm_vision(
+			tool_args=tool_args, 
+			idx=idx, 
+		)
+		return resp
 	else:
 		raise NotImplementedError
 
 
 
-def token_counter(messages):
-	"""Đếm số lượng token từ danh sách tin nhắn."""
-	tokenizer = TOKENIZER
-	text = " ".join([msg.content for msg in messages])
-	return len(tokenizer.encode(text)) 
+def request_image_from_web(tool_args, img_save_path="./"):
+	try:
+		img_path = json5.loads(tool_args)["image_path"]
+		if str(img_path).startswith("http"):
+			headers = {
+				"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3",
+				"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+				"Accept-Language": "en-US,en;q=0.5",
+				"Accept-Encoding": "gzip, deflate, br",
+				"Connection": "keep-alive",
+				"Upgrade-Insecure-Requests": "1"
+			}
+			yzmdata = requests.get(url=img_path, headers=headers)
+			tmp_img = BytesIO(yzmdata.content)
+			img = Image.open(tmp_img).convert('RGB')
+			img.save(img_save_path)
+			img = Image.open(img_save_path).convert('RGB')
+			return img
+		else:
+			img = Image.open(img_path).convert('RGB')
+			return img 
+	except:
+		img_path = input(">>> Vui lòng nhập địa chỉ hình ảnh hoặc URL: ")
+		if img_path.startswith('http'):
+			headers = {
+				"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3",
+				"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+				"Accept-Language": "en-US,en;q=0.5",
+				"Accept-Encoding": "gzip, deflate, br",
+				"Connection": "keep-alive",
+				"Upgrade-Insecure-Requests": "1"
+			}
+			yzmdata = requests.get(img_path,headers=headers)
+			tmp_img = BytesIO(yzmdata.content)
+			img = Image.open(tmp_img).convert('RGB')
+			img.save(img_save_path)
+			img = Image.open(img_save_path).convert('RGB')
+			return img
+		else:
+			img = Image.open(img_path).convert('RGB')
+			return img 
 
 
 
 def main():
-	tools = [
-		{
-			"name_for_human": "image_to_text", 
-			"name_for_model": "image_to_text", 
-			"description_for_model": "image_to_text is a service that generates textual descriptions from images. By providing the URL of an image, it returns a detailed and realistic description of the image.",
-			"parameters": [
-				{
-					"name": "image_path",
-					"description": "the URL of the image to be described",
-					"required": True,
-					"schema": {"type": "string"},
-				}
-			],
-		},
-		{
-			"name_for_human": "text_to_image",
-			"name_for_model": "text_to_image",
-			"description_for_model": "text_to_image is an AI image generation service. It takes a text description as input and returns a URL of the generated image.",
-			"parameters": [
-				{
-					"name": "text",
-					"description": "english keywords or a text prompt describing what you want in the image.",
-					"required": True,
-					"schema": {"type": "string"}
-				}
-			]
-		},
-		{
-			"name_for_human": "modify_text",
-			"name_for_model": "modify_text",
-			"description_for_model": "modify_text changes the original prompt based on the input request to make it more suitable.",
-			"parameters": [
-				{
-					"name": "describe_before",
-					"description": "the prompt or image description before modification.",
-					"required": True,
-					"schema": {"type": "string"}
-				},
-				{
-					"name": "modification_request",
-					"description": "the request to modify the prompt or image description, e.g., change 'cat' to 'dog' in the text.",
-					"required": True,
-					"schema": {"type": "string"}
-				}
-			]
-		}
-	]
 	history = []
-	for idx, query in enumerate([
+	for idx, query in tqdm.tqdm(enumerate([
 		"Hello, Good afternoon!", # -- id 0 
 		"Who is Jay Chou?", # -- id 1
 		"Who is his wife?", # -- id 2
 		"Describe what is in this image, this is URL of the image: https://www.night_city_img.com", # -- id 3
 		"Draw me a cute kitten, preferably a black cat", # -- id 4
 		"Modify this description: 'A blue Honda car parked on the street' to 'A red Mazda car parked on the street'", # --id 5
-		"exit"
-	]):
-		print(f">>> 🧑 query: \n{query}\n")
+		"exit" 
+	])):
+		print("\n")
+		print(f">>> 🧑 query:\n\t{query}\n")
 		if query.lower() == "exit":
 			print(f">>> 🤖 response:\nGoodbye! Have a great day! 😊\n")
 			break 
 		response, history = llm_with_tools(
 			query=query, 
 			history=history, 
-			tools=tools, 
+			tools=TOOLS, 
 			idx=idx
 		)
 		print(f">>> 🤖 response:\n{response}\n")
@@ -455,129 +496,29 @@ if __name__ == "__main__":
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# def select_tools(state: State) -> State:
-# 	query = state["messages"][-1].content
-# 	tool_docs = tools_retriever.invoke(query)
-# 	return {"selected_tools": [doc.metadata["name"] for doc in tool_docs]}
-
-# def reflect(state: State) -> State:
-# 	class_map = {
-# 		AIMessage: HumanMessage, 
-# 		HumanMessage: AIMessage, 
-# 		ToolMessage: HumanMessage 
-# 	}
-# 	translated = [reflection_prompt, state["messages"][0]] + [
-# 		class_map[msg.__class__](content=msg.content) 
-# 		for msg in state["messages"][1:]
-# 	]
-# 	answer = model.invoke(translated)
-# 	return {"messages": [HumanMessage(content=answer.content)]}
-
-# def should_continue(state: State):
-# 	if len(state["messages"]) > 6:
-# 		return END
-# 	else:
-# 		return "reflect"
-
-# def chatbot(state: State) -> State:
-# 	selected_tools = [tool for tool in tools if tool.name in state["selected_tools"]]
-# 	answer = model.bind_tools(selected_tools).invoke([generate_prompt] + state["messages"])
-# 	return {"messages": [answer]}
-
-# def main():
-# 	"""Thực thi chương trình."""
-# 	builder = StateGraph(State)
-
-# 	builder.add_node("select_tools", select_tools)
-# 	builder.add_node("chatbot", chatbot)
-# 	builder.add_node("tools", ToolNode(tools))
-# 	builder.add_node("reflect", reflect)
-
-# 	builder.add_edge(START, "select_tools")
-# 	builder.add_edge("select_tools", "chatbot")
-# 	builder.add_conditional_edges("chatbot", tools_condition)
-# 	builder.add_edge("tools", "chatbot")
-# 	builder.add_conditional_edges("chatbot", should_continue)
-# 	builder.add_edge("reflect", "chatbot")
-	
-# 	graph = builder.compile(checkpointer=MemorySaver())
-
-# 	user_input = {
-# 		"messages": [HumanMessage("""What is Large Language Model?""")]
-# 	}
-# 	for chunk in graph.stream(user_input, config):
-# 		print(chunk)
-
-# if __name__ == "__main__":
-# 	fire.Fire(main)
+# TODO: 
+# Kịch bản Demo -- Tôi cần bạn giúp tôi tracking chữ trên vật thể này, 
+# với các yêu cầu sau: 
+# 1. Chữ có đủ không. 
+# 2. Có bị sai nghĩa không
+
+
+
+# img_path = 'G:/tranvantuan/fuzetea.jpg'
+# result = ocr.ocr(image, cls=True)
+# for idx in range(len(result)):
+#     res = result[idx]
+#     for line in res:
+#         print(line)
+
+
+
+# # draw result
+# result = result[0]
+# image = Image.open(img_path).convert('RGB')
+# boxes = [line[0] for line in result]
+# txts = [line[1][0] for line in result]
+# scores = [line[1][1] for line in result]
+# im_show = draw_ocr(image, boxes, txts, scores)
+# im_show = Image.fromarray(im_show)
+# im_show.save('result.jpg')

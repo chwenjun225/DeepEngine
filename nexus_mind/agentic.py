@@ -509,69 +509,22 @@ if __name__ == "__main__":
 # 2. Có bị sai nghĩa không
 
 
-if False:
-		
-	import numpy as np 
-	import cv2 
-	from paddleocr import PaddleOCR, draw_ocr
-	from PIL import Image
 
-
-	vid_path = "G:/tranvantuan/fuzetea_vid2.mp4"
-
-
-
-	ocr = PaddleOCR(use_angle_cls=True, lang='en') 
+# img_path = 'G:/tranvantuan/fuzetea.jpg'
+# result = ocr.ocr(image, cls=True)
+# for idx in range(len(result)):
+#     res = result[idx]
+#     for line in res:
+#         print(line)
 
 
 
-	cap = cv2.VideoCapture(vid_path)
-	if not cap.isOpened():
-		print(">>> Can not open camera")
-		exit()
-	print(">>> Starting real-time OCR. Press 'q' to exit.")
-	while True:
-		ret, frame = cap.read()
-		if not ret:
-			print(">>> Can't receive frame (stream end?). Exiting...")
-			break 
-		# Perform OCR on the current frame
-		result = ocr.ocr(frame, cls=False)
-		# Draw detected text on the frame
-		for res in result:
-			for line in res:
-				box, (text, score) = line 
-				box = np.array(box, dtype=np.int32)
-				# Draw bounding box
-				cv2.polylines(frame, [box], isClosed=True, color=(0, 255, 0), thickness=2)
-				# Display text near the bounding box
-				x, y = box[0]
-				cv2.putText(frame, f"{text} ({score:.2f})", (x, y - 10), 
-				cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-
-		cv2.imshow("Research Demo AI-Agent create AI-Vision", frame)
-		if cv2.waitKey(1) & 0xFF == ord('q'):
-			break 
-
-	cap.release()
-	cv2.destroyAllWindows()
-	print(">>> OCR session ended.")
-
-	# img_path = 'G:/tranvantuan/fuzetea.jpg'
-	# result = ocr.ocr(image, cls=True)
-	# for idx in range(len(result)):
-	#     res = result[idx]
-	#     for line in res:
-	#         print(line)
-
-
-
-	# # draw result
-	# result = result[0]
-	# image = Image.open(img_path).convert('RGB')
-	# boxes = [line[0] for line in result]
-	# txts = [line[1][0] for line in result]
-	# scores = [line[1][1] for line in result]
-	# im_show = draw_ocr(image, boxes, txts, scores)
-	# im_show = Image.fromarray(im_show)
-	# im_show.save('result.jpg')
+# # draw result
+# result = result[0]
+# image = Image.open(img_path).convert('RGB')
+# boxes = [line[0] for line in result]
+# txts = [line[1][0] for line in result]
+# scores = [line[1][1] for line in result]
+# im_show = draw_ocr(image, boxes, txts, scores)
+# im_show = Image.fromarray(im_show)
+# im_show.save('result.jpg')

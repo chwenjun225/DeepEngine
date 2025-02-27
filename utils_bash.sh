@@ -135,7 +135,7 @@ python /home/chwenjun225_laptop/projects/DeepEngine/third_3rdparty/llama.cpp-b46
 nvidia-smi | grep 'python' | awk '{ print $5 }' | xargs -n1 kill -9
 
 # CUDA static realtime
-watch -n0.2 nvidia-smi
+watch -n 0.3 -c gpustat -cp --color
 
 # CPU & RAM static realtime
 htop

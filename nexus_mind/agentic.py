@@ -138,11 +138,6 @@ FAKE_RESPONSES = [
 	Thought: The user wants to modify a text description. They want change from `A blue honda car parked on the street` to `A red Mazda car parked on the street`.
 	Final Answer: "A red Mazda car parked on the street."
 	""", 
-# Check chữ trên sản phẩm
-	"""
-	Tạm Thời:
-	Nhận được tín hiệu xử lý từ AI-Vision, bao gồm 1. fuzetea, Fuzetea là một nhãn hiệu trà giải khát được phân phối tại Việt nam, các thông tin chuỗi nhận diện được còn lại như passion fruit tea and chia seeds and youthful-life-every day đều đầy đủ ngữ nghĩa -- sản phẩm OK.
-	"""
 # "exit",
 	"""Goodbye! Have a great day! 😊"""
 ]
@@ -154,10 +149,6 @@ DICT_FAKE_RESPONSES = {idx: fresp for idx, fresp in enumerate(FAKE_RESPONSES)}
 
 
 MODEL = FakeStreamingListLLM(responses=[""])
-
-
-
-EMBEDDING_MODEL = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
 
 
@@ -349,11 +340,11 @@ def text_to_image(tool_args):
 
 def image_to_text(tool_args, idx, img_save_path="./"):
 	# Giả lập thực thi công cụ image_to_text
-	if "": 
-		img = request_image_from_web(
-			tool_args=tool_args, 
-			img_save_path=img_save_path
-		)
+	# if "": 
+	# 	img = request_image_from_web(
+	# 		tool_args=tool_args, 
+	# 		img_save_path=img_save_path
+	# 	)
 	resp = llm_fake_response(idx=idx)
 	return resp[resp.rfind("Final Answer") :]
 
@@ -397,6 +388,9 @@ def llm_vision(tool_args, idx):
 	cap.release()
 	cv2.destroyAllWindows()
 	print(">>> OCR session ended.")
+
+
+
 # Input:
 #   tool_name: Tool được gọi, tương ứng với name_for_model.
 #   tool_args：Tham số đầu vào của tool, là một dict. key và value của dict lần lượt là tên tham số và giá trị tham số
@@ -406,7 +400,7 @@ def llm_vision(tool_args, idx):
 
 
 
-def tool_exe(tool_name: str, tool_args: str, idx: int, video_path: str) -> str:
+def tool_exe(tool_name: str, tool_args: str, idx: int) -> str:
 	"""Thực thi công cụ (tool execution) được LLM gọi."""
 	if tool_name == "image_to_text":
 		resp = image_to_text(
@@ -415,6 +409,7 @@ def tool_exe(tool_name: str, tool_args: str, idx: int, video_path: str) -> str:
 		return resp
 	elif tool_name == "text_to_image":
 		resp = text_to_image(tool_args=tool_args)
+		return resp
 	elif tool_name == "llm_vision":
 		resp = llm_vision(
 			tool_args=tool_args, 
@@ -479,7 +474,6 @@ def main():
 		"Describe what is in this image, this is URL of the image: https://www.night_city_img.com", # -- id 3
 		"Draw me a cute kitten, preferably a black cat", # -- id 4
 		"Modify this description: 'A blue Honda car parked on the street' to 'A red Mazda car parked on the street'", # --id 5
-		"I need to verify the characters on this product. Here is the image path of the product: G:/tranvantuan/fuzetea.jpg", # --id 6
 		"exit" 
 	])):
 		print("\n")

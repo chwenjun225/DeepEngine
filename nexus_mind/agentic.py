@@ -83,9 +83,9 @@ TOOLS = [
 		]
 	}, 
 	{
-		"name_for_human": "ai_vision", 
-		"name_for_model": "ai_vision", 
-		"description_for_model": "ai_vision is a service that detects and extracts characters from a product image. It processes the image and returns the recognized text to the AI agent for further analysis.",
+		"name_for_human": "ai_vision_ocr", 
+		"name_for_model": "ai_vision_ocr", 
+		"description_for_model": "ai_vision_ocr is a service that detects and extracts characters from a product image. It processes the image and returns the recognized text to the AI agent for further analysis.",
 		"parameters": [
 			{
 				"name": "video_path",
@@ -355,8 +355,8 @@ def llm_vision(tool_args, idx):
 	import cv2 
 	from paddleocr import PaddleOCR, draw_ocr
 	from PIL import Image 
-	vid_path = "G:/tranvantuan/fuzetea_vid2.mp4"
-	ocr = PaddleOCR(use_angle_cls=True, lang='en') 
+	vid_path = json5.loads(tool_args)["video_path"]
+	ocr = PaddleOCR(use_angle_cls=False, lang='en') 
 	cap = cv2.VideoCapture(vid_path)
 	if not cap.isOpened():
 		print(">>> Can not open camera")
@@ -371,20 +371,20 @@ def llm_vision(tool_args, idx):
 		result = ocr.ocr(frame, cls=False)
 		# Draw detected text on the frame
 		for res in result:
-			for line in res:
-				box, (text, score) = line 
-				box = np.array(box, dtype=np.int32)
-				# Draw bounding box
-				cv2.polylines(frame, [box], isClosed=True, color=(0, 255, 0), thickness=2)
-				# Display text near the bounding box
-				x, y = box[0]
-				cv2.putText(frame, f"{text} ({score:.2f})", (x, y - 10), 
-				cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+			if res is not None:
+				for line in res:
+					box, (text, score) = line 
+					box = np.array(box, dtype=np.int32)
+					# Draw bounding box
+					cv2.polylines(frame, [box], isClosed=True, color=(0, 255, 0), thickness=2)
+					# Display text near the bounding box
+					x, y = box[0]
+					cv2.putText(frame, f"{text} ({score:.2f})", (x, y - 10), 
+					cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
 
 		cv2.imshow("Research Demo AI-Agent create AI-Vision", frame)
 		if cv2.waitKey(1) & 0xFF == ord('q'):
 			break 
-
 	cap.release()
 	cv2.destroyAllWindows()
 	print(">>> OCR session ended.")
@@ -413,7 +413,7 @@ def tool_exe(tool_name: str, tool_args: str, idx: int) -> str:
 	elif tool_name == "llm_vision":
 		resp = llm_vision(
 			tool_args=tool_args, 
-			idx=idx, 
+			idx=idx
 		)
 		return resp
 	else:

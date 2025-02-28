@@ -11,6 +11,8 @@
 # 		 https://python.langchain.com/docs/integrations/providers/ollama/
 
 
+import logging
+logging.getLogger("ppocr").setLevel(logging.WARNING) 
 
 from datetime import datetime 
 import tqdm
@@ -82,10 +84,10 @@ TOOLS = [
 			}
 		]
 	}, 
-	{
+	{ 
 		"name_for_human": "ai_vision", 
 		"name_for_model": "ai_vision", 
-		"description_for_model": "ai_vision is a service that detects and extracts characters from a product image. It processes the image and returns the recognized text to the AI agent for further analysis.",
+		"description_for_model": "ai_vision is a service that use ai-vision to detects and extracts characters from a product image. It processes the image and returns the recognized text to the AI agent for further analysis.",
 		"parameters": [
 			{
 				"name": "video_path",
@@ -138,6 +140,15 @@ FAKE_RESPONSES = [
 	Thought: The user wants to modify a text description. They want change from `A blue honda car parked on the street` to `A red Mazda car parked on the street`.
 	Final Answer: "A red Mazda car parked on the street."
 	""", 
+# "I need to check the text on this product in real-time to see if it is accurate and complete. Here is the link of video product: /home/chwenjun225/projects/DeepEngine/nexus_mind/images/fuzetea_vid1.mp4", # -- id 6
+	"""
+	Thought: I need to analyze the text on the product in real-time to verify its accuracy and completeness. I should process the video file to extract frames and apply OCR. 
+	Action: ai_vision
+	Action Input: {"video_path": "/home/chwenjun225/projects/DeepEngine/nexus_mind/images/fuzetea_vid1.mp4"}
+	Observation: The OCR result has been extracted from the product video. The detected text is: ["fuzetea", "Passion fruit tea and chia seeds"]
+	Thought: I will now compare the extracted text with the expected information to check if it is accurate and complete.
+	Final Answer: The text on the product has been successfully extracted. The accuracy and completeness can now be verified based on the expected product information.
+	"""
 # "exit",
 	"""Goodbye! Have a great day! 😊"""
 ]
@@ -218,7 +229,7 @@ class ResponseWithChainOfThought(BaseModel):
 
 
 def llm_with_tools(query, history, tools, idx):
-	# TODO: Lịch sử hội thoại càng to, thời gian thực thi vòng lặp for càng lớn. Làm sao để giải quyết?
+	# TODO: 对话历史越大, for循环的执行时间越长。如何解决？Duìhuà lìshǐ yuè dà, for huánxún de zhíxíng shíjiān yuè cháng. Rúhé jiějué?
 	chat_history = [(x["user"], x["bot"]) for x in history] + [(query, "")]
 	# Ngữ cảnh trò chuyện để mô hình tiếp tục nội dung
 	planning_prompt = build_input_text(chat_history=chat_history, tools=tools)
@@ -350,13 +361,13 @@ def image_to_text(tool_args, idx, img_save_path="./"):
 
 
 
-def llm_vision(tool_args, idx):
+def ai_vision(tool_args, idx):
 	import numpy as np 
 	import cv2 
 	from paddleocr import PaddleOCR, draw_ocr
 	from PIL import Image 
-	vid_path = "G:/tranvantuan/fuzetea_vid2.mp4"
-	ocr = PaddleOCR(use_angle_cls=True, lang='en') 
+	vid_path = json5.loads(tool_args)["video_path"]
+	ocr = PaddleOCR(use_angle_cls=False, lang='en') 
 	cap = cv2.VideoCapture(vid_path)
 	if not cap.isOpened():
 		print(">>> Can not open camera")
@@ -371,20 +382,22 @@ def llm_vision(tool_args, idx):
 		result = ocr.ocr(frame, cls=False)
 		# Draw detected text on the frame
 		for res in result:
-			for line in res:
-				box, (text, score) = line 
-				box = np.array(box, dtype=np.int32)
-				# Draw bounding box
-				cv2.polylines(frame, [box], isClosed=True, color=(0, 255, 0), thickness=2)
-				# Display text near the bounding box
-				x, y = box[0]
-				cv2.putText(frame, f"{text} ({score:.2f})", (x, y - 10), 
-				cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+			if res is not None:
+				resp = llm_fake_response(idx=idx)
+				print(resp)
+				for line in res:
+					box, (text, score) = line 
+					box = np.array(box, dtype=np.int32)
+					# Draw bounding box
+					cv2.polylines(frame, [box], isClosed=True, color=(0, 255, 0), thickness=2)
+					# Display text near the bounding box
+					x, y = box[0]
+					cv2.putText(frame, f"{text} ({score:.2f})", (x, y - 10), 
+					cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
 
-		cv2.imshow("Research Demo AI-Agent create AI-Vision", frame)
+		cv2.imshow("Research Demo LLM+Vision", frame)
 		if cv2.waitKey(1) & 0xFF == ord('q'):
 			break 
-
 	cap.release()
 	cv2.destroyAllWindows()
 	print(">>> OCR session ended.")
@@ -410,12 +423,12 @@ def tool_exe(tool_name: str, tool_args: str, idx: int) -> str:
 	elif tool_name == "text_to_image":
 		resp = text_to_image(tool_args=tool_args)
 		return resp
-	elif tool_name == "llm_vision":
-		resp = llm_vision(
+	elif tool_name == "ai_vision":
+		resp = ai_vision(
 			tool_args=tool_args, 
-			idx=idx, 
+			idx=idx
 		)
-		return resp
+		return "Finish AI-Vision, released all VRAM and Windows."
 	else:
 		raise NotImplementedError
 
@@ -474,6 +487,8 @@ def main():
 		"Describe what is in this image, this is URL of the image: https://www.night_city_img.com", # -- id 3
 		"Draw me a cute kitten, preferably a black cat", # -- id 4
 		"Modify this description: 'A blue Honda car parked on the street' to 'A red Mazda car parked on the street'", # --id 5
+		# TODO: Đã tạo xong kịch bản đầu vào
+		"I need to check the text on this product in real-time to see if it is accurate and complete. Here is the link of video product: /home/chwenjun225/projects/DeepEngine/nexus_mind/images/fuzetea_vid2.mp4", # -- id 6
 		"exit" 
 	])):
 		print("\n")

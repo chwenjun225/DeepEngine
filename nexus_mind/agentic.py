@@ -1,20 +1,4 @@
-# Tài liệu liên quan:  
-# 	Giới thiệu ngắn gọn về nguyên lý ReAct Prompting, không bao gồm mã nguồn:  
-#		https://github.com/QwenLM/Qwen-7B/blob/main/examples/react_prompt.md  
-#   Triển khai ReAct Prompting dựa trên giao diện `model.chat` 
-# 			(chế độ đối thoại), bao gồm cả tích hợp công cụ với LangChain:  
-#		https://github.com/QwenLM/Qwen-7B/blob/main/examples/langchain_tooluse.ipynb  
-#   Triển khai ReAct Prompting dựa trên giao diện `model.generate` 
-# 			(chế độ tiếp tục viết), phức tạp hơn so với chế độ chat:  
-#       https://github.com/QwenLM/Qwen-7B/blob/main/examples/react_demo.py (tệp này)  
-# 	Tài liệu sử dụng ChatOllama làm agent_core:
-# 		 https://python.langchain.com/docs/integrations/providers/ollama/
-
-
-import logging
-logging.getLogger("ppocr").setLevel(logging.WARNING) 
-
-from datetime import datetime 
+import random
 import tqdm
 import requests
 import json
@@ -25,152 +9,60 @@ from io import BytesIO
 
 
 
+from typing_extensions import Annotated, TypedDict, Union
+
+
+
 from pydantic import BaseModel, Field
 
 
 
-from langchain.tools import StructuredTool 
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_community.llms.fake import FakeStreamingListLLM
-from langchain_core.messages import (AIMessage, HumanMessage, ToolMessage)
+from langchain.tools import BaseTool, StructuredTool, Tool, tool
+from langchain.chains.llm import LLMChain
+from langchain_ollama import ChatOllama
+from langchain_core.messages import HumanMessage
+from langchain_core.prompts import PromptTemplate
 
 
 
-# Constant vars 
-TOOLS = [
-	{
-		"name_for_human": "image_to_text", 
-		"name_for_model": "image_to_text", 
-		"description_for_model": "image_to_text is a service that generates textual descriptions from images. By providing the URL of an image, it returns a detailed and realistic description of the image.",
-		"parameters": [
-			{
-				"name": "image_path",
-				"description": "the URL of the image to be described",
-				"required": True,
-				"schema": {"type": "string"},
-			}
-		],
-	},
-	{
-		"name_for_human": "text_to_image",
-		"name_for_model": "text_to_image",
-		"description_for_model": "text_to_image is an AI image generation service. It takes a text description as input and returns a URL of the generated image.",
-		"parameters": [
-			{
-				"name": "text",
-				"description": "english keywords or a text prompt describing what you want in the image.",
-				"required": True,
-				"schema": {"type": "string"}
-			}
-		]
-	},
-	{
-		"name_for_human": "modify_text",
-		"name_for_model": "modify_text",
-		"description_for_model": "modify_text changes the original prompt based on the input request to make it more suitable.",
-		"parameters": [
-			{
-				"name": "describe_before",
-				"description": "the prompt or image description before modification.",
-				"required": True,
-				"schema": {"type": "string"}
-			},
-			{
-				"name": "modification_request",
-				"description": "the request to modify the prompt or image description, e.g., change 'cat' to 'dog' in the text.",
-				"required": True,
-				"schema": {"type": "string"}
-			}
-		]
-	}, 
-	{ 
-		"name_for_human": "ai_vision", 
-		"name_for_model": "ai_vision", 
-		"description_for_model": "ai_vision is a service that use ai-vision to detects and extracts characters from a product image. It processes the image and returns the recognized text to the AI agent for further analysis.",
-		"parameters": [
-			{
-				"name": "video_path",
-				"description": "The file path of a video or the IP address of a camera for real-time character detection.",
-				"required": True,
-				"schema": {"type": "string"}
-			}
-		],
-	},
-]
+from langgraph.graph import StateGraph, START, END 
+from langgraph.graph.message import add_messages
 
 
 
-FAKE_RESPONSES = [
-# "Hello, Good afternoon!", -- Fake resp id 0 -- No tool
-	"""
-	Thought: The input is a greeting. No tools are needed.
-	Final Answer: Hello! Good afternoon! How can I assist you today?
-	""", 
-# "Who is Jay Chou?", -- Fake resp id 1 -- No tool 
-	"""
-	Thought: The user is asking for information about Jay Chou. I should retrieve general knowledge.
-	Final Answer: Jay Chou is a Taiwanese singer, songwriter, and actor, widely known for his influence in Mandopop music. He has released numerous albums and is recognized for his unique blend of classical and contemporary music.
-	""", 
-# "Who is his wife?", -- Fake resp id 2 -- No tool 
-	"""
-	Thought: The previous question was about Jay Chou. "His wife" likely refers to Jay Chou's spouse.
-	Final Answer: Jay Chou's wife is Hannah Quinlivan, an actress and model from Taiwan.
-	""", 
-# "Describe what is in this image, this is URL of the image: https://www.night_city_img.com", --> Fake resp id 3 -- Tool-use: image_to_text
-	"""
-	Thought: The user wants a description of an image. I should use the image_to_text API.
-	Action: image_to_text
-	Action Input: {"image_path": "https://www.tushengwen.com"}
-	Observation: "The image depicts a vibrant cityscape at night, illuminated by neon lights and tall skyscrapers."
-	Thought: I now know the final answer.
-	Final Answer: The image depicts a vibrant cityscape at night, illuminated by neon lights and tall skyscrapers.
-	""",
-# "Draw me a cute kitten, preferably a black cat", -- Fake resp id 4 -- Tool-use: text_to_image
-	"""
-	Thought: The user is requesting an image generation. I should use the text_to_image API.
-	Action: text_to_image
-	Action Input: {"text": "A cute black kitten with big eyes, fluffy fur, and a playful expression"}
-	Observation: Here is the generated image URL: [https://www.wenshengtu.com]
-	Thought: I now know the final answer.
-	Final Answer: Here is an image of a cute black kitten: [https://www.wenshengtu.com]
-	""", 
-# "Modify this description: 'A blue Honda car parked on the street' to 'A red Mazda car parked on the street'", -- Fake resp id 5 -- Tool-use: modify_text
-	"""
-	Thought: The user wants to modify a text description. They want change from `A blue honda car parked on the street` to `A red Mazda car parked on the street`.
-	Final Answer: "A red Mazda car parked on the street."
-	""", 
-# "I need to check the text on this product in real-time to see if it is accurate and complete. Here is the link of video product: /home/chwenjun225/projects/DeepEngine/nexus_mind/images/fuzetea_vid1.mp4", # -- id 6
-	"""
-	Thought: I need to analyze the text on the product in real-time to verify its accuracy and completeness. I should process the video file to extract frames and apply OCR. 
-	Action: ai_vision
-	Action Input: {"video_path": "/home/chwenjun225/projects/DeepEngine/nexus_mind/images/fuzetea_vid1.mp4"}
-	Observation: The OCR result has been extracted from the product video. The detected text is: ["fuzetea", "Passion fruit tea and chia seeds"]
-	Thought: I will now compare the extracted text with the expected information to check if it is accurate and complete.
-	Final Answer: The text on the product has been successfully extracted. The accuracy and completeness can now be verified based on the expected product information.
-	"""
-# "exit",
-	"""Goodbye! Have a great day! 😊"""
-]
+class State(TypedDict):
+	messages: Annotated[list, add_messages]
 
 
 
-DICT_FAKE_RESPONSES = {idx: fresp for idx, fresp in enumerate(FAKE_RESPONSES)}
+class ResponseWithChainOfThought(BaseModel):
+	"""LLM xuất output định dạng ReAc-CoT khi gặp truy vấn."""
+	user_prompt: Union[str, int] = Field(None, description="The user's prompt")
+	thought: Union[str, int] = Field(None, description="Think logically about the next step")
+	action: Union[str, int] = Field(None, description="Select from available tools: {tools_name}")
+	action_input: Union[str, int] = Field(None, description="Provide the required input") 
+	observation: Union[str, int] = Field(None, description="Record the output from the action")
+	final_thought: Union[str, int] = Field(None, description="I now know the final answer.")
+	final_answer: Union[str, int] = Field(None, description="Provide the final answer")
+	justification: Union[str, int] = Field(None, description="Why this final answer is relevant to the user's query?")
 
 
 
-MODEL = FakeStreamingListLLM(responses=[""])
+llm = ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0.1, num_predict="2048")
+llm_cot_structured_output = llm.with_structured_output(ResponseWithChainOfThought)
 
 
 
-TOOL_DESC = """{name_for_model}: Call this tool to interact with the {name_for_human} API. 
+tool_desc = PromptTemplate.from_template(
+	"""{name_for_model}: Call this tool to interact with the {name_for_human} API. 
 What is the {name_for_human} API useful for? 
 {description_for_model}.
-Parameters: {parameters}"""
+Parameters: {parameters}""")
 
 
 
-PROMPT_REACT = """You are an AI assistant that follows the ReAct reasoning framework. 
+react_prompt = PromptTemplate.from_template(
+	"""You are an AI assistant that follows the ReAct reasoning framework. 
 You have access to the following APIs:
 
 {tools_desc}
@@ -179,67 +71,78 @@ Use the following strict format:
 
 ### Input Format:
 
-Question: [The input question]
-Thought: [Think logically about the next step]
-Action: [Select from available tools: {tools_name}]
-Action Input: [Provide the required input]
-Observation: [Record the output from the action]
-... (Repeat the Thought/Action/Observation loop as needed)
-Thought: I now know the final answer
-Final Answer: [Provide the final answer]
+question: [The input question]
+thought: [Think logically about the next step]
+action: [Select from available tools: {tools_name}]
+action_input: [Provide the required input]
+observation: [Record the output from the action]
+... (Repeat the thought/action/observation loop as needed)
+final_thought: I now know the final answer
+final_answer: [Provide the final answer]
 
 Begin!
 
-Question: {query}"""
+Question: {query}""")
 
 
 
-STOP_WORDS = ["Observation:", "Observation:\n"]
+def llm_cot(state: State):
+	"""Chain of Thought node."""
+	resp = llm_cot_structured_output.invoke(state["messages"])
+	return {"messages": [resp]}
 
 
 
-class ResponseWithChainOfThought(BaseModel):
-	"""LLM xuất output định dạng ReAct khi gặp truy vấn cần CoT."""
-	question: str
-	thought: str
-	action: str
-	action_input: str
-	observation: str
-	final_thought: str
-	final_answer: str
+builder = StateGraph(State)
+builder.add_node("llm_cot", llm_cot)
+builder.add_edge(START, 'llm_cot')
+builder.add_edge('llm_cot', END)
+graph = builder.compile()
 
 
 
-# Hàm đầu vào chính của đoạn mã ví dụ này.
-#
-# Input:
-# prompt: query mới nhất từ ​​người dùng.
-#   history: Lịch sử hội thoại giữa người dùng và mô hình, dưới dạng một list.
-#       mỗi phần tử trong danh sách có dạng:
-#           {"user": "query của user", "agent": "respond của agent"}.
-#       hội thoại mới nhất sẽ nằm ở cuối danh sách. Không bao gồm câu hỏi mới nhất. 
-#   tools: Danh sách các tools có thể sử dụng, được lưu trong một list.
-#       ví dụ tools = [tool_info_0, tool_info_1, tool_info_2]，
-#       trong đó tool_info_0, tool_info_1, tool_info_2 là thông tin chi tiết của 
-#           từng plugin, đã được đề cập trước đó trong tài liệu này.
-#
-# output:
-#   phản hồi của agent cho query của người dùng. 
+user_prompt = {"messages": [HumanMessage("What is 2 times 3?")]}
+for chunk in graph.stream(user_prompt):
+	print(chunk)
+	print("DEBUG")
+
+
+
+@tool("to_lower_case", return_direct=True)
+def to_lower_case(query:str) -> str:
+	"""Returns the input as all lower case."""
+	return query.lower()
+
+
+
+@tool("random_number_maker", return_direct=True)
+def random_number_maker(query:str) -> str:
+	"""Returns a random number between 0-100."""
+	return random.randint(0, 100)
+
+
+
+@tool("text_to_image", return_direct=True)
+def text_to_image(prompt):
+	"""text_to_image is an AI service that generates images from text. Enter a text description, and it will return a URL of the generated image."""
+	return json.dumps({"image_url": f"https://image.pollinations.ai/prompt/{prompt}"}, ensure_ascii=False)
+
+
+
+def multiply(a: int, b: int) -> int:
+	return a * b
 
 
 
 def llm_with_tools(query, history, tools, idx):
-	# TODO: 对话历史越大, for循环的执行时间越长。如何解决？Duìhuà lìshǐ yuè dà, for huánxún de zhíxíng shíjiān yuè cháng. Rúhé jiějué?
+	# TODO: hàm này tương đương với agent_with_tools
 	chat_history = [(x["user"], x["bot"]) for x in history] + [(query, "")]
-	# Ngữ cảnh trò chuyện để mô hình tiếp tục nội dung
 	planning_prompt = build_input_text(chat_history=chat_history, tools=tools)
 	text = ""
 	while True:
 		resp = model_invoke(input_text=planning_prompt+text, idx=idx)
 		action, action_input, output = parse_latest_tool_call(resp=resp) 
-		if action: # Cần phải gọi tools 
-			# action và action_input lần lượt là tool cần gọi và tham số đầu vào
-			# observation là kết quả trả về từ tool, dưới dạng chuỗi
+		if action:
 			res = tool_exe(
 				tool_name=action, tool_args=action_input, idx=idx
 			)
@@ -268,7 +171,7 @@ def build_input_text(
 	prompt = f"{im_start}system\nYou are a helpful assistant.{im_end}"
 	tools_text = []
 	for tool_info in tools:
-		tool = TOOL_DESC.format(
+		tool = tool_desc.format(
 			name_for_model=tool_info["name_for_model"],
 			name_for_human=tool_info["name_for_human"],
 			description_for_model=tool_info["description_for_model"],
@@ -289,7 +192,7 @@ def build_input_text(
 			# Quyết định điền thông tin chi tiết của tool vào cuối hội thoại hoặc trước cuối hội thoại.
 			# TODO: Cần làm rõ dòng lệnh if -- tại line 244
 			if (len(chat_history) == 1) or (i == len(chat_history) - 2):
-				query = PROMPT_REACT.format(
+				query = react_prompt.format(
 					tools_desc=tools_desc, 
 					tools_name=tools_name, 
 					query=query
@@ -315,15 +218,8 @@ def build_input_text(
 
 def model_invoke(input_text, idx):
 	"""Text completion, sau đó chỉnh sửa kết quả inference output."""
-	res = MODEL.invoke(input=input_text)
-	res = llm_fake_response(idx=idx)
+	res = model.invoke(input=input_text)
 	return res 
-
-
-
-def llm_fake_response(idx):
-	"""Giả lập kết quả inference LLM."""
-	return DICT_FAKE_RESPONSES[idx]
 
 
 
@@ -341,22 +237,28 @@ def parse_latest_tool_call(resp):
 
 
 
-def text_to_image(tool_args):
-	import urllib.parse
-	prompt = json5.loads(tool_args)["text"]
-	prompt = urllib.parse.quote(prompt)
-	return json.dumps({"image_url": f"https://image.pollinations.ai/prompt/{prompt}"}, ensure_ascii=False)
-
-
+# class Text_To_Image_Input(BaseModel):
+# 	text: str = Field(description="A text prompt or English keywords describing the desired image.")
+# def text_to_image(tool_args):
+# 	"""text_to_image is an AI service that generates images from text. Enter a text description, and it will return a URL of the generated image."""
+# 	import urllib.parse
+# 	prompt = json5.loads(tool_args)["text"]
+# 	prompt = urllib.parse.quote(prompt)
+# 	return json.dumps({"image_url": f"https://image.pollinations.ai/prompt/{prompt}"}, ensure_ascii=False)
+# text_to_image_tool = StructuredTool.from_function(
+#     func=text_to_image,
+#     name="Text to Image",
+#     description="text_to_image is an AI service that generates images from text. Enter a text description, and it will return a URL of the generated image",
+#     args_schema=Text_To_Image_Input,
+#     return_direct=True,
+# )
 
 def image_to_text(tool_args, idx, img_save_path="./"):
 	# Giả lập thực thi công cụ image_to_text
-	# if "": 
-	# 	img = request_image_from_web(
-	# 		tool_args=tool_args, 
-	# 		img_save_path=img_save_path
-	# 	)
-	resp = llm_fake_response(idx=idx)
+	resp = request_image_from_web(
+		tool_args=tool_args, 
+		img_save_path=img_save_path
+	)
 	return resp[resp.rfind("Final Answer") :]
 
 
@@ -383,8 +285,6 @@ def ai_vision(tool_args, idx):
 		# Draw detected text on the frame
 		for res in result:
 			if res is not None:
-				resp = llm_fake_response(idx=idx)
-				print(resp)
 				for line in res:
 					box, (text, score) = line 
 					box = np.array(box, dtype=np.int32)
@@ -511,29 +411,125 @@ if __name__ == "__main__":
 
 
 
-# TODO: 
-# Kịch bản Demo -- Tôi cần bạn giúp tôi tracking chữ trên vật thể này, 
-# với các yêu cầu sau: 
-# 1. Chữ có đủ không. 
-# 2. Có bị sai nghĩa không
+# tools = [
+# 	{
+# 		"name_for_human": "image_to_text", 
+# 		"name_for_model": "image_to_text", 
+# 		"description_for_model": "image_to_text is a service that generates textual descriptions from images. By providing the URL of an image, it returns a detailed and realistic description of the image.",
+# 		"parameters": [
+# 			{
+# 				"name": "image_path",
+# 				"description": "the URL of the image to be described",
+# 				"required": True,
+# 				"schema": {"type": "string"},
+# 			}
+# 		],
+# 	},
+# 	{
+# 		"name_for_human": "text_to_image",
+# 		"name_for_model": "text_to_image",
+# 		"description_for_model": "text_to_image is an AI image generation service. It takes a text description as input and returns a URL of the generated image.",
+# 		"parameters": [
+# 			{
+# 				"name": "text",
+# 				"description": "english keywords or a text prompt describing what you want in the image.",
+# 				"required": True,
+# 				"schema": {"type": "string"}
+# 			}
+# 		]
+# 	},
+# 	{
+# 		"name_for_human": "modify_text",
+# 		"name_for_model": "modify_text",
+# 		"description_for_model": "modify_text changes the original prompt based on the input request to make it more suitable.",
+# 		"parameters": [
+# 			{
+# 				"name": "describe_before",
+# 				"description": "the prompt or image description before modification.",
+# 				"required": True,
+# 				"schema": {"type": "string"}
+# 			},
+# 			{
+# 				"name": "modification_request",
+# 				"description": "the request to modify the prompt or image description, e.g., change 'cat' to 'dog' in the text.",
+# 				"required": True,
+# 				"schema": {"type": "string"}
+# 			}
+# 		]
+# 	}, 
+# 	{ 
+# 		"name_for_human": "ai_vision", 
+# 		"name_for_model": "ai_vision", 
+# 		"description_for_model": "ai_vision is a service that use ai-vision to detects and extracts characters from a product image. It processes the image and returns the recognized text to the AI agent for further analysis.",
+# 		"parameters": [
+# 			{
+# 				"name": "video_path",
+# 				"description": "The file path of a video or the IP address of a camera for real-time character detection.",
+# 				"required": True,
+# 				"schema": {"type": "string"}
+# 			}
+# 		],
+# 	},
+# ]
 
 
 
-# img_path = 'G:/tranvantuan/fuzetea.jpg'
-# result = ocr.ocr(image, cls=True)
-# for idx in range(len(result)):
-#     res = result[idx]
-#     for line in res:
-#         print(line)
+# fake_response = [
+# # "Hello, Good afternoon!", -- Fake resp id 0 -- No tool
+# 	"""
+# 	Thought: The input is a greeting. No tools are needed.
+# 	Final Answer: Hello! Good afternoon! How can I assist you today?
+# 	""", 
+# # "Who is Jay Chou?", -- Fake resp id 1 -- No tool 
+# 	"""
+# 	Thought: The user is asking for information about Jay Chou. I should retrieve general knowledge.
+# 	Final Answer: Jay Chou is a Taiwanese singer, songwriter, and actor, widely known for his influence in Mandopop music. He has released numerous albums and is recognized for his unique blend of classical and contemporary music.
+# 	""", 
+# # "Who is his wife?", -- Fake resp id 2 -- No tool 
+# 	"""
+# 	Thought: The previous question was about Jay Chou. "His wife" likely refers to Jay Chou's spouse.
+# 	Final Answer: Jay Chou's wife is Hannah Quinlivan, an actress and model from Taiwan.
+# 	""", 
+# # "Describe what is in this image, this is URL of the image: https://www.night_city_img.com", --> Fake resp id 3 -- Tool-use: image_to_text
+# 	"""
+# 	Thought: The user wants a description of an image. I should use the image_to_text API.
+# 	Action: image_to_text
+# 	Action Input: {"image_path": "https://www.tushengwen.com"}
+# 	Observation: "The image depicts a vibrant cityscape at night, illuminated by neon lights and tall skyscrapers."
+# 	Thought: I now know the final answer.
+# 	Final Answer: The image depicts a vibrant cityscape at night, illuminated by neon lights and tall skyscrapers.
+# 	""",
+# # "Draw me a cute kitten, preferably a black cat", -- Fake resp id 4 -- Tool-use: text_to_image
+# 	"""
+# 	Thought: The user is requesting an image generation. I should use the text_to_image API.
+# 	Action: text_to_image
+# 	Action Input: {"text": "A cute black kitten with big eyes, fluffy fur, and a playful expression"}
+# 	Observation: Here is the generated image URL: [https://www.wenshengtu.com]
+# 	Thought: I now know the final answer.
+# 	Final Answer: Here is an image of a cute black kitten: [https://www.wenshengtu.com]
+# 	""", 
+# # "Modify this description: 'A blue Honda car parked on the street' to 'A red Mazda car parked on the street'", -- Fake resp id 5 -- Tool-use: modify_text
+# 	"""
+# 	Thought: The user wants to modify a text description. They want change from `A blue honda car parked on the street` to `A red Mazda car parked on the street`.
+# 	Final Answer: "A red Mazda car parked on the street."
+# 	""", 
+# # "I need to check the text on this product in real-time to see if it is accurate and complete. Here is the link of video product: /home/chwenjun225/projects/DeepEngine/nexus_mind/images/fuzetea_vid1.mp4", # -- id 6
+# 	"""
+# 	Thought: I need to analyze the text on the product in real-time to verify its accuracy and completeness. I should process the video file to extract frames and apply OCR. 
+# 	Action: ai_vision
+# 	Action Input: {"video_path": "/home/chwenjun225/projects/DeepEngine/nexus_mind/images/fuzetea_vid1.mp4"}
+# 	Observation: The OCR result has been extracted from the product video. The detected text is: ["fuzetea", "Passion fruit tea and chia seeds"]
+# 	Thought: I will now compare the extracted text with the expected information to check if it is accurate and complete.
+# 	Final Answer: The text on the product has been successfully extracted. The accuracy and completeness can now be verified based on the expected product information.
+# 	"""
+# # "exit",
+# 	"""Goodbye! Have a great day! 😊"""
+# ]
 
 
 
-# # draw result
-# result = result[0]
-# image = Image.open(img_path).convert('RGB')
-# boxes = [line[0] for line in result]
-# txts = [line[1][0] for line in result]
-# scores = [line[1][1] for line in result]
-# im_show = draw_ocr(image, boxes, txts, scores)
-# im_show = Image.fromarray(im_show)
-# im_show.save('result.jpg')
+# dict_fake_responses = {idx: fresp for idx, fresp in enumerate(fake_response)}
+
+
+
+# STOP_WORDS = ["Observation:", "Observation:\n"]

@@ -17,24 +17,31 @@ from pydantic import BaseModel, Field
 
 
 
-from langchain.agents import load_tools
+from langchain_community.agent_toolkits.load_tools import load_tools
 from langchain.tools import BaseTool, StructuredTool, Tool, tool
-from langchain.chains.llm import LLMChain
 from langchain_ollama import ChatOllama
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, BaseMessage
 from langchain_core.prompts import PromptTemplate
 
 
 
+from langgraph.checkpoint.memory import MemorySaver
+from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 
 
 
-# TODO: Xem lại phần này: https://learning.oreilly.com/library/view/learning-langchain/9781098167271/ch07.html
-# https://langchain-ai.github.io/langgraph/tutorials/workflows/#evaluator-optimizer
 class State(TypedDict):
-	messages: Annotated[list[BaseModel], add_messages]
-# Phải đưa tất cả lại thành node sau đó mới dễ thiết kế các node để làm AI-Agentic được.
+	user_prompt: Union[str, int]
+	thought: Union[str, int]
+	action: Union[str, int]
+	action_input: Union[str, int]
+	observation: Union[str, int]
+	final_thought: Union[str, int]
+	final_answer: Union[str, int]
+	justification: Union[str, int]
+	messages: Annotated[list, add_messages]
+
 
 
 class ResponseWithChainOfThought(BaseModel):
@@ -50,6 +57,7 @@ class ResponseWithChainOfThought(BaseModel):
 
 
 
+config = {"configurable": {"thread_id": "225200"}}
 llm = ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0.1, num_predict="2048")
 llm_cot_structured_output = llm.with_structured_output(ResponseWithChainOfThought)
 
@@ -88,11 +96,44 @@ Question: {query}""")
 
 
 
-resp = llm_cot_structured_output.invoke("""What weighs more, a pound of bricks or a pound of feathers""")
+def llm_cot(state: State):
+	"""Large Language Models produce output JSON Chain-Of-Thought."""
+	resp = llm_cot_structured_output.invoke(state["messages"])
+	output = {
+		"user_prompt": resp.user_prompt, 
+		"thought": resp.thought, 
+		"action": resp.action,
+		"action_input": resp.action_input, 
+		"observation": resp.observation, 
+		"final_thought": resp.final_thought,
+		"final_answer": resp.final_answer, 
+		"justification": resp.justification
+	}
+	return output
 
 
 
-print(resp)
+builder = StateGraph(State)
+builder.add_node("llm_cot", llm_cot)
+
+builder.add_edge(START, "llm_cot")
+builder.add_edge("llm_cot", END)
+
+graph = builder.compile(checkpointer=MemorySaver())
+
+
+
+user_prompt = {"messages": [HumanMessage("hi, my name is Tuan!")]}
+
+
+
+# for chunk in graph.stream(user_prompt, config=config):
+#     print(chunk)
+
+
+
+resp_from_graph = graph.invoke(user_prompt, config=config)
+print(resp_from_graph)
 
 
 

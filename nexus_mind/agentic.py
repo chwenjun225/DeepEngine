@@ -17,34 +17,35 @@ from pydantic import BaseModel, Field
 
 
 
+from langchain.agents import load_tools
 from langchain.tools import BaseTool, StructuredTool, Tool, tool
 from langchain.chains.llm import LLMChain
 from langchain_ollama import ChatOllama
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, BaseMessage
 from langchain_core.prompts import PromptTemplate
 
 
 
-from langgraph.graph import StateGraph, START, END 
 from langgraph.graph.message import add_messages
 
 
 
+# TODO: Xem lại phần này: https://learning.oreilly.com/library/view/learning-langchain/9781098167271/ch07.html
 class State(TypedDict):
-	messages: Annotated[list, add_messages]
+	messages: Annotated[list[BaseModel], add_messages]
 
 
 
 class ResponseWithChainOfThought(BaseModel):
-	"""LLM xuất output định dạng ReAc-CoT khi gặp truy vấn."""
-	user_prompt: Union[str, int] = Field(None, description="The user's prompt")
-	thought: Union[str, int] = Field(None, description="Think logically about the next step")
-	action: Union[str, int] = Field(None, description="Select from available tools: {tools_name}")
-	action_input: Union[str, int] = Field(None, description="Provide the required input") 
-	observation: Union[str, int] = Field(None, description="Record the output from the action")
-	final_thought: Union[str, int] = Field(None, description="I now know the final answer.")
-	final_answer: Union[str, int] = Field(None, description="Provide the final answer")
-	justification: Union[str, int] = Field(None, description="Why this final answer is relevant to the user's query?")
+	"""The JSON schema that the LLM should follow when generating responses in the ReAct-CoT format."""
+	user_prompt: Union[str, int] = Field(None, description="The original prompt provided by the user.")
+	thought: Union[str, int] = Field(None, description="Logical reasoning before deciding the next step.")
+	action: Union[str, int] = Field(None, description="The action to be taken, chosen from available tools ({tools_name}).")
+	action_input: Union[str, int] = Field(None, description="The required input to perform the selected action.") 
+	observation: Union[str, int] = Field(None, description="The outcome or response from executing the action.")
+	final_thought: Union[str, int] = Field(None, description="The concluding thought before arriving at the final answer.")
+	final_answer: Union[str, int] = Field(None, description="The ultimate answer provided to the user (can be numerical or text-based).")
+	justification: Union[str, int] = Field(None, description="The explanation of why the final answer is relevant to the original prompt provided by the user.")
 
 
 
@@ -86,25 +87,15 @@ Question: {query}""")
 
 
 
-def llm_cot(state: State):
-	"""Chain of Thought node."""
-	resp = llm_cot_structured_output.invoke(state["messages"])
-	return {"messages": [resp]}
+resp = llm_cot_structured_output.invoke("""What weighs more, a pound of bricks or a pound of feathers""")
 
 
 
-builder = StateGraph(State)
-builder.add_node("llm_cot", llm_cot)
-builder.add_edge(START, 'llm_cot')
-builder.add_edge('llm_cot', END)
-graph = builder.compile()
+print(resp)
 
 
 
-user_prompt = {"messages": [HumanMessage("What is 2 times 3?")]}
-for chunk in graph.stream(user_prompt):
-	print(chunk)
-	print("DEBUG")
+print("DEBUG")
 
 
 

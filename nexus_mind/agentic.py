@@ -33,7 +33,7 @@ from langgraph.graph.message import add_messages
 # TODO: Xem lại phần này: https://learning.oreilly.com/library/view/learning-langchain/9781098167271/ch07.html
 class State(TypedDict):
 	messages: Annotated[list[BaseModel], add_messages]
-
+# Phải đưa tất cả lại thành node sau đó mới dễ thiết kế các node để làm AI-Agentic được.
 
 
 class ResponseWithChainOfThought(BaseModel):

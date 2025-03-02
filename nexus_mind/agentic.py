@@ -34,9 +34,8 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.types import Command, interrupt
 
 
-
+# TODO: https://iaee.substack.com/p/langgraph-intuitively-and-exhaustively
 class State(TypedDict):
-	"""Lịch sử trò chuyện giữa người và máy."""
 	messages: Annotated[list, add_messages]
 
 

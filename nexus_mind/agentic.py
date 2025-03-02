@@ -14,6 +14,9 @@ from pydantic import BaseModel, Field
 from typing_extensions import Annotated, TypedDict, Union
 
 
+
+from langchain_community.tools.tavily_search import TavilySearchResults
+from langchain_core.tools import InjectedToolCallId
 from langchain_community.agent_toolkits.load_tools import load_tools
 from langchain.tools import BaseTool, StructuredTool, Tool, tool
 from langchain_ollama import ChatOllama
@@ -31,75 +34,105 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.types import Command, interrupt
 
 
+# TODO: What the fuck is State of Agent
+class State(TypedDict):
+	messages: Annotated[list, add_messages]
+	user_prompt: str
+	thought: str
+	action: str 
+	action_input: str 
+	observation: str 
+	final_thought: str 
+	final_answer: str 
+	justification: str 
+
+
 
 @tool()
 def to_lower_case(user_input: str) -> str:
-	"""Converts a given string to lowercase.
-
-	This tool transforms all uppercase letters in the input string into lowercase.
-
-	Args:
-		user_input (str): The input prompt provided by the user.
-
-	Returns:
-		str: The input string converted to lowercase.
-	"""
+	"""Converts a given string to lowercase."""
 	return user_input.lower()
 
 
 
 @tool()
 def random_number_maker(user_prompt: str) -> str:
-	"""Generates a random number between 0 and 100.
-
-	This tool returns a randomly generated integer in the range of 0 to 100.
-	The user's prompt is not used for the generation process.
-
-	Args:
-		user_input (str): A placeholder string (not used in random number generation).
-
-	Returns:
-		str: A randomly generated number between 0 and 100, returned as a string.
-	"""
+	"""Generates a random number between 0 and 100."""
 	return random.randint(0, 100)
 
 
 
 @tool()
 def text_to_image(user_input: str) -> dict:
-	"""Generates an image based on a text description.
-
-	This tool uses AI to create an image based on the given textual prompt. 
-	It returns a URL where the generated image can be accessed.
-
-	Args:
-		user_input (str): The textual prompt provided by the user.
-
-	Returns:
-		str: A JSON string containing the generated image URL.
-	"""
+	"""Generates an image based on a text description."""
 	return json.dumps({"image_url": f"https://image.pollinations.ai/prompt/{user_input}"}, ensure_ascii=False)
 
 
 
 @tool
-def human_assistance(user_input: str) -> str:
-	"""
-	Interrupts AI processing to request human assistance.
+def human_assistance(
+		user_prompt: str, 
+		thought: str, 
+		action: str, 
+		action_input: str, 
+		observation: str, 
+		final_thought: str, 
+		final_answer: str, 
+		justification: str, 
+		tool_call_id: Annotated[str, InjectedToolCallId]
+	) -> str:
+	"""Request assistance from a human."""
+	human_response = interrupt({
+		"question": "Is this correct?",
+		"user_prompt": user_prompt,
+		"thought": thought,
+		"action": action,
+		"action_input": action_input,
+		"observation": observation,
+		"final_thought": final_thought,
+		"final_answer": final_answer,
+		"justification": justification
+	})
+	# If the information is correct, update the state as-is.
+	if human_response.get("correct", "").lower().startswith("y"):
+		verified_user_prompt = user_prompt
+		verified_thought = thought
+		verified_action = action
+		verified_action_input = action_input
+		verified_observation = observation
+		verified_final_thought = final_thought
+		verified_final_answer = final_answer
+		verified_justification = justification
+		response = "Correct"
+	# Otherwise, receive information from the human reviewer.
+	else:
+		verified_user_prompt = human_response.get("user_prompt", user_prompt)
+		verified_thought = human_response.get("thougt", thought)
+		verified_action = human_response.get("action", action)
+		verified_action_input = human_response.get("action_input", action_input)
+		verified_observation = human_response.get("observation", observation)
+		verified_final_thought = human_response.get("final_thought", final_thought)
+		verified_final_answer = human_response.get("final_answer", final_answer)
+		verified_justification = human_response.get("justification", justification)
+		response = f"Made a correction: {human_response}"
+	# Explicitly update the state with a ToolMessage inside the tool.
+	state_update = {
+		"user_prompt": verified_user_prompt, 
+		"thought": verified_thought, 
+		"action": verified_action, 
+		"action_input": verified_action_input, 
+		"observation": verified_observation, 
+		"final_thought": verified_final_thought, 
+		"final_answer": verified_final_answer, 
+		"justification": verified_justification, 
+		"messages": [ToolMessage(response, tool_call_id=tool_call_id)], 
+	}
+	# Return a Command object in the tool to update the state.
+	return Command(update=state_update)
 
-	Args:
-		user_input (str): The message requiring human input.
 
-	Returns:
-		str: The human-provided response.
 
-	Example:
-		>>> human_assistance("How do I reset my password?")
-		"Follow these steps to reset your password..."
-	"""
-	human_response = interrupt({"human_input_assistant": user_input})
-	return human_response["data"]
-
+tavily_search_results = TavilySearchResults(max_results=2)
 
 
 tool_desc = PromptTemplate.from_template(
@@ -135,25 +168,27 @@ Question: {query}""")
 
 
 
-tools = [to_lower_case, random_number_maker, text_to_image, human_assistance]
+tools = [
+	tavily_search_results, 
+	to_lower_case, 
+	random_number_maker, 
+	text_to_image, 
+	human_assistance
+]
 tools_node = ToolNode(tools=tools)
 
 
 
-class State(TypedDict):
-	messages: Annotated[list, add_messages]
-
-
-
 class ResponseWithChainOfThought(BaseModel):
-	user_prompt: Union[str, int] = Field(None, description="The original prompt provided by the user.")
-	thought: Union[str, int] = Field(None, description="Logical reasoning before deciding the next step.")
-	action: Union[str, int] = Field(None, description="The action to be taken, chosen from available tools {}.".format(", ".join([tool.name for tool in tools])))
-	action_input: Union[str, int] = Field(None, description="The required input to perform the selected action.") 
-	observation: Union[str, int] = Field(None, description="The outcome or response from executing the action.")
-	final_thought: Union[str, int] = Field(None, description="The concluding thought before arriving at the final answer.")
-	final_answer: Union[str, int] = Field(None, description="The ultimate answer provided to the user (can be numerical or text-based).")
-	justification: Union[str, int] = Field(None, description="The explanation of why the final answer is relevant to the original prompt provided by the user.")
+	user_prompt: str = Field(None, description="The original prompt provided by the user.")
+	thought: str = Field(None, description="Logical reasoning before deciding the next step.")
+	action: str = Field(None, description="The action to be taken, chosen from available tools {}.".format(", ".join([tool.name for tool in tools])))
+	action_input:str = Field(None, description="The required input to perform the selected action.") 
+	observation: str = Field(None, description="The outcome or response from executing the action.")
+	final_thought: str = Field(None, description="The concluding thought before arriving at the final answer.")
+	final_answer: str = Field(None, description="The ultimate answer provided to the user (can be numerical or text-based).")
+	justification: str = Field(None, description="The explanation of why the final answer is relevant to the original prompt provided by the user.")
+
 
 
 memory = MemorySaver()
@@ -165,9 +200,9 @@ llm_with_tools = llm.bind_tools(tools)
 
 
 def chatbot(state: State):
-	resp = llm_with_tools.invoke(state["messages"])
-	assert len(resp.tool_calls) <= 1
-	return {"messages": [resp]}
+	message  = llm_with_tools.invoke(state["messages"])
+	assert len(message .tool_calls) <= 1
+	return {"messages": [message ]}
 
 
 
@@ -191,16 +226,22 @@ def stream_graph_updates(user_input: str):
 	]}, config=config, stream_mode="values")
 	for event in events:
 		print(">>> 🤖_response:", event["messages"][-1].pretty_print())
-
+	
 
 
 def main():
 	while True:
-		user_input = input(">>> 👨_prompt: ")
-		if user_input.lower() == "exit":
-			print(">>> 🤖_response: Goodbye! Have a great day!😊")
-			break
-		stream_graph_updates(user_input)
+		if False: user_input = input(">>> 👨_prompt: ")
+		for user_input in [
+			(
+				"Can you look up when LangGraph was released? "
+				"When you have the answer, use the human_assistance tool for review."
+			)
+		]:
+			if user_input.lower() == "exit":
+				print(">>> 🤖_response: Goodbye! Have a great day!😊")
+				break
+			stream_graph_updates(user_input)
 
 
 

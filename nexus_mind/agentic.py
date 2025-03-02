@@ -34,137 +34,113 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.types import Command, interrupt
 
 
-# TODO: What the fuck is State of Agent
+
 class State(TypedDict):
+	"""Lịch sử trò chuyện giữa người và máy."""
 	messages: Annotated[list, add_messages]
-	user_prompt: str
-	thought: str
-	action: str 
-	action_input: str 
-	observation: str 
-	final_thought: str 
-	final_answer: str 
-	justification: str 
 
 
 
-@tool()
-def to_lower_case(user_input: str) -> str:
-	"""Converts a given string to lowercase."""
-	return user_input.lower()
+class InputState(TypedDict):
+	user_input: str 
 
 
 
-@tool()
-def random_number_maker(user_prompt: str) -> str:
-	"""Generates a random number between 0 and 100."""
-	return random.randint(0, 100)
+class OutputState(TypedDict):
+	graph_output: str 
 
 
 
-@tool()
-def text_to_image(user_input: str) -> dict:
-	"""Generates an image based on a text description."""
-	return json.dumps({"image_url": f"https://image.pollinations.ai/prompt/{user_input}"}, ensure_ascii=False)
+def build_input_text():
+	pass 
+
+
+if "tools":
+	@tool()
+	def to_lower_case(user_input: str) -> str:
+		"""Converts a given string to lowercase."""
+		return user_input.lower()
 
 
 
-@tool
-def human_assistance(
-		user_prompt: str, 
-		thought: str, 
-		action: str, 
-		action_input: str, 
-		observation: str, 
-		final_thought: str, 
-		final_answer: str, 
-		justification: str, 
-		tool_call_id: Annotated[str, InjectedToolCallId]
-	) -> str:
-	"""Request assistance from a human."""
-	human_response = interrupt({
-		"question": "Is this correct?",
-		"user_prompt": user_prompt,
-		"thought": thought,
-		"action": action,
-		"action_input": action_input,
-		"observation": observation,
-		"final_thought": final_thought,
-		"final_answer": final_answer,
-		"justification": justification
-	})
-	# If the information is correct, update the state as-is.
-	if human_response.get("correct", "").lower().startswith("y"):
-		verified_user_prompt = user_prompt
-		verified_thought = thought
-		verified_action = action
-		verified_action_input = action_input
-		verified_observation = observation
-		verified_final_thought = final_thought
-		verified_final_answer = final_answer
-		verified_justification = justification
-		response = "Correct"
-	# Otherwise, receive information from the human reviewer.
-	else:
-		verified_user_prompt = human_response.get("user_prompt", user_prompt)
-		verified_thought = human_response.get("thougt", thought)
-		verified_action = human_response.get("action", action)
-		verified_action_input = human_response.get("action_input", action_input)
-		verified_observation = human_response.get("observation", observation)
-		verified_final_thought = human_response.get("final_thought", final_thought)
-		verified_final_answer = human_response.get("final_answer", final_answer)
-		verified_justification = human_response.get("justification", justification)
-		response = f"Made a correction: {human_response}"
-	# Explicitly update the state with a ToolMessage inside the tool.
-	state_update = {
-		"user_prompt": verified_user_prompt, 
-		"thought": verified_thought, 
-		"action": verified_action, 
-		"action_input": verified_action_input, 
-		"observation": verified_observation, 
-		"final_thought": verified_final_thought, 
-		"final_answer": verified_final_answer, 
-		"justification": verified_justification, 
-		"messages": [ToolMessage(response, tool_call_id=tool_call_id)], 
-	}
-	# Return a Command object in the tool to update the state.
-	return Command(update=state_update)
+	@tool()
+	def random_number_maker(user_prompt: str) -> int:
+		"""Generates a random number between 0 and 100."""
+		return random.randint(0, 100)
 
 
 
-tavily_search_results = TavilySearchResults(max_results=2)
-
-
-tool_desc = PromptTemplate.from_template(
-	"""{name_for_model}: Call this tool to interact with the {name_for_human} API. 
-What is the {name_for_human} API useful for? 
-{description_for_model}.
-Parameters: {parameters}""")
+	@tool()
+	def text_to_image(user_input: str) -> dict:
+		"""Generates an image based on a text description."""
+		return json.dumps({"image_url": f"https://image.pollinations.ai/prompt/{user_input}"}, ensure_ascii=False)
 
 
 
-react_prompt = PromptTemplate.from_template(
-	"""You are an AI assistant that follows the ReAct reasoning framework. 
-You have access to the following APIs:
+	@tool
+	def human_assistance(
+			user_prompt: str, 
+			thought: str, 
+			action: str, 
+			action_input: str, 
+			observation: str, 
+			final_thought: str, 
+			final_answer: str, 
+			justification: str, 
+			tool_call_id: Annotated[str, InjectedToolCallId]
+		) -> str:
+		"""Request assistance from a human."""
+		human_response = interrupt({
+			"question": "Is this correct?",
+			"user_prompt": user_prompt,
+			"thought": thought,
+			"action": action,
+			"action_input": action_input,
+			"observation": observation,
+			"final_thought": final_thought,
+			"final_answer": final_answer,
+			"justification": justification
+		})
+		# If the information is correct, update the state as-is.
+		if human_response.get("correct", "").lower().startswith("y"):
+			verified_user_prompt = user_prompt
+			verified_thought = thought
+			verified_action = action
+			verified_action_input = action_input
+			verified_observation = observation
+			verified_final_thought = final_thought
+			verified_final_answer = final_answer
+			verified_justification = justification
+			response = "Correct"
+		# Otherwise, receive information from the human reviewer.
+		else:
+			verified_user_prompt = human_response.get("user_prompt", user_prompt)
+			verified_thought = human_response.get("thougt", thought)
+			verified_action = human_response.get("action", action)
+			verified_action_input = human_response.get("action_input", action_input)
+			verified_observation = human_response.get("observation", observation)
+			verified_final_thought = human_response.get("final_thought", final_thought)
+			verified_final_answer = human_response.get("final_answer", final_answer)
+			verified_justification = human_response.get("justification", justification)
+			response = f"Made a correction: {human_response}"
+		# Explicitly update the state with a ToolMessage inside the tool.
+		state_update = {
+			"user_prompt": verified_user_prompt, 
+			"thought": verified_thought, 
+			"action": verified_action, 
+			"action_input": verified_action_input, 
+			"observation": verified_observation, 
+			"final_thought": verified_final_thought, 
+			"final_answer": verified_final_answer, 
+			"justification": verified_justification, 
+			"messages": [ToolMessage(response, tool_call_id=tool_call_id)], 
+		}
+		# Return a Command object in the tool to update the state.
+		return Command(update=state_update)
 
-{tools_desc}
 
-Use the following strict format:
 
-### Input Format:
-
-question: [The input question]
-thought: [Think logically about the next step]
-action: [Select from available tools: {tools_name}]
-action_input: [Provide the required input]
-observation: [Record the output from the action]
-... (Repeat the thought/action/observation loop as needed)
-final_thought: I now know the final answer
-final_answer: [Provide the final answer]
-
-Begin!
-
-Question: {query}""")
+	tavily_search_results = TavilySearchResults(max_results=2)
 
 
 
@@ -247,6 +223,39 @@ def main():
 
 if __name__ == "__main__":
 	fire.Fire(main)
+
+
+
+# tool_desc = PromptTemplate.from_template(
+# 	"""{name_for_model}: Call this tool to interact with the {name_for_human} API. 
+# What is the {name_for_human} API useful for? 
+# {description_for_model}.
+# Parameters: {parameters}""")
+
+
+
+# react_prompt = PromptTemplate.from_template(
+# 	"""You are an AI assistant that follows the ReAct reasoning framework. 
+# You have access to the following APIs:
+
+# {tools_desc}
+
+# Use the following strict format:
+
+# ### Input Format:
+
+# question: [The input question]
+# thought: [Think logically about the next step]
+# action: [Select from available tools: {tools_name}]
+# action_input: [Provide the required input]
+# observation: [Record the output from the action]
+# ... (Repeat the thought/action/observation loop as needed)
+# final_thought: I now know the final answer
+# final_answer: [Provide the final answer]
+
+# Begin!
+
+# Question: {query}""")
 
 
 

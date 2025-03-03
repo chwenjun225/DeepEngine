@@ -109,7 +109,7 @@ def print_stream(stream):
 
 
 
-workflow = StateGraph(State)
+workflow = StateGraph(AllState)
 
 workflow.add_node("pre_built_agent", pre_built_agent)
 

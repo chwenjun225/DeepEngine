@@ -36,6 +36,11 @@ from tools import tavily_search, random_number_maker, text_to_image
 
 
 
+# TODO: Cần thêm SystemPrompt cho prebuild_react_agent
+system_prompt = PromptTemplate.from_template("")
+
+
+
 tools = [
 	tavily_search, 
 	random_number_maker, 
@@ -51,17 +56,23 @@ class ResponseChainOfThought(BaseModel):
 	thought: str = Field(description="Logical reasoning before executing an action")
 	action: str = Field(description=f"The action to be taken, chosen from available tools {', '.join([tool.name for tool in tools])}.")
 	action_input:str = Field(description="The required input for the action.") 
-	observation: Optional[str] = Field(description="The outcome of executing the action.")
+	observation: str = Field(description="The outcome of executing the action.")
 	justification: Optional[str] = Field(description="Explanation of why the final answer is relevant.")
 
 
 
-class State(TypedDict):
-	"""Lưu trữ lịch sử hội thoại."""
+class AllState(TypedDict):
+	"""Lưu trữ lịch sử hội thoại và trạng thái của từng agent."""
 	messages: Annotated[Sequence[BaseMessage], add_messages]
-	structured_response: ResponseChainOfThought
+	# agent_states: dict[str, ResponseChainOfThought]  # TODO: Trạng thái của từng agent
+	structured_response: ResponseChainOfThought 
 	is_last_step: IsLastStep
 	remaining_steps: int
+
+
+# TODO: Cần build State cho mỗi Agent
+class AgentState(TypedDict):
+	pass
 
 
 
@@ -81,7 +92,7 @@ pre_built_agent = create_react_agent(
 	tools=tools_node, 
 	store=store, 
 	checkpointer=checkpointer, 
-	state_schema=State,
+	state_schema=AllState,
 	response_format=ResponseChainOfThought,
 )
 

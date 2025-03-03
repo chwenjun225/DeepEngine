@@ -11,212 +11,125 @@ import uuid
 
 
 from pydantic import BaseModel, Field
-from typing_extensions import Annotated, TypedDict, Union
+from typing_extensions import Annotated, TypedDict, Sequence, Union, Optional
 
 
 
-from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_core.tools import InjectedToolCallId
-from langchain_community.agent_toolkits.load_tools import load_tools
-from langchain.tools import BaseTool, StructuredTool, Tool, tool
+from langchain.tools import tool
 from langchain_ollama import ChatOllama
-from langchain_core.messages import (
-	HumanMessage, AIMessage, SystemMessage, BaseMessage, ToolMessage
-)
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, BaseMessage, ToolMessage
 from langchain_core.prompts import PromptTemplate
 
 
-
-from langgraph.prebuilt import ToolNode, tools_condition
-from langgraph.graph import StateGraph, START, END
-from langgraph.graph.message import add_messages
-from langgraph.checkpoint.memory import MemorySaver
 from langgraph.types import Command, interrupt
-
-
-# TODO: https://iaee.substack.com/p/langgraph-intuitively-and-exhaustively
-class State(TypedDict):
-	messages: Annotated[list, add_messages]
-
-
-
-class InputState(TypedDict):
-	user_input: str 
+from langgraph.graph.message import add_messages
+from langgraph.store.memory import InMemoryStore
+from langgraph.checkpoint.memory import MemorySaver
+from langgraph.managed import IsLastStep
+from langgraph.graph import MessagesState, StateGraph, START, END
+from langgraph.prebuilt import create_react_agent, ToolNode, tools_condition
 
 
 
-class OutputState(TypedDict):
-	graph_output: str 
-
-
-
-def build_input_text():
-	pass 
-
-
-if "tools":
-	@tool()
-	def to_lower_case(user_input: str) -> str:
-		"""Converts a given string to lowercase."""
-		return user_input.lower()
-
-
-
-	@tool()
-	def random_number_maker(user_prompt: str) -> int:
-		"""Generates a random number between 0 and 100."""
-		return random.randint(0, 100)
-
-
-
-	@tool()
-	def text_to_image(user_input: str) -> dict:
-		"""Generates an image based on a text description."""
-		return json.dumps({"image_url": f"https://image.pollinations.ai/prompt/{user_input}"}, ensure_ascii=False)
-
-
-
-	@tool
-	def human_assistance(
-			user_prompt: str, 
-			thought: str, 
-			action: str, 
-			action_input: str, 
-			observation: str, 
-			final_thought: str, 
-			final_answer: str, 
-			justification: str, 
-			tool_call_id: Annotated[str, InjectedToolCallId]
-		) -> str:
-		"""Request assistance from a human."""
-		human_response = interrupt({
-			"question": "Is this correct?",
-			"user_prompt": user_prompt,
-			"thought": thought,
-			"action": action,
-			"action_input": action_input,
-			"observation": observation,
-			"final_thought": final_thought,
-			"final_answer": final_answer,
-			"justification": justification
-		})
-		# If the information is correct, update the state as-is.
-		if human_response.get("correct", "").lower().startswith("y"):
-			verified_user_prompt = user_prompt
-			verified_thought = thought
-			verified_action = action
-			verified_action_input = action_input
-			verified_observation = observation
-			verified_final_thought = final_thought
-			verified_final_answer = final_answer
-			verified_justification = justification
-			response = "Correct"
-		# Otherwise, receive information from the human reviewer.
-		else:
-			verified_user_prompt = human_response.get("user_prompt", user_prompt)
-			verified_thought = human_response.get("thougt", thought)
-			verified_action = human_response.get("action", action)
-			verified_action_input = human_response.get("action_input", action_input)
-			verified_observation = human_response.get("observation", observation)
-			verified_final_thought = human_response.get("final_thought", final_thought)
-			verified_final_answer = human_response.get("final_answer", final_answer)
-			verified_justification = human_response.get("justification", justification)
-			response = f"Made a correction: {human_response}"
-		# Explicitly update the state with a ToolMessage inside the tool.
-		state_update = {
-			"user_prompt": verified_user_prompt, 
-			"thought": verified_thought, 
-			"action": verified_action, 
-			"action_input": verified_action_input, 
-			"observation": verified_observation, 
-			"final_thought": verified_final_thought, 
-			"final_answer": verified_final_answer, 
-			"justification": verified_justification, 
-			"messages": [ToolMessage(response, tool_call_id=tool_call_id)], 
-		}
-		# Return a Command object in the tool to update the state.
-		return Command(update=state_update)
-
-
-
-	tavily_search_results = TavilySearchResults(max_results=2)
+from tools import tavily_search, random_number_maker, text_to_image
 
 
 
 tools = [
-	tavily_search_results, 
-	to_lower_case, 
+	tavily_search, 
 	random_number_maker, 
-	text_to_image, 
-	human_assistance
+	text_to_image
 ]
 tools_node = ToolNode(tools=tools)
 
 
 
-class ResponseWithChainOfThought(BaseModel):
-	user_prompt: str = Field(None, description="The original prompt provided by the user.")
-	thought: str = Field(None, description="Logical reasoning before deciding the next step.")
-	action: str = Field(None, description="The action to be taken, chosen from available tools {}.".format(", ".join([tool.name for tool in tools])))
-	action_input:str = Field(None, description="The required input to perform the selected action.") 
-	observation: str = Field(None, description="The outcome or response from executing the action.")
-	final_thought: str = Field(None, description="The concluding thought before arriving at the final answer.")
-	final_answer: str = Field(None, description="The ultimate answer provided to the user (can be numerical or text-based).")
-	justification: str = Field(None, description="The explanation of why the final answer is relevant to the original prompt provided by the user.")
+class ResponseChainOfThought(BaseModel):
+	"""Chain-of-Thought structured response format of AI during the reasoning process."""
+	user_prompt: str = Field(description="The original question provided by the user.")
+	thought: str = Field(description="Logical reasoning before executing an action")
+	action: str = Field(description=f"The action to be taken, chosen from available tools {', '.join([tool.name for tool in tools])}.")
+	action_input:str = Field(description="The required input for the action.") 
+	observation: Optional[str] = Field(description="The outcome of executing the action.")
+	justification: Optional[str] = Field(description="Explanation of why the final answer is relevant.")
 
 
 
-memory = MemorySaver()
+class State(TypedDict):
+	"""Lưu trữ lịch sử hội thoại."""
+	messages: Annotated[Sequence[BaseMessage], add_messages]
+	structured_response: ResponseChainOfThought
+	is_last_step: IsLastStep
+	remaining_steps: int
+
+
+
 config = {"configurable": {"thread_id": str(uuid.uuid4())}}
-llm = ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0.1, num_predict="2048")
-llm_cot_structured_output = llm.with_structured_output(ResponseWithChainOfThought)
-llm_with_tools = llm.bind_tools(tools)
+checkpointer = MemorySaver()
+store = InMemoryStore()
 
 
 
-def chatbot(state: State):
-	message  = llm_with_tools.invoke(state["messages"])
-	assert len(message .tool_calls) <= 1
-	return {"messages": [message ]}
+model = ChatOllama(
+	model="llama3.2:1b-instruct-fp16", 
+	temperature=0.8,
+	num_predict=4096, 
+)
+pre_built_agent = create_react_agent(
+	model=model, 
+	tools=tools_node, 
+	store=store, 
+	checkpointer=checkpointer, 
+	state_schema=State,
+	response_format=ResponseChainOfThought,
+)
 
 
 
-builder = StateGraph(State)
-
-builder.add_node("chatbot", chatbot)
-builder.add_node("tools", tools_node)
-
-builder.add_edge(START, "chatbot")
-builder.add_conditional_edges("chatbot", tools_condition)
-builder.add_edge("tools", "chatbot")
-
-graph = builder.compile(checkpointer=memory)
+def print_stream(stream):
+	"""Hiển thị kết quả quá trình suy luận."""
+	for s in stream:
+		message = s["messages"][-1]
+		if isinstance(message, tuple):
+			print(message)
+		else:
+			message.pretty_print()
 
 
 
-def stream_graph_updates(user_input: str):
-	events = graph.stream({"messages": [
-		SystemMessage(content="You are a helpful assistant!"),
-		HumanMessage(content=user_input)
-	]}, config=config, stream_mode="values")
-	for event in events:
-		print(">>> 🤖_response:", event["messages"][-1].pretty_print())
-	
+workflow = StateGraph(State)
+
+workflow.add_node("pre_built_agent", pre_built_agent)
+
+workflow.add_edge(START, "pre_built_agent")
+workflow.add_edge("pre_built_agent", END)
+
+app = workflow.compile(
+	checkpointer=checkpointer, 
+	store=store
+)
+
 
 
 def main():
-	while True:
-		if False: user_input = input(">>> 👨_prompt: ")
-		for user_input in [
-			(
-				"Can you look up when LangGraph was released? "
-				"When you have the answer, use the human_assistance tool for review."
-			)
-		]:
-			if user_input.lower() == "exit":
-				print(">>> 🤖_response: Goodbye! Have a great day!😊")
-				break
-			stream_graph_updates(user_input)
+	for user_input in [
+			"Can you look up when LangGraph was released?", 
+			"exit"
+	]:
+		if user_input.lower() == "exit":
+			print(">>> SystemExit: Goodbye! Have a great day!😊")
+			break
+		try: 
+			print_stream(
+				app.stream(input={"messages": [
+						SystemMessage(content="You are a helpful assistant. Remember, always be polite!"), 
+						HumanMessage(content=user_input)]
+					}, stream_mode="values", config=config)
+				)
+		except Exception as e:
+			print(f">>> ERROR: {e}")
+			break
 
 
 
@@ -482,7 +395,6 @@ if __name__ == "__main__":
 # 		"Describe what is in this image, this is URL of the image: https://www.night_city_img.com", # -- id 3
 # 		"Draw me a cute kitten, preferably a black cat", # -- id 4
 # 		"Modify this description: 'A blue Honda car parked on the street' to 'A red Mazda car parked on the street'", # --id 5
-# 		# TODO: Đã tạo xong kịch bản đầu vào
 # 		"I need to check the text on this product in real-time to see if it is accurate and complete. Here is the link of video product: /home/chwenjun225/projects/DeepEngine/nexus_mind/images/fuzetea_vid2.mp4", # -- id 6
 # 		"exit" 
 # 	])):

@@ -11,15 +11,26 @@ import uuid
 
 
 from pydantic import BaseModel, Field
-from typing_extensions import Annotated, TypedDict, Sequence, Union, Optional
+from typing_extensions import (
+	Annotated, TypedDict, 
+	Sequence, Union, 
+	Optional, Dict
+)
 
 
 
 from langchain_core.tools import InjectedToolCallId
 from langchain.tools import tool
 from langchain_ollama import ChatOllama
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, BaseMessage, ToolMessage
+from langchain_core.messages import (
+	HumanMessage, 
+	AIMessage, 
+	SystemMessage, 
+	BaseMessage, 
+	ToolMessage
+)
 from langchain_core.prompts import PromptTemplate
+
 
 
 from langgraph.types import Command, interrupt
@@ -27,17 +38,20 @@ from langgraph.graph.message import add_messages
 from langgraph.store.memory import InMemoryStore
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.managed import IsLastStep
-from langgraph.graph import MessagesState, StateGraph, START, END
-from langgraph.prebuilt import create_react_agent, ToolNode, tools_condition
+from langgraph.graph import (
+	MessagesState, StateGraph, 
+	START, END
+)
+from langgraph.prebuilt import (
+	create_react_agent, 
+	ToolNode, 
+	tools_condition
+)
 
 
 
+from prompts import react_tool_desc, react_prompt
 from tools import tavily_search, random_number_maker, text_to_image
-
-
-
-# TODO: Cần thêm SystemPrompt cho prebuild_react_agent
-system_prompt = PromptTemplate.from_template("")
 
 
 
@@ -50,28 +64,23 @@ tools_node = ToolNode(tools=tools)
 
 
 
-class ResponseChainOfThought(BaseModel):
-	"""Chain-of-Thought structured response format of AI during the reasoning process."""
+class ReActAgentState(BaseModel):
+	"""ReAct Agent with structured response format."""
 	user_prompt: str = Field(description="The original question provided by the user.")
 	thought: str = Field(description="Logical reasoning before executing an action")
 	action: str = Field(description=f"The action to be taken, chosen from available tools {', '.join([tool.name for tool in tools])}.")
 	action_input:str = Field(description="The required input for the action.") 
 	observation: str = Field(description="The outcome of executing the action.")
-	justification: Optional[str] = Field(description="Explanation of why the final answer is relevant.")
 
 
 
-class AllState(TypedDict):
-	"""Lưu trữ lịch sử hội thoại và trạng thái của từng agent."""
-	messages: Annotated[Sequence[BaseMessage], add_messages]
-	# agent_states: dict[str, ResponseChainOfThought]  # TODO: Trạng thái của từng agent
-	structured_response: ResponseChainOfThought 
+class State(BaseModel):
+	react_agent_state: Annotated[Sequence[ReActAgentState], add_messages]
 	is_last_step: IsLastStep
 	remaining_steps: int
 
 
-# TODO: Cần build State cho mỗi Agent
-class AgentState(TypedDict):
+class ReactAgentState(TypedDict):
 	pass
 
 
@@ -87,13 +96,14 @@ model = ChatOllama(
 	temperature=0.8,
 	num_predict=4096, 
 )
-pre_built_agent = create_react_agent(
+react_agent = create_react_agent(
 	model=model, 
+	prompt="",
 	tools=tools_node, 
 	store=store, 
 	checkpointer=checkpointer, 
-	state_schema=AllState,
-	response_format=ResponseChainOfThought,
+	state_schema=ReactAgentState,
+	response_format=ReActAgentState,
 )
 
 
@@ -109,12 +119,12 @@ def print_stream(stream):
 
 
 
-workflow = StateGraph(AllState)
+workflow = StateGraph(State)
 
-workflow.add_node("pre_built_agent", pre_built_agent)
+workflow.add_node("react_agent", react_agent)
 
-workflow.add_edge(START, "pre_built_agent")
-workflow.add_edge("pre_built_agent", END)
+workflow.add_edge(START, "react_agent")
+workflow.add_edge("react_agent", END)
 
 app = workflow.compile(
 	checkpointer=checkpointer, 
@@ -261,10 +271,29 @@ if __name__ == "__main__":
 
 
 
-# def model_invoke(input_text, idx):
-# 	"""Text completion, sau đó chỉnh sửa kết quả inference output."""
-# 	res = model.invoke(input=input_text)
-# 	return res 
+# def llm_with_tools(query, history, tools, idx):
+# 	chat_history = [(x["user"], x["bot"]) for x in history] + [(query, "")]
+# 	planning_prompt = build_input_text(chat_history=chat_history, tools=tools)
+# 	text = ""
+# 	while True:
+# 		resp = model_invoke(input_text=planning_prompt+text, idx=idx)
+# 		action, action_input, output = parse_latest_tool_call(resp=resp) 
+# 		if action:
+# 			res = tool_exe(
+# 				tool_name=action, tool_args=action_input, idx=idx
+# 			)
+# 			text += res
+# 			break
+# 		else:  
+# 			text += output
+# 			break
+# 	new_history = []
+# 	new_history.extend(history)
+# 	new_history.append(
+# 		{'user': query, 'bot': text}
+# 	)
+# 	idx += 1
+# 	return text, new_history
 
 
 
@@ -279,15 +308,6 @@ if __name__ == "__main__":
 # 		tool_args = str(resp[action_input + len("Action Input:") : observation]).strip()
 # 		resp = resp[:observation]
 # 	return tool_name, tool_args, resp
-
-
-
-# def image_to_text(tool_args, idx, img_save_path="./"):
-# 	resp = request_image_from_web(
-# 		tool_args=tool_args, 
-# 		img_save_path=img_save_path
-# 	)
-# 	return resp[resp.rfind("Final Answer") :]
 
 
 

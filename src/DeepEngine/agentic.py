@@ -35,71 +35,22 @@ from langgraph.prebuilt import (create_react_agent, ToolNode, tools_condition)
 
 
 
-from prompts import react_tool_desc, react_prompt
-from tools import tavily_search, random_number_maker, text_to_image
+from prompts import (
+	tool_desc_prompt, react_prompt, 
+	begin_of_text, end_of_text, start_header_id, 
+	end_header_id, end_of_message_id, end_of_turn_id
+)
+from tools import (
+	tavily_search, random_number_maker, text_to_image, 
+	add, subtract, multiply, divide, power, square_root
+)
 
 
 
-tools = [tavily_search, random_number_maker, text_to_image]
-
-
-
-tool_desc_prompt = PromptTemplate.from_template("""{name_for_model}: Call this tool to interact with the {name_for_human} API. 
-What is the {name_for_human} API useful for? 
-{description_for_model}.
-Type: {type}.
-Properties: {properties}.
-Required: {required}.""")
-
-
-
-react_prompt = PromptTemplate.from_template("""You are an AI assistant that follows the ReAct reasoning framework. 
-You have access to the following APIs:
-
-{tools_desc}
-
-Use the following strict format:
-
-### Input Format:
-
-user_query: The original query provided by the user.
-thought: Logical reasoning before executing an action.
-action: The action to be taken, chosen from available tools: {tools_name}.
-action_input: The required input for the action.
-observation: The outcome of executing the action. 
-...(Repeat the thought/action/observation loop as needed)
-final_thought: I now know the final answer.
-final_answer: Provide the final answer.
-
-Begin!
-
-Question: {user_query}""")
-
-
-
-def build_input_query(tool_desc_prompt: str, react_prompt: str, tools: list) -> str:
-	list_tool_desc = []
-	for tool in tools:
-		if hasattr(tool, "args_schema"):
-			try: 
-				tool_info = tool.args_schema.model_json_schema()
-				tool_desc = tool_desc_prompt.format(
-					name_for_model=tool_info["title"],
-					name_for_human=tool_info["title"],
-					description_for_model=tool_info["description"],
-					type=tool_info["type"], 
-					properties=json.dumps(tool_info["properties"], ensure_ascii=False), 
-					required=json.dumps(tool_info["required"], ensure_ascii=False)
-				)
-				tool_desc += ". Format the arguments as a JSON object."
-			except Exception as e:
-				print(f">>> [ERROR] Error Extract tool info: {e}")
-		else:
-			print(f">>> [ERROR]: Không có thuộc tính arg_schema trong tool: {tool_info}")
-		list_tool_desc.append(tool_desc)
-	tools_desc_prompt = "\n\n".join(list_tool_desc)
-	tools_name = ", ".join(tool.name for tool in tools)
-	# TODO: Build tiếp chỗ này 
+TOOLS = [
+	tavily_search, random_number_maker, text_to_image, 
+	add, subtract, multiply, divide, power, square_root
+]
 
 
 
@@ -107,7 +58,7 @@ class ChainOfThoughtStructureRepsonse(BaseModel):
 	"""Chain-of-Thought structured response format."""
 	user_query: str = Field(description="The original query provided by the user.")
 	thought: str = Field(description="Logical reasoning before executing an action")
-	action: str = Field(description=f"The action to be taken, chosen from available tools: {', '.join([tool.name for tool in tools])}.")
+	action: str = Field(description=f"The action to be taken, chosen from available tools: {', '.join([tool.name for tool in TOOLS])}.")
 	action_input:str = Field(description="The required input for the action.") 
 	observation: str = Field(description="The outcome of executing the action. Repeat the thought/action/observation loop as needed)")
 	final_thought: str = Field(description="I now know the final answer.")
@@ -122,44 +73,87 @@ class State(BaseModel):
 
 
 
-config = {"configurable": {"thread_id": str(uuid.uuid4())}}
-checkpointer = MemorySaver()
-store = InMemoryStore()
+CONFIG = {"configurable": {"thread_id": str(uuid.uuid4())}}
+CHECKPOINTER = MemorySaver()
+STORE = InMemoryStore()
 
 
 
-model = ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0.8, num_predict=4096)
-model_chain_of_thought = model.with_structured_output(schema=ChainOfThoughtStructureRepsonse)
-model_bind_tools = model.bind_tools(tools=tools)
+MODEL = ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0.8, num_predict=128_000)
+MODEL_CHAIN_OF_THOUGHT = MODEL.with_structured_output(schema=ChainOfThoughtStructureRepsonse)
+MODEL_BIND_TOOLS = MODEL.bind_tools(tools=TOOLS)
 
 
 
-def chatbot_chain_of_thought(state: State):
-	"""Xử lý chatbot theo Chain-of-Thought với input đúng định dạng."""
-	resp = model_chain_of_thought.invoke(state.messages)
-	print("DEBUG")
+def build_user_query(user_query: str, tool_desc_prompt: str, react_prompt: str, tools: list) -> str:
+	"""Builds a formatted query with tool descriptions.
+
+	Args:
+		user_query (str): The user's input query.
+		tool_desc_prompt (str): The prompt template for tool descriptions.
+		react_prompt (str): The template for constructing the final user query.
+		tools (list): A list of tool objects.
+
+	Returns:
+		str: A fully formatted user query with tool descriptions.
+	"""
+	list_tool_desc = []
+	for tool in tools:
+		if hasattr(tool, "args_schema"):
+			try: 
+				tool_info = tool.args_schema.model_json_schema()
+				tool_desc = tool_desc_prompt.format(
+					name_for_model=tool_info["title"], 
+					name_for_human=tool_info["title"], 
+					description_for_model=tool_info["description"],
+					type=tool_info["type"], 
+					properties=json.dumps(tool_info["properties"], ensure_ascii=False), 
+					required=json.dumps(tool_info["required"], ensure_ascii=False)
+				)
+				tool_desc += " Format the arguments as a JSON object."
+			except Exception as e:
+				print(f">>> [ERROR] Error Extract tool info: {e}")
+		else:
+			print(f">>> [ERROR]: The tool '{tool_info}' does not have an 'args_schema' attribute.")
+		if tool_desc: 
+			list_tool_desc.append(tool_desc)
+	return react_prompt.format(
+		begin_of_text=begin_of_text, 
+		start_header_id=start_header_id, 
+		end_header_id=end_header_id, 
+		end_of_turn_id=end_of_turn_id, 
+		user_query=user_query.strip(), 
+		tools_desc="\n\n".join(list_tool_desc), 
+		tools_name=", ".join(tool.name for tool in tools if hasattr(tool, "name")), 
+	)
+
+
+
+def chatbot(state: State):
+	"""Processes user query through the chatbot model and returns a response."""
+	resp = MODEL.invoke(state.messages)
+	return {"messages": [resp]}
 
 
 
 workflow = StateGraph(State)
-workflow.add_node("chatbot_chain_of_thought", chatbot_chain_of_thought)
-workflow.add_edge(START, "chatbot_chain_of_thought")
-workflow.add_edge("chatbot_chain_of_thought", END)
-app = workflow.compile(checkpointer=checkpointer, store=store)
+workflow.add_node("chatbot", chatbot)
+workflow.add_edge(START, "chatbot")
+workflow.add_edge("chatbot", END)
+app = workflow.compile(checkpointer=CHECKPOINTER, store=STORE)
 
 
 
 def main():
-	for user_query in ["What is 1+1?", "exit"]:
+	for user_query in ["What is the result of 4/2?", "exit"]:
 		if user_query.lower() == "exit":
 			print(">>> SystemExit: Goodbye! Have a great day!😊")
 			break
 		try: 
-			print_stream(app.stream(input={"messages": [SystemMessage(
-					content="You are a helpful assistant. Remember, always be polite!"), 
-				HumanMessage(
-					content=user_query)]
-				}, stream_mode="values", config=config)
+			if True: 
+				enhanced_user_query = build_user_query(user_query=user_query, tool_desc_prompt=tool_desc_prompt, react_prompt=react_prompt, tools=TOOLS)
+			print_stream(
+				app.stream(input={"messages": [HumanMessage(content=enhanced_user_query)]}, stream_mode="values", config=CONFIG)
 			)
 		except Exception as e:
 			print(f">>> ERROR: {e}")
@@ -178,39 +172,6 @@ def print_stream(stream):
 
 if __name__ == "__main__":
 	fire.Fire(main)
-
-
-
-# tool_desc = PromptTemplate.from_template(
-# 	"""{name_for_model}: Call this tool to interact with the {name_for_human} API. 
-# What is the {name_for_human} API useful for? 
-# {description_for_model}.
-# Parameters: {parameters}""")
-
-
-
-# react_prompt = PromptTemplate.from_template(
-# 	"""You are an AI assistant that follows the ReAct reasoning framework. 
-# You have access to the following APIs:
-
-# {tools_desc}
-
-# Use the following strict format:
-
-# ### Input Format:
-
-# question: [The input question]
-# thought: [Think logically about the next step]
-# action: [Select from available tools: {tools_name}]
-# action_input: [Provide the required input]
-# observation: [Record the output from the action]
-# ... (Repeat the thought/action/observation loop as needed)
-# final_thought: I now know the final answer
-# final_answer: [Provide the final answer]
-
-# Begin!
-
-# Question: {query}""")
 
 
 

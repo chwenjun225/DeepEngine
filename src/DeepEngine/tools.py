@@ -1,3 +1,7 @@
+import math
+
+
+
 from typing_extensions import Annotated, Optional
 
 
@@ -10,6 +14,105 @@ from langchain_community.tools.tavily_search import TavilySearchResults
 
 
 from langgraph.types import Command, interrupt
+
+
+
+@tool(parse_docstring=True)
+def add(a: float, b: float) -> float:
+	"""Returns the sum of two numbers.
+
+	Args:
+		a (float): The first number.
+		b (float): The second number.
+
+	Returns:
+		float: The sum of `a` and `b`.
+	"""
+	return a + b
+
+
+
+@tool(parse_docstring=True)
+def subtract(a: float, b: float) -> float:
+	"""Returns the difference of two numbers.
+
+	Args:
+		a (float): The first number.
+		b (float): The second number.
+
+	Returns:
+		float: The result of `a - b`.
+	"""
+	return a - b
+
+
+
+@tool(parse_docstring=True)
+def multiply(a: float, b: float) -> float:
+	"""Returns the product of two numbers.
+
+	Args:
+		a (float): The first number.
+		b (float): The second number.
+
+	Returns:
+		float: The result of `a * b`.
+	"""
+	return a * b
+
+
+
+@tool(parse_docstring=True)
+def divide(a: float, b: float) -> float:
+	"""Returns the quotient of two numbers.
+
+	Args:
+		a (float): The dividend.
+		b (float): The divisor.
+
+	Returns:
+		float: The result of `a / b`.
+
+	Raises:
+		ValueError: If `b` is zero.
+	"""
+	if b == 0:
+		raise ValueError("Division by zero is not allowed.")
+	return a / b
+
+
+
+@tool(parse_docstring=True)
+def power(a: float, b: float) -> float:
+	"""Returns the result of raising `a` to the power of `b`.
+
+	Args:
+		a (float): The base number.
+		b (float): The exponent.
+
+	Returns:
+		float: The result of `a ** b`.
+	"""
+	return a ** b
+
+
+
+@tool(parse_docstring=True)
+def square_root(a: float) -> float:
+	"""Returns the square root of a number.
+
+	Args:
+		a (float): The number to find the square root of.
+
+	Returns:
+		float: The square root of `a`.
+
+	Raises:
+		ValueError: If `a` is negative.
+	"""
+	if a < 0:
+		raise ValueError("Cannot compute the square root of a negative number.")
+	return math.sqrt(a)
 
 
 

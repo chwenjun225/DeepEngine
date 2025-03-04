@@ -57,7 +57,7 @@ class ChainOfThoughtStructureRepsonse(BaseModel):
 class State(BaseModel):
 	"""Represents the structured conversation state with categorized messages."""
 	user_query: Annotated[List, add_messages]
-	messages: dict[str, List] = Field(
+	messages: dict[str, Annotated[List, add_messages]] = Field(
 		default_factory=lambda: {
 			"SYSTEM": [], 
 			"HUMAN": [],
@@ -155,31 +155,19 @@ def enhance_human_query(state: State) -> str:
 
 
 def chatbot(state: State) -> dict:
+	"""Processes user query and updates state with chatbot response."""
 	enhanced_user_query = enhance_human_query(state=state)
-	resp = MODEL.invoke([
-		SystemMessage(content=SYSTEM_PROMPT), 
-		HumanMessage(content=enhanced_user_query)
-		]
-	)
-	# TODO: Xem lại các lưu lịch sử resp của AI và State
-	return {"messages": {"AI": [resp]}}
-
+	resp = MODEL.invoke([SystemMessage(content=SYSTEM_PROMPT), HumanMessage(content=enhanced_user_query)])
+	if resp is None or not isinstance(resp, AIMessage):  
+		resp = "I'm unable to generate a response."
+	state.add_message(HumanMessage(enhanced_user_query))
+	state.add_message(resp) if hasattr(resp, AIMessage) else state.add_message(AIMessage(resp))
+	return {"messages": {"HUMAN": HumanMessage(enhanced_user_query), "AI": AIMessage(resp)}}
+# TODO: working on this
 
 
 def chatbot_cot(state: State):
-	"""Invokes MODEL_CHAIN_OF_THOUGHT to process messages.
-
-	Args:
-		state (State): The current conversation state.
-
-	Returns:
-		dict: The model's response messages.
-
-	Example:
-		>>> chatbot_cot(State(messages=[HumanMessage(content="What is AI?")]))
-		{"messages": [AIMessage(content="AI stands for Artificial Intelligence...")]}
-	"""
-	# TODO: Sửa tiếp pipeline cho node chatbot_cot
+	"""Invokes MODEL_CHAIN_OF_THOUGHT to process messages."""	
 	resp = MODEL_CHAIN_OF_THOUGHT.invoke(state.messages)
 	return {"messages": [resp]}
 

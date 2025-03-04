@@ -11,9 +11,7 @@ import uuid
 
 
 from pydantic import BaseModel, Field
-from typing_extensions import (
-	Annotated, TypedDict, Sequence, Union, Optional, Literal, Dict
-)
+from typing_extensions import (Annotated, TypedDict, Sequence, Union, Optional, Literal, List, Dict)
 
 
 
@@ -35,22 +33,12 @@ from langgraph.prebuilt import (create_react_agent, ToolNode, tools_condition)
 
 
 
-from prompts import (
-	tool_desc_prompt, react_prompt, 
-	begin_of_text, end_of_text, start_header_id, 
-	end_header_id, end_of_message_id, end_of_turn_id
-)
-from tools import (
-	tavily_search, random_number_maker, text_to_image, 
-	add, subtract, multiply, divide, power, square_root
-)
+from prompts import (TOOL_DESC_PROMPT, REACT_PROMPT, begin_of_text, end_of_text, start_header_id, end_header_id, end_of_message_id, end_of_turn_id)
+from tools import (tavily_search, random_number_maker, text_to_image, add, subtract, multiply, divide, power, square_root)
 
 
 
-TOOLS = [
-	tavily_search, random_number_maker, text_to_image, 
-	add, subtract, multiply, divide, power, square_root
-]
+TOOLS = [tavily_search, random_number_maker, text_to_image, add, subtract, multiply, divide, power, square_root]
 
 
 
@@ -67,9 +55,65 @@ class ChainOfThoughtStructureRepsonse(BaseModel):
 
 
 class State(BaseModel):
-	messages: Annotated[Sequence[BaseMessage], add_messages]
+	"""Represents the structured conversation state with categorized messages."""
+	user_query: Annotated[List, add_messages]
+	messages: dict[str, List] = Field(
+		default_factory=lambda: {
+			"SYSTEM": [], 
+			"HUMAN": [],
+			"AI": []
+		}, description="Categorized messages: SYSTEM, HUMAN, AI."
+	)
 	is_last_step: IsLastStep
 	remaining_steps: int = 3
+
+	def add_message(self, message):
+		"""Adds a message to the appropriate category."""
+		if isinstance(message, SystemMessage):
+			self.messages["SYSTEM"].append(message)
+		elif isinstance(message, HumanMessage):
+			self.messages["HUMAN"].append(message)
+		elif isinstance(message, AIMessage):
+			self.messages["AI"].append(message)
+
+	def get_all_messages(self) -> List:
+		"""Returns all messages in chronological order."""
+		return self.messages["SYSTEM"] + self.messages["HUMAN"] + self.messages["AI"]
+
+
+
+def build_system_prompt(tool_desc_prompt: str, react_prompt: str, tools: list) -> str:
+	"""Builds a formatted query with tool descriptions.
+
+	Args:
+		tool_desc_prompt (str): The prompt template for tool descriptions.
+		react_prompt (str): The template for constructing the final user query.
+		tools (list): A list of tool objects.
+
+	Returns:
+		str: A fully formatted user query with tool descriptions.
+	"""
+	list_tool_desc = []
+	for tool in tools:
+		tool_info = tool.args_schema.model_json_schema()
+		tool_desc = tool_desc_prompt.format(
+			name_for_model=tool_info["title"], 
+			name_for_human=tool_info["title"], 
+			description_for_model=tool_info["description"],
+			type=tool_info["type"], 
+			properties=json.dumps(tool_info["properties"], ensure_ascii=False), 
+			required=json.dumps(tool_info["required"], ensure_ascii=False)
+		)
+		tool_desc += " Format the arguments as a JSON object."
+		list_tool_desc.append(tool_desc)
+	return react_prompt.format(
+		begin_of_text=begin_of_text, 
+		start_header_id=start_header_id, 
+		end_header_id=end_header_id, 
+		end_of_turn_id=end_of_turn_id, 
+		tools_desc="\n\n".join(list_tool_desc), 
+		tools_name=", ".join(tool.name for tool in tools), 
+	)
 
 
 
@@ -85,88 +129,121 @@ MODEL_BIND_TOOLS = MODEL.bind_tools(tools=TOOLS)
 
 
 
-def build_user_query(user_query: str, tool_desc_prompt: str, react_prompt: str, tools: list) -> str:
-	"""Builds a formatted query with tool descriptions.
+SYSTEM_PROMPT = build_system_prompt(tool_desc_prompt=TOOL_DESC_PROMPT, react_prompt=REACT_PROMPT, tools=TOOLS)
+
+
+
+def enhance_human_query(state: State) -> str:
+	"""
+	{start_header_id}system{end_header_id}
+	{system_prompt}
+	{end_of_turn_id}
+
+	{start_header_id}user{end_header_id}
+	{user_query}
+	{end_of_turn_id}
+
+	{start_header_id}assistant{end_header_id}
+	{ai_resp}
+	{end_of_turn_id}
+	"""
+	user_query = state.user_query[-1].content
+	return start_header_id + "user" + end_header_id + \
+			user_query + end_of_turn_id + start_header_id + \
+				"assistant" + end_header_id
+
+
+
+def chatbot(state: State) -> dict:
+	enhanced_user_query = enhance_human_query(state=state)
+	resp = MODEL.invoke([
+		SystemMessage(content=SYSTEM_PROMPT), 
+		HumanMessage(content=enhanced_user_query)
+		]
+	)
+	# TODO: Xem lại các lưu lịch sử resp của AI và State
+	return {"messages": {"AI": [resp]}}
+
+
+
+def chatbot_cot(state: State):
+	"""Invokes MODEL_CHAIN_OF_THOUGHT to process messages.
 
 	Args:
-		user_query (str): The user's input query.
-		tool_desc_prompt (str): The prompt template for tool descriptions.
-		react_prompt (str): The template for constructing the final user query.
-		tools (list): A list of tool objects.
+		state (State): The current conversation state.
 
 	Returns:
-		str: A fully formatted user query with tool descriptions.
+		dict: The model's response messages.
+
+	Example:
+		>>> chatbot_cot(State(messages=[HumanMessage(content="What is AI?")]))
+		{"messages": [AIMessage(content="AI stands for Artificial Intelligence...")]}
 	"""
-	list_tool_desc = []
-	for tool in tools:
-		if hasattr(tool, "args_schema"):
-			try: 
-				tool_info = tool.args_schema.model_json_schema()
-				tool_desc = tool_desc_prompt.format(
-					name_for_model=tool_info["title"], 
-					name_for_human=tool_info["title"], 
-					description_for_model=tool_info["description"],
-					type=tool_info["type"], 
-					properties=json.dumps(tool_info["properties"], ensure_ascii=False), 
-					required=json.dumps(tool_info["required"], ensure_ascii=False)
-				)
-				tool_desc += " Format the arguments as a JSON object."
-			except Exception as e:
-				print(f">>> [ERROR] Error Extract tool info: {e}")
-		else:
-			print(f">>> [ERROR]: The tool '{tool_info}' does not have an 'args_schema' attribute.")
-		if tool_desc: 
-			list_tool_desc.append(tool_desc)
-	return react_prompt.format(
-		begin_of_text=begin_of_text, 
-		start_header_id=start_header_id, 
-		end_header_id=end_header_id, 
-		end_of_turn_id=end_of_turn_id, 
-		user_query=user_query.strip(), 
-		tools_desc="\n\n".join(list_tool_desc), 
-		tools_name=", ".join(tool.name for tool in tools if hasattr(tool, "name")), 
-	)
+	# TODO: Sửa tiếp pipeline cho node chatbot_cot
+	resp = MODEL_CHAIN_OF_THOUGHT.invoke(state.messages)
+	return {"messages": [resp]}
 
 
 
-def chatbot(state: State):
-	"""Processes user query through the chatbot model and returns a response."""
-	resp = MODEL.invoke(state.messages)
+def chatbot_bind_tools(state: State):
+	"""Invokes MODEL_BIND_TOOLS to process messages and bind tools.
+
+	Args:
+		state (State): The current conversation state.
+
+	Returns:
+		dict: The model's response messages.
+
+	Raises:
+		Exception: If model invocation fails.
+
+	Example:
+		>>> chatbot_bind_tools(State(messages=[HumanMessage(content="Find news.")]))
+		{"messages": [AIMessage(content="Using search tool...")]}
+	"""
+	# TODO: Sửa tiếp pipeline cho node chatbot_bind_tools
+	resp = MODEL_BIND_TOOLS.invoke(state["messages"])
 	return {"messages": [resp]}
 
 
 
 workflow = StateGraph(State)
+
 workflow.add_node("chatbot", chatbot)
+workflow.add_node("chatbot_cot", chatbot_cot)
+workflow.add_node("chatbot_bind_tools", chatbot_bind_tools)
+
 workflow.add_edge(START, "chatbot")
-workflow.add_edge("chatbot", END)
-app = workflow.compile(checkpointer=CHECKPOINTER, store=STORE)
+workflow.add_edge("chatbot", "chatbot_cot")
+workflow.add_edge("chatbot_cot", "chatbot_bind_tools")
+workflow.add_edge("chatbot_bind_tools", END)
+
+app = workflow.compile(checkpointer=CHECKPOINTER, store=STORE, debug=True)
 
 
 
 def main():
-	for user_query in ["What is the result of 4/2?", "exit"]:
+	while True: 
+		user_query = input("👨_query: ")
 		if user_query.lower() == "exit":
 			print(">>> SystemExit: Goodbye! Have a great day!😊")
 			break
-		try: 
-			if True: 
-				enhanced_user_query = build_user_query(user_query=user_query, tool_desc_prompt=tool_desc_prompt, react_prompt=react_prompt, tools=TOOLS)
-			print_stream(
-				app.stream(input={"messages": [HumanMessage(content=enhanced_user_query)]}, stream_mode="values", config=CONFIG)
-			)
-		except Exception as e:
-			print(f">>> ERROR: {e}")
-			break
+		print_stream(app.stream(
+			input={"user_query": [user_query]}, 
+			stream_mode="values", 
+			config=CONFIG)
+		)
 
 
 
 def print_stream(stream):
 	"""Hiển thị kết quả quá trình suy luận."""
 	for s in stream:
-		message = s["messages"][-1]
-		if isinstance(message, tuple): print(message)
-		else: message.pretty_print()
+		message = s["user_query"][-1]
+		if isinstance(message, tuple): 
+			print(message)
+		else: 
+			message.pretty_print()
 
 
 

@@ -12,9 +12,7 @@ import uuid
 
 from pydantic import BaseModel, Field
 from typing_extensions import (
-	Annotated, TypedDict, 
-	Sequence, Union, 
-	Optional, Dict
+	Annotated, TypedDict, Sequence, Union, Optional, Literal, Dict
 )
 
 
@@ -22,13 +20,7 @@ from typing_extensions import (
 from langchain_core.tools import InjectedToolCallId
 from langchain.tools import tool
 from langchain_ollama import ChatOllama
-from langchain_core.messages import (
-	HumanMessage, 
-	AIMessage, 
-	SystemMessage, 
-	BaseMessage, 
-	ToolMessage
-)
+from langchain_core.messages import (HumanMessage, AIMessage, SystemMessage, BaseMessage, ToolMessage)
 from langchain_core.prompts import PromptTemplate
 
 
@@ -38,15 +30,8 @@ from langgraph.graph.message import add_messages
 from langgraph.store.memory import InMemoryStore
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.managed import IsLastStep
-from langgraph.graph import (
-	MessagesState, StateGraph, 
-	START, END
-)
-from langgraph.prebuilt import (
-	create_react_agent, 
-	ToolNode, 
-	tools_condition
-)
+from langgraph.graph import (MessagesState, StateGraph, START, END)
+from langgraph.prebuilt import (create_react_agent, ToolNode, tools_condition)
 
 
 
@@ -55,33 +40,85 @@ from tools import tavily_search, random_number_maker, text_to_image
 
 
 
-tools = [
-	tavily_search, 
-	random_number_maker, 
-	text_to_image
-]
-tools_node = ToolNode(tools=tools)
+tools = [tavily_search, random_number_maker, text_to_image]
 
 
 
-class ReActAgentState(BaseModel):
-	"""ReAct Agent with structured response format."""
-	user_prompt: str = Field(description="The original question provided by the user.")
+tool_desc_prompt = PromptTemplate.from_template("""{name_for_model}: Call this tool to interact with the {name_for_human} API. 
+What is the {name_for_human} API useful for? 
+{description_for_model}.
+Type: {type}.
+Properties: {properties}.
+Required: {required}.""")
+
+
+
+react_prompt = PromptTemplate.from_template("""You are an AI assistant that follows the ReAct reasoning framework. 
+You have access to the following APIs:
+
+{tools_desc}
+
+Use the following strict format:
+
+### Input Format:
+
+user_query: The original query provided by the user.
+thought: Logical reasoning before executing an action.
+action: The action to be taken, chosen from available tools: {tools_name}.
+action_input: The required input for the action.
+observation: The outcome of executing the action. 
+...(Repeat the thought/action/observation loop as needed)
+final_thought: I now know the final answer.
+final_answer: Provide the final answer.
+
+Begin!
+
+Question: {user_query}""")
+
+
+
+def build_input_query(tool_desc_prompt: str, react_prompt: str, tools: list) -> str:
+	list_tool_desc = []
+	for tool in tools:
+		if hasattr(tool, "args_schema"):
+			try: 
+				tool_info = tool.args_schema.model_json_schema()
+				tool_desc = tool_desc_prompt.format(
+					name_for_model=tool_info["title"],
+					name_for_human=tool_info["title"],
+					description_for_model=tool_info["description"],
+					type=tool_info["type"], 
+					properties=json.dumps(tool_info["properties"], ensure_ascii=False), 
+					required=json.dumps(tool_info["required"], ensure_ascii=False)
+				)
+				tool_desc += ". Format the arguments as a JSON object."
+			except Exception as e:
+				print(f">>> [ERROR] Error Extract tool info: {e}")
+		else:
+			print(f">>> [ERROR]: Không có thuộc tính arg_schema trong tool: {tool_info}")
+		list_tool_desc.append(tool_desc)
+	tools_desc_prompt = "\n\n".join(list_tool_desc)
+	tools_name = ", ".join(tool.name for tool in tools)
+	# TODO: Build tiếp chỗ này 
+
+
+
+class ChainOfThoughtStructureRepsonse(BaseModel):
+	"""Chain-of-Thought structured response format."""
+	user_query: str = Field(description="The original query provided by the user.")
 	thought: str = Field(description="Logical reasoning before executing an action")
-	action: str = Field(description=f"The action to be taken, chosen from available tools {', '.join([tool.name for tool in tools])}.")
+	action: str = Field(description=f"The action to be taken, chosen from available tools: {', '.join([tool.name for tool in tools])}.")
 	action_input:str = Field(description="The required input for the action.") 
-	observation: str = Field(description="The outcome of executing the action.")
+	observation: str = Field(description="The outcome of executing the action. Repeat the thought/action/observation loop as needed)")
+	final_thought: str = Field(description="I now know the final answer.")
+	final_answer: str = Field(description="Provide the final answer.")
 
 
 
 class State(BaseModel):
-	react_agent_state: Annotated[Sequence[ReActAgentState], add_messages]
+	messages: Annotated[Sequence[BaseMessage], add_messages]
 	is_last_step: IsLastStep
-	remaining_steps: int
-
-
-class ReactAgentState(TypedDict):
-	pass
+	remaining_steps: int = 3
 
 
 
@@ -91,20 +128,42 @@ store = InMemoryStore()
 
 
 
-model = ChatOllama(
-	model="llama3.2:1b-instruct-fp16", 
-	temperature=0.8,
-	num_predict=4096, 
-)
-react_agent = create_react_agent(
-	model=model, 
-	prompt="",
-	tools=tools_node, 
-	store=store, 
-	checkpointer=checkpointer, 
-	state_schema=ReactAgentState,
-	response_format=ReActAgentState,
-)
+model = ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0.8, num_predict=4096)
+model_chain_of_thought = model.with_structured_output(schema=ChainOfThoughtStructureRepsonse)
+model_bind_tools = model.bind_tools(tools=tools)
+
+
+
+def chatbot_chain_of_thought(state: State):
+	"""Xử lý chatbot theo Chain-of-Thought với input đúng định dạng."""
+	resp = model_chain_of_thought.invoke(state.messages)
+	print("DEBUG")
+
+
+
+workflow = StateGraph(State)
+workflow.add_node("chatbot_chain_of_thought", chatbot_chain_of_thought)
+workflow.add_edge(START, "chatbot_chain_of_thought")
+workflow.add_edge("chatbot_chain_of_thought", END)
+app = workflow.compile(checkpointer=checkpointer, store=store)
+
+
+
+def main():
+	for user_query in ["What is 1+1?", "exit"]:
+		if user_query.lower() == "exit":
+			print(">>> SystemExit: Goodbye! Have a great day!😊")
+			break
+		try: 
+			print_stream(app.stream(input={"messages": [SystemMessage(
+					content="You are a helpful assistant. Remember, always be polite!"), 
+				HumanMessage(
+					content=user_query)]
+				}, stream_mode="values", config=config)
+			)
+		except Exception as e:
+			print(f">>> ERROR: {e}")
+			break
 
 
 
@@ -112,45 +171,8 @@ def print_stream(stream):
 	"""Hiển thị kết quả quá trình suy luận."""
 	for s in stream:
 		message = s["messages"][-1]
-		if isinstance(message, tuple):
-			print(message)
-		else:
-			message.pretty_print()
-
-
-
-workflow = StateGraph(State)
-
-workflow.add_node("react_agent", react_agent)
-
-workflow.add_edge(START, "react_agent")
-workflow.add_edge("react_agent", END)
-
-app = workflow.compile(
-	checkpointer=checkpointer, 
-	store=store
-)
-
-
-
-def main():
-	for user_input in [
-			"Can you look up when LangGraph was released?", 
-			"exit"
-	]:
-		if user_input.lower() == "exit":
-			print(">>> SystemExit: Goodbye! Have a great day!😊")
-			break
-		try: 
-			print_stream(
-				app.stream(input={"messages": [
-						SystemMessage(content="You are a helpful assistant. Remember, always be polite!"), 
-						HumanMessage(content=user_input)]
-					}, stream_mode="values", config=config)
-				)
-		except Exception as e:
-			print(f">>> ERROR: {e}")
-			break
+		if isinstance(message, tuple): print(message)
+		else: message.pretty_print()
 
 
 

@@ -1,33 +1,23 @@
-# R&D Plan - Trần Văn Tuấn - Feb. 27, 2025
-
+<!-- # Multi AI-Agentics for automated training and inference AI-Narrow
+**Trần Văn Tuấn - Feb. 27, 2025**
 ## 1. Introduction 
 ### 1.1 Problem Statement
 - Với tốc độ phát triển nhanh chóng của trí tuệ nhân tạo (AI), hạn chế của các AI-Agent hiện tại là khó khăn trong việc thích nghi và xử lý các tác vụ phức tạp trong môi trường động. Hiện tại, nhiều AI-Agent hoạt động theo các quy tắc tĩnh, khó cải thiện khả năng tư duy, thích nghi nhanh chóng và tự tối ưu hóa.
 - Dự án này đề xuất việc tích hợp AI-Narrow vào AI-Agent nhằm tối ưu hóa quá trình xử lý tác vụ. AI-Agent sẽ học hỏi từ AI-Narrow để nâng cao hiệu suất, giúp hệ thống trở nên thông minh và chính xác hơn.
-### 1.2 Project title
-"Adaptive AI-Agent: Enhancing Intelligence through AI-Narrow Integration"
-### 1.3 Project Goals and Objective
-- Xây dựng hệ thống AI-Agent tự học hỏi từ các AI-Narrow.
+### 1.2 Project Goals and Objective
+- Xây dựng hệ thống AI-Agent tự tạo ra các AI-Narrow để hoàn thành task được giao cho.
 - Tối ưu hóa AI-Agent theo mô hình học tích hợp (Federated Learning).
 - Đánh giá hiệu quả AI-Agent dựa trên benchmarking với các AI truyền thống.
-### 1.4 Keywords
-- AI-Agent, AI-Narrow, Adaptive Learning, Reinforcement Learning, Federated Learning, Multi-Agent System
-### 1.5 Background and Justification of the Project
+### 1.3 Keywords
+- AI-Agent, AI-Narrow, Adaptive Learning, Reinforcement Learning, Federated Learning, Multi-Agent System.
+### 1.4 Background and Justification of the Project
 - AI-Agent hiện tại còn bị giới hạn về **khả năng tự cải thiện và thích nghi**.
-- Việc **tích hợp AI-Narrow** vào AI-Agent giúp hệ thống tự động tối ưu hóa.
-### 1.7 Analysis of Priority Areas for Sectoral Development
-- AI-Agent có thể ứng dụng trong robotics, tài chính, y tế, an ninh mạng.
-### 1.8 Research Center/University
-- Hợp tác với đối tác nghiên cứu trong lĩnh vực AI.
-### 1.9. Novelty and Innovation
-- AI-Agent động bộ tự học hỏi và nâng cao hiệu quả từ AI-Narrow.
-- Hệ thống AI được thiết kế và có tính thích nghi cao.
-## 2. Research Details 
-### 2.1. Equipment and Software 
-- TensorFlow, PyTorch, Ray RLlib
-- Máy chủ GPU/TPU cao cấp
-### 2.2. Activities, Output and outcome
-- Mô hình hoạt động: AI-Agent nhận dữ liệu từ AI-Narrow, phân tích, tự động tích hợp.
+- Việc **tích hợp AI-Narrow** vào Multi AI-Agentics giúp hệ thống tự động tối ưu hóa, tự học hỏi với mục tiêu phát triển thành một hệ thống Multi-AGI.
+### 1.4 Novelty and Innovation
+- Multi AI-Agentics động bộ tự học hỏi và nâng cao hiệu quả từ AI-Narrow.
+- Hệ thống được thiết kế và có tính thích nghi cao.
+## 2. Related Works
+- ... -->
 ## Reference
 1. D. B. Acharya, K. Kuppan and B. Divya, "Agentic AI: Autonomous Intelligence for Complex Goals—A Comprehensive Survey," in IEEE Access, vol. 13, pp. 18912-18936, 2025, doi: 10.1109/ACCESS.2025.3532853. keywords: {Artificial intelligence;Surveys;Ethics;Reinforcement learning;Hands;Adaptation models;Medical services;Automation;Translation;Systematic literature review;Agentic AI;autonomous systems;human-AI collaboration;adaptability;governance frameworks;ethical AI}. URL https://ieeexplore.ieee.org/abstract/document/10849561
 

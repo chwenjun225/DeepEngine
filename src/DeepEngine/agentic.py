@@ -22,7 +22,7 @@ from langchain_core.messages import (HumanMessage, AIMessage, SystemMessage, Bas
 from langchain_core.prompts import PromptTemplate
 
 
-from langgraph.graph.state import CompiledStateGraph
+
 from langgraph.types import Command, interrupt
 from langgraph.graph.message import add_messages
 from langgraph.store.memory import InMemoryStore
@@ -191,7 +191,7 @@ REACT_SYSTEM_MESSAGE_PROMPT = build_system_prompt(tool_desc_prompt=TOOL_DESC_PRO
 
 
 
-def chatbot(state: State):
+def chatbot_react(state: State) -> State:
 	"""Processes a user query and updates the conversation state with the chatbot's response.
 
 	This function:
@@ -227,23 +227,24 @@ def chatbot(state: State):
 	return {"messages": {
 		"SYSTEM": [REACT_SYSTEM_MESSAGE_PROMPT], 
 		"HUMAN": [human_message], 
-		"SYSTEM": [resp]
+		"AI": [resp]
 	}}
 
 
 
-workflow = StateGraph(state_schema=State, config_schema=React)
+workflow = StateGraph(State)
 
-workflow.add_node("chatbot", chatbot)
+workflow.add_node("chatbot_react", chatbot_react)
 
-workflow.add_edge(START, "chatbot")
-workflow.add_edge("chatbot", END)
+workflow.add_edge(START, "chatbot_react")
+workflow.add_edge("chatbot_react", END)
 
 app = workflow.compile(checkpointer=CHECKPOINTER, store=STORE)
 
 
 
-def main():
+def main() -> None:
+	"""Hàm chính để nhận truy vấn từ người dùng và hiển thị phản hồi."""
 	while True: 
 		user_query = input("👨_query: ")
 		if user_query.lower() == "exit":
@@ -256,25 +257,23 @@ def main():
 
 
 
-def print_stream(stream):
+def print_stream(stream) -> None:
 	"""Hiển thị kết quả hội thoại theo cách dễ đọc hơn."""
-	# TODO: Sửa lại hàm print_stream
 	for s in stream:
 		if len(list(s.keys())) == 2:
-			print("\n🔹 **Lịch sử hội thoại** 🔹")
-			if "user_query" in s and s["user_query"]:
-				user_query = s["user_query"][-1].content
-				print(f"👨 User: {user_query}\n")
-			if "messages" in s and "SYSTEM" in s["messages"]:
-				for system_msg in s["messages"]["SYSTEM"]:
-					print(f"⚙️ System: {system_msg.content}\n")
-			if "messages" in s and "HUMAN" in s["messages"]:
-				for human_msg in s["messages"]["HUMAN"]:
-					print(f"👨 Human: {human_msg.content}\n")
-			if "messages" in s and "AI" in s["messages"]:
-				for ai_msg in s["messages"]["AI"]:
-					print(f"🤖 AI: {ai_msg.content}\n")
-			print("🔹" * 20) 
+			messages = s["messages"]
+			if "SYSTEM" in messages and messages["SYSTEM"]:
+				print("\n ⚙️ **SYSTEM**:")
+				messages["SYSTEM"][-1].pretty_print()
+
+			if "HUMAN" in messages and messages["HUMAN"]:
+				print("\n 👨 **HUMAN**:")
+				messages["HUMAN"][-1].pretty_print()
+
+			if "AI" in messages and messages["AI"]:
+				print("\n 🤖 **AI**:")
+				messages["AI"][-1].pretty_print()
+			print("🔹" * 30)
 
 
 

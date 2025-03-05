@@ -1,3 +1,4 @@
+import uuid
 import random
 import tqdm
 import requests
@@ -6,18 +7,15 @@ import json5
 import fire 
 from PIL import Image
 from io import BytesIO
-import uuid
 
 
 
 from pydantic import BaseModel, Field
-from typing_extensions import (
-	Annotated, TypedDict, Sequence, Union, Optional, Literal, Dict
-)
+from typing_extensions import (Annotated, TypedDict, Sequence, Union, Optional, Literal, List, Dict)
 
 
 
-from langchain_core.tools import InjectedToolCallId
+from langchain_core.tools import InjectedToolCallId, BaseTool
 from langchain.tools import tool
 from langchain_ollama import ChatOllama
 from langchain_core.messages import (HumanMessage, AIMessage, SystemMessage, BaseMessage, ToolMessage)
@@ -35,138 +33,247 @@ from langgraph.prebuilt import (create_react_agent, ToolNode, tools_condition)
 
 
 
-from prompts import (
-	tool_desc_prompt, react_prompt, 
-	begin_of_text, end_of_text, start_header_id, 
-	end_header_id, end_of_message_id, end_of_turn_id
-)
-from tools import (
-	tavily_search, random_number_maker, text_to_image, 
-	add, subtract, multiply, divide, power, square_root
-)
+from prompts import (TOOL_DESC_PROMPT, REACT_PROMPT, begin_of_text, end_of_text, start_header_id, end_header_id, end_of_message_id, end_of_turn_id)
+from tools import (add, subtract, multiply, divide, power, square_root)
 
 
 
-TOOLS = [
-	tavily_search, random_number_maker, text_to_image, 
-	add, subtract, multiply, divide, power, square_root
-]
+TOOLS = [add, subtract, multiply, divide, power, square_root]
 
 
 
-class ChainOfThoughtStructureRepsonse(BaseModel):
-	"""Chain-of-Thought structured response format."""
-	user_query: str = Field(description="The original query provided by the user.")
-	thought: str = Field(description="Logical reasoning before executing an action")
-	action: str = Field(description=f"The action to be taken, chosen from available tools: {', '.join([tool.name for tool in TOOLS])}.")
-	action_input:str = Field(description="The required input for the action.") 
-	observation: str = Field(description="The outcome of executing the action. Repeat the thought/action/observation loop as needed)")
-	final_thought: str = Field(description="I now know the final answer.")
-	final_answer: str = Field(description="Provide the final answer.")
+MESSAGE_TYPES = {SystemMessage: "SYSTEM", HumanMessage: "HUMAN", AIMessage: "AI"}
+
+
+
+def add_unique_messages(
+		messages: Dict[str, List[BaseMessage]], 
+		message: BaseMessage
+	) -> None:
+	"""Custom reducer, adds a message to the appropriate category if it does not already exist."""
+
+	category = MESSAGE_TYPES.get(type(message))
+	if category and all(message.content != msg.content for msg in messages[category]):
+		messages[category].append(message)
 
 
 
 class State(BaseModel):
-	messages: Annotated[Sequence[BaseMessage], add_messages]
-	is_last_step: IsLastStep
+	"""Represents the structured conversation state with categorized messages."""
+	user_query: Annotated[List, add_messages] = Field(default_factory=list)
+	messages: Dict[str, Annotated[List[BaseMessage], add_unique_messages]] = Field(
+		default_factory=lambda: {
+			"SYSTEM": [], 
+			"HUMAN": [], 
+			"AI": []
+		}, description="Categorized messages: SYSTEM, HUMAN, AI."
+	)
+	is_last_step: bool = False
 	remaining_steps: int = 3
+
+	def get_all_messages(self) -> List[BaseMessage]:
+		"""Returns all messages in chronological order."""
+		return sum(self.messages.values(), [])
+
+	def get_latest_message(self, category: str) -> BaseMessage:
+		"""Returns the latest message from a given category, if available."""
+		if category not in self.messages:
+			raise ValueError(f"[ERROR]: Invalid category '{category}'. Must be 'SYSTEM', 'HUMAN', or 'AI'.")
+		return self.messages[category][-1] if self.messages[category] else None 
+
+	def get_messages_by_category(self, category: str) -> List[BaseMessage]:
+		"""Returns all messages from a specific category."""
+		if category not in self.messages:
+			raise ValueError(f"[ERROR]: Invalid category '{category}'. Must be 'SYSTEM', 'HUMAN', or 'AI'.")
+		return self.messages[category]
+
+
+
+class React(TypedDict):
+	"""ReAct structured response format."""
+	final_answer: str
+
+
+
+def build_system_prompt(tool_desc_prompt: str, react_prompt: str, tools: List[BaseTool]) -> SystemMessage:
+	"""Builds a formatted system prompt with tool descriptions.
+
+	Args:
+		tool_desc_prompt (str): Template for tool descriptions.
+		react_prompt (str): Template for constructing the final system prompt.
+		tools (list): List of tool objects.
+
+	Returns:
+		str: A fully formatted system prompt with tool descriptions.
+	"""
+	list_tool_desc = [
+		tool_desc_prompt.format(
+			name_for_model=(tool_info := getattr(tool.args_schema, "model_json_schema", lambda: {})()).get("title", "Unknown Tool"),
+			name_for_human=tool_info.get("title", "Unknown Tool"),
+			description_for_model=tool_info.get("description", "No description available."),
+			type=tool_info.get("type", "N/A"),
+			properties=json.dumps(tool_info.get("properties", {}), ensure_ascii=False),
+			required=json.dumps(tool_info.get("required", []), ensure_ascii=False),
+		) + " Format the arguments as a JSON object."
+		for tool in tools
+	]
+	return SystemMessage(react_prompt.format(
+		begin_of_text=begin_of_text, 
+		start_header_id=start_header_id, 
+		end_header_id=end_header_id, 
+		end_of_turn_id=end_of_turn_id, 
+		tools_desc="\n\n".join(list_tool_desc), 
+		tools_name=", ".join(tool.name for tool in tools),
+	))
+
+
+
+def enhance_human_message(state: State) -> HumanMessage:
+	"""Enhances the human query by formatting it with system and assistant structure.
+
+	This function constructs a structured prompt including:
+	- `system_prompt (from context)
+	- `user_query (latest human query)
+	- `ai_resp (space for AI response)
+
+	Args:
+		state (State): The current conversation state.
+
+	Returns:
+		HumanMessage: A formatted human query wrapped with special tokens.
+
+	Example:
+		>>> state.user_query = [HumanMessage(content="What is AI?")]
+		>>> enhance_human_query(state)
+		HumanMessage(content='<|start_header_id|>user<|end_header_id|>What is AI?<|end_of_turn_id|><|start_header_id|>assistant<|end_header_id|>')
+	"""
+	user_query = state.user_query[-1].content if state.user_query else ""
+	formatted_query = (
+		f"{start_header_id}user{end_header_id}"
+		f"{user_query}"
+		f"{end_of_turn_id}"
+		f"{start_header_id}assistant{end_header_id}"
+	)
+	return HumanMessage(content=formatted_query)
+
+
+
+def add_eot_id_to_ai_message(ai_message: AIMessage, special_token: str = end_of_turn_id) -> AIMessage:
+	"""Appends a special token at the end of an AIMessage's content if it's not already present.
+
+	This function ensures that the AI-generated message always ends with the specified special token.
+	If the message already contains the token at the end, it remains unchanged.
+
+	Args:
+		ai_message (AIMessage): The AI-generated message.
+		special_token (str, optional): The special token to append (default is `end_of_turn_id`).
+
+	Returns:
+		AIMessage: The updated AI message with the special token appended if necessary.
+
+	Example:
+		>>> message = AIMessage(content="Hello, how can I assist you?")
+		>>> add_eot_id_to_ai_message(message, special_token="<|eot_id|>")
+		AIMessage(content="Hello, how can I assist you?<|eot_id|>")
+	"""
+	if not ai_message.content.strip().endswith(special_token):
+		return AIMessage(content=ai_message.content.strip() + special_token)
+	return ai_message 
 
 
 
 CONFIG = {"configurable": {"thread_id": str(uuid.uuid4())}}
 CHECKPOINTER = MemorySaver()
 STORE = InMemoryStore()
-
-
-
 MODEL = ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0.8, num_predict=128_000)
-MODEL_CHAIN_OF_THOUGHT = MODEL.with_structured_output(schema=ChainOfThoughtStructureRepsonse)
 MODEL_BIND_TOOLS = MODEL.bind_tools(tools=TOOLS)
+REACT_SYSTEM_MESSAGE_PROMPT = build_system_prompt(tool_desc_prompt=TOOL_DESC_PROMPT, react_prompt=REACT_PROMPT, tools=TOOLS)
 
 
 
-def build_user_query(user_query: str, tool_desc_prompt: str, react_prompt: str, tools: list) -> str:
-	"""Builds a formatted query with tool descriptions.
+def chatbot_react(state: State) -> State:
+	"""Processes a user query and updates the conversation state with the chatbot's response.
+
+	This function:
+	- Enhances the user query.
+	- Calls the AI model with `SYSTEM_PROMPT` and the enhanced query.
+	- Ensures the AI response is formatted correctly.
+	- Appends the special token `<|eot_id|>` if missing.
+	- Prevents duplicate messages in `state.messages`.
 
 	Args:
-		user_query (str): The user's input query.
-		tool_desc_prompt (str): The prompt template for tool descriptions.
-		react_prompt (str): The template for constructing the final user query.
-		tools (list): A list of tool objects.
+		state (State): The current conversation state, containing message history.
 
-	Returns:
-		str: A fully formatted user query with tool descriptions.
+	Example:
+		>>> state = State(messages={"SYSTEM": [], "HUMAN": [], "AI": []})
+		>>> chatbot(state)
+		{'messages': 
+			{
+				'HUMAN': HumanMessage(content='Formatted user query'), 
+				'AI': AIMessage(content='Chatbot response<|eot_id|>')
+			}
+		}
 	"""
-	list_tool_desc = []
-	for tool in tools:
-		if hasattr(tool, "args_schema"):
-			try: 
-				tool_info = tool.args_schema.model_json_schema()
-				tool_desc = tool_desc_prompt.format(
-					name_for_model=tool_info["title"], 
-					name_for_human=tool_info["title"], 
-					description_for_model=tool_info["description"],
-					type=tool_info["type"], 
-					properties=json.dumps(tool_info["properties"], ensure_ascii=False), 
-					required=json.dumps(tool_info["required"], ensure_ascii=False)
-				)
-				tool_desc += " Format the arguments as a JSON object."
-			except Exception as e:
-				print(f">>> [ERROR] Error Extract tool info: {e}")
-		else:
-			print(f">>> [ERROR]: The tool '{tool_info}' does not have an 'args_schema' attribute.")
-		if tool_desc: 
-			list_tool_desc.append(tool_desc)
-	return react_prompt.format(
-		begin_of_text=begin_of_text, 
-		start_header_id=start_header_id, 
-		end_header_id=end_header_id, 
-		end_of_turn_id=end_of_turn_id, 
-		user_query=user_query.strip(), 
-		tools_desc="\n\n".join(list_tool_desc), 
-		tools_name=", ".join(tool.name for tool in tools if hasattr(tool, "name")), 
-	)
+	human_message = enhance_human_message(state=state)
+	resp = MODEL.invoke([REACT_SYSTEM_MESSAGE_PROMPT, human_message])
 
-
-
-def chatbot(state: State):
-	"""Processes user query through the chatbot model and returns a response."""
-	resp = MODEL.invoke(state.messages)
-	return {"messages": [resp]}
+	if not isinstance(resp, AIMessage):
+		resp = AIMessage(
+			content=resp.strip() 
+			if isinstance(resp, str) 
+			else "I'm unable to generate a response."
+		)
+	resp = add_eot_id_to_ai_message(ai_message=resp, special_token=end_of_turn_id)
+	return {"messages": {
+		"SYSTEM": [REACT_SYSTEM_MESSAGE_PROMPT], 
+		"HUMAN": [human_message], 
+		"AI": [resp]
+	}}
 
 
 
 workflow = StateGraph(State)
-workflow.add_node("chatbot", chatbot)
-workflow.add_edge(START, "chatbot")
-workflow.add_edge("chatbot", END)
+
+workflow.add_node("chatbot_react", chatbot_react)
+
+workflow.add_edge(START, "chatbot_react")
+workflow.add_edge("chatbot_react", END)
+
 app = workflow.compile(checkpointer=CHECKPOINTER, store=STORE)
 
 
 
-def main():
-	for user_query in ["What is the result of 4/2?", "exit"]:
+def main() -> None:
+	"""Hàm chính để nhận truy vấn từ người dùng và hiển thị phản hồi."""
+	while True: 
+		user_query = input("👨_query: ")
 		if user_query.lower() == "exit":
 			print(">>> SystemExit: Goodbye! Have a great day!😊")
 			break
-		try: 
-			if True: 
-				enhanced_user_query = build_user_query(user_query=user_query, tool_desc_prompt=tool_desc_prompt, react_prompt=react_prompt, tools=TOOLS)
-			print_stream(
-				app.stream(input={"messages": [HumanMessage(content=enhanced_user_query)]}, stream_mode="values", config=CONFIG)
-			)
-		except Exception as e:
-			print(f">>> ERROR: {e}")
-			break
+		print_stream(
+			app.stream(input={"user_query": [user_query]}, 
+			stream_mode="values", config=CONFIG)
+	)
 
 
 
-def print_stream(stream):
-	"""Hiển thị kết quả quá trình suy luận."""
+def print_stream(stream) -> None:
+	"""Hiển thị kết quả hội thoại theo cách dễ đọc hơn."""
 	for s in stream:
-		message = s["messages"][-1]
-		if isinstance(message, tuple): print(message)
-		else: message.pretty_print()
+		if len(list(s.keys())) == 2:
+			messages = s["messages"]
+			if "SYSTEM" in messages and messages["SYSTEM"]:
+				print("\n ⚙️ **SYSTEM**:")
+				messages["SYSTEM"][-1].pretty_print()
+
+			if "HUMAN" in messages and messages["HUMAN"]:
+				print("\n 👨 **HUMAN**:")
+				messages["HUMAN"][-1].pretty_print()
+
+			if "AI" in messages and messages["AI"]:
+				print("\n 🤖 **AI**:")
+				messages["AI"][-1].pretty_print()
+			print("🔹" * 30)
 
 
 

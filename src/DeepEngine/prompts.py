@@ -11,6 +11,11 @@ end_of_turn_id = "<|eot_id|>"
 
 
 
+# TODO: Tổng hợp prompts từ bài báo: https://arxiv.org/pdf/2410.02958
+# Phát triển hệ thống multi-agent theo sách hướng dẫn sau: https://learning.oreilly.com/library/view/learning-langchain/9781098167271/ch05.html#ch05_summary_1736545670031127 [Tìm với từ khóa này: medical_records_store = InMemoryVectorStore.from_documents([], ]
+
+
+
 PLAN_REVISION_PROMPT = PromptTemplate.from_template("""Now, you will be asked to revise and rethink {num2words(n_plans)} different end-to-end actionable plans according to the user's requirements described in the JSON object below.
 
 ```json

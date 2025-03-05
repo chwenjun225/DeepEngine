@@ -1,3 +1,4 @@
+import uuid
 import random
 import tqdm
 import requests
@@ -6,7 +7,6 @@ import json5
 import fire 
 from PIL import Image
 from io import BytesIO
-import uuid
 
 
 
@@ -15,14 +15,14 @@ from typing_extensions import (Annotated, TypedDict, Sequence, Union, Optional, 
 
 
 
-from langchain_core.tools import InjectedToolCallId
+from langchain_core.tools import InjectedToolCallId, BaseTool
 from langchain.tools import tool
 from langchain_ollama import ChatOllama
 from langchain_core.messages import (HumanMessage, AIMessage, SystemMessage, BaseMessage, ToolMessage)
 from langchain_core.prompts import PromptTemplate
 
 
-
+from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command, interrupt
 from langgraph.graph.message import add_messages
 from langgraph.store.memory import InMemoryStore
@@ -34,57 +34,68 @@ from langgraph.prebuilt import (create_react_agent, ToolNode, tools_condition)
 
 
 from prompts import (TOOL_DESC_PROMPT, REACT_PROMPT, begin_of_text, end_of_text, start_header_id, end_header_id, end_of_message_id, end_of_turn_id)
-from tools import (tavily_search, random_number_maker, text_to_image, add, subtract, multiply, divide, power, square_root)
+from tools import (add, subtract, multiply, divide, power, square_root)
+
+
+
+TOOLS = [add, subtract, multiply, divide, power, square_root]
+
+
+
+MESSAGE_TYPES = {SystemMessage: "SYSTEM", HumanMessage: "HUMAN", AIMessage: "AI"}
+
+
+
+def add_unique_messages(
+		messages: Dict[str, List[BaseMessage]], 
+		message: BaseMessage
+	) -> None:
+	"""Custom reducer, adds a message to the appropriate category if it does not already exist."""
+
+	category = MESSAGE_TYPES.get(type(message))
+	if category and all(message.content != msg.content for msg in messages[category]):
+		messages[category].append(message)
 
 
 
 class State(BaseModel):
 	"""Represents the structured conversation state with categorized messages."""
-	user_query: Annotated[List, add_messages]
-	messages: Dict[str, Annotated[List[BaseMessage], add_messages]] = Field(
+	user_query: Annotated[List, add_messages] = Field(default_factory=list)
+	messages: Dict[str, Annotated[List[BaseMessage], add_unique_messages]] = Field(
 		default_factory=lambda: {
 			"SYSTEM": [], 
-			"HUMAN": [],
+			"HUMAN": [], 
 			"AI": []
 		}, description="Categorized messages: SYSTEM, HUMAN, AI."
 	)
-	is_last_step: IsLastStep
+	is_last_step: bool = False
 	remaining_steps: int = 3
-
-	def add_message(self, message: BaseMessage):
-		"""Adds a message to the appropriate category if it does not already exist."""
-		message_type_map = {
-			SystemMessage: "SYSTEM",
-			HumanMessage: "HUMAN",
-			AIMessage: "AI"
-		}
-		category = message_type_map.get(type(message))
-		if not any(m.content == message.content for m in self.messages[category]):
-			self.messages[category].append(message)
 
 	def get_all_messages(self) -> List[BaseMessage]:
 		"""Returns all messages in chronological order."""
-		return self.messages["SYSTEM"] + self.messages["HUMAN"] + self.messages["AI"]
+		return sum(self.messages.values(), [])
+
+	def get_latest_message(self, category: str) -> BaseMessage:
+		"""Returns the latest message from a given category, if available."""
+		if category not in self.messages:
+			raise ValueError(f"[ERROR]: Invalid category '{category}'. Must be 'SYSTEM', 'HUMAN', or 'AI'.")
+		return self.messages[category][-1] if self.messages[category] else None 
+
+	def get_messages_by_category(self, category: str) -> List[BaseMessage]:
+		"""Returns all messages from a specific category."""
+		if category not in self.messages:
+			raise ValueError(f"[ERROR]: Invalid category '{category}'. Must be 'SYSTEM', 'HUMAN', or 'AI'.")
+		return self.messages[category]
 
 
 
-TOOLS = [tavily_search, random_number_maker, text_to_image, add, subtract, multiply, divide, power, square_root]
+class React(TypedDict):
+	"""ReAct structured response format."""
+	final_answer: str
 
 
 
-class ChainOfThoughtStructureRepsonse(BaseModel):
-	"""Chain-of-Thought structured response format."""
-	user_query: str = Field(description="The original query provided by the user.")
-	thought: str = Field(description="Logical reasoning before executing an action")
-	action: str = Field(description=f"The action to be taken, chosen from available tools: {', '.join([tool.name for tool in TOOLS])}.")
-	action_input:str = Field(description="The required input for the action.") 
-	observation: str = Field(description="The outcome of executing the action. Repeat the thought/action/observation loop as needed)")
-	final_thought: str = Field(description="I now know the final answer.")
-	final_answer: str = Field(description="Provide the final answer.")
-
-
-
-def build_system_prompt(tool_desc_prompt: str, react_prompt: str, tools: list) -> str:
+def build_system_prompt(tool_desc_prompt: str, react_prompt: str, tools: List[BaseTool]) -> SystemMessage:
 	"""Builds a formatted system prompt with tool descriptions.
 
 	Args:
@@ -106,15 +117,14 @@ def build_system_prompt(tool_desc_prompt: str, react_prompt: str, tools: list) -
 		) + " Format the arguments as a JSON object."
 		for tool in tools
 	]
-
-	return react_prompt.format(
+	return SystemMessage(react_prompt.format(
 		begin_of_text=begin_of_text, 
 		start_header_id=start_header_id, 
 		end_header_id=end_header_id, 
 		end_of_turn_id=end_of_turn_id, 
 		tools_desc="\n\n".join(list_tool_desc), 
 		tools_name=", ".join(tool.name for tool in tools),
-	)
+	))
 
 
 
@@ -176,108 +186,60 @@ CONFIG = {"configurable": {"thread_id": str(uuid.uuid4())}}
 CHECKPOINTER = MemorySaver()
 STORE = InMemoryStore()
 MODEL = ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0.8, num_predict=128_000)
-MODEL_CHAIN_OF_THOUGHT = MODEL.with_structured_output(schema=ChainOfThoughtStructureRepsonse)
 MODEL_BIND_TOOLS = MODEL.bind_tools(tools=TOOLS)
-SYSTEM_PROMPT = build_system_prompt(tool_desc_prompt=TOOL_DESC_PROMPT, react_prompt=REACT_PROMPT, tools=TOOLS)
+REACT_SYSTEM_MESSAGE_PROMPT = build_system_prompt(tool_desc_prompt=TOOL_DESC_PROMPT, react_prompt=REACT_PROMPT, tools=TOOLS)
 
 
 
-def chatbot(state: State) -> dict:
+def chatbot(state: State):
 	"""Processes a user query and updates the conversation state with the chatbot's response.
 
-	This function enhances the user query, invokes the AI model to generate a response, 
-	and ensures the response follows the expected format. The chatbot response is then 
-	appended to the conversation state.
+	This function:
+	- Enhances the user query.
+	- Calls the AI model with `SYSTEM_PROMPT` and the enhanced query.
+	- Ensures the AI response is formatted correctly.
+	- Appends the special token `<|eot_id|>` if missing.
+	- Prevents duplicate messages in `state.messages`.
 
 	Args:
 		state (State): The current conversation state, containing message history.
-
-	Returns:
-		dict: A dictionary containing updated messages from both the user and the AI.
-
-	Workflow:
-		1. Enhances the user's query.
-		2. Calls the AI model (`MODEL.invoke()`) with `SYSTEM_PROMPT` and the enhanced query.
-		3. Ensures the AI response is formatted as `AIMessage`.
-		4. Appends the special token `<|eot_id|>` if it is missing.
-		5. Adds `SYSTEM_PROMPT` to `state.messages["SYSTEM"]` if it hasn't reached the 
-			number of workflow nodes.
-		6. Updates `state.messages` with the user query and AI response.
 
 	Example:
 		>>> state = State(messages={"SYSTEM": [], "HUMAN": [], "AI": []})
 		>>> chatbot(state)
 		{'messages': 
-			{'HUMAN': HumanMessage(content='Formatted user query'), 
+			{
+				'HUMAN': HumanMessage(content='Formatted user query'), 
 				'AI': AIMessage(content='Chatbot response<|eot_id|>')
 			}
 		}
 	"""
 	human_message = enhance_human_message(state=state)
-	resp = MODEL.invoke([
-			SystemMessage(content=SYSTEM_PROMPT), 
-			human_message
-		])
+	resp = MODEL.invoke([REACT_SYSTEM_MESSAGE_PROMPT, human_message])
+
 	if not isinstance(resp, AIMessage):
 		resp = AIMessage(
 			content=resp.strip() 
 			if isinstance(resp, str) 
 			else "I'm unable to generate a response."
 		)
-	resp = add_eot_id_to_ai_message(
-		ai_message=resp, 
-		special_token=end_of_turn_id
-	)
-	if len(state.messages["SYSTEM"]) < len(workflow.nodes) and \
-		all(msg.content != SYSTEM_PROMPT for msg in state.messages["SYSTEM"]):
-		state.add_message(SystemMessage(SYSTEM_PROMPT))
-	state.add_message(human_message)
-	state.add_message(resp)
-	return {"messages": {"HUMAN": HumanMessage(human_message), "AI": resp}}
+	resp = add_eot_id_to_ai_message(ai_message=resp, special_token=end_of_turn_id)
+	return {"messages": {
+		"SYSTEM": [REACT_SYSTEM_MESSAGE_PROMPT], 
+		"HUMAN": [human_message], 
+		"SYSTEM": [resp]
+	}}
 
 
 
-def chatbot_cot(state: State):
-	"""Invokes MODEL_CHAIN_OF_THOUGHT to process messages."""	
-	resp = MODEL_CHAIN_OF_THOUGHT.invoke(state.messages)
-	return {"messages": [resp]}
-
-
-
-def chatbot_bind_tools(state: State):
-	"""Invokes MODEL_BIND_TOOLS to process messages and bind tools.
-
-	Args:
-		state (State): The current conversation state.
-
-	Returns:
-		dict: The model's response messages.
-
-	Raises:
-		Exception: If model invocation fails.
-
-	Example:
-		>>> chatbot_bind_tools(State(messages=[HumanMessage(content="Find news.")]))
-		{"messages": [AIMessage(content="Using search tool...")]}
-	"""
-	# TODO: Sửa tiếp pipeline cho node chatbot_bind_tools
-	resp = MODEL_BIND_TOOLS.invoke(state["messages"])
-	return {"messages": [resp]}
-
-
-
-workflow = StateGraph(State)
+workflow = StateGraph(state_schema=State, config_schema=React)
 
 workflow.add_node("chatbot", chatbot)
-workflow.add_node("chatbot_cot", chatbot_cot)
-workflow.add_node("chatbot_bind_tools", chatbot_bind_tools)
 
 workflow.add_edge(START, "chatbot")
-workflow.add_edge("chatbot", "chatbot_cot")
-workflow.add_edge("chatbot_cot", "chatbot_bind_tools")
-workflow.add_edge("chatbot_bind_tools", END)
+workflow.add_edge("chatbot", END)
 
-app = workflow.compile(checkpointer=CHECKPOINTER, store=STORE, debug=True)
+app = workflow.compile(checkpointer=CHECKPOINTER, store=STORE)
 
 
 
@@ -287,22 +249,32 @@ def main():
 		if user_query.lower() == "exit":
 			print(">>> SystemExit: Goodbye! Have a great day!😊")
 			break
-		print_stream(app.stream(
-			input={"user_query": [user_query]}, 
-			stream_mode="values", 
-			config=CONFIG)
-		)
+		print_stream(
+			app.stream(input={"user_query": [user_query]}, 
+			stream_mode="values", config=CONFIG)
+	)
 
 
 
 def print_stream(stream):
-	"""Hiển thị kết quả quá trình suy luận."""
+	"""Hiển thị kết quả hội thoại theo cách dễ đọc hơn."""
+	# TODO: Sửa lại hàm print_stream
 	for s in stream:
-		message = s["user_query"][-1]
-		if isinstance(message, tuple): 
-			print(message)
-		else: 
-			message.pretty_print()
+		if len(list(s.keys())) == 2:
+			print("\n🔹 **Lịch sử hội thoại** 🔹")
+			if "user_query" in s and s["user_query"]:
+				user_query = s["user_query"][-1].content
+				print(f"👨 User: {user_query}\n")
+			if "messages" in s and "SYSTEM" in s["messages"]:
+				for system_msg in s["messages"]["SYSTEM"]:
+					print(f"⚙️ System: {system_msg.content}\n")
+			if "messages" in s and "HUMAN" in s["messages"]:
+				for human_msg in s["messages"]["HUMAN"]:
+					print(f"👨 Human: {human_msg.content}\n")
+			if "messages" in s and "AI" in s["messages"]:
+				for ai_msg in s["messages"]["AI"]:
+					print(f"🤖 AI: {ai_msg.content}\n")
+			print("🔹" * 20) 
 
 
 

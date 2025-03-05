@@ -1,4 +1,4 @@
-<!-- # Multi AI-Agentics for automated training and inference AI-Narrow
+# Multi AI-Agentics for automated training and inference AI-Narrow
 **Trần Văn Tuấn - Feb. 27, 2025**
 ## 1. Introduction 
 ### 1.1 Problem Statement
@@ -17,7 +17,7 @@
 - Multi AI-Agentics động bộ tự học hỏi và nâng cao hiệu quả từ AI-Narrow.
 - Hệ thống được thiết kế và có tính thích nghi cao.
 ## 2. Related Works
-- ... -->
+- ...
 ## Reference
 1. D. B. Acharya, K. Kuppan and B. Divya, "Agentic AI: Autonomous Intelligence for Complex Goals—A Comprehensive Survey," in IEEE Access, vol. 13, pp. 18912-18936, 2025, doi: 10.1109/ACCESS.2025.3532853. keywords: {Artificial intelligence;Surveys;Ethics;Reinforcement learning;Hands;Adaptation models;Medical services;Automation;Translation;Systematic literature review;Agentic AI;autonomous systems;human-AI collaboration;adaptability;governance frameworks;ethical AI}. URL https://ieeexplore.ieee.org/abstract/document/10849561
 

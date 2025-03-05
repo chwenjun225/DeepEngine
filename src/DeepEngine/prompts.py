@@ -11,17 +11,6 @@ end_of_turn_id = "<|eot_id|>"
 
 
 
-TOOL_DESC_PROMPT = PromptTemplate.from_template(
-	"""{name_for_model}: Call this tool to interact with the {name_for_human} API. 
-What is the {name_for_human} API useful for? 
-{description_for_model}.
-Type: {type}.
-Properties: {properties}.
-Required: {required}."""
-)
-
-
-
 REACT_PROMPT = PromptTemplate.from_template(
 """{begin_of_text}
 {start_header_id}system{end_header_id}
@@ -34,15 +23,26 @@ Use the following strict format:
 
 ### Input Format:
 
-user_query: The original query provided by the user.
-thought: Logical reasoning before executing an action.
-action: The action to be taken, chosen from available tools: {tools_name}.
-action_input: The required input for the action.
-observation: The outcome of executing the action. 
+Question: The original query provided by the user.
+Thought: Logical reasoning before executing an action.
+Action: The action to be taken, chosen from available tools: {tools_name}.
+Action Input: The required input for the action.
+Observation: The outcome of executing the action. 
 ...(Repeat the thought/action/observation loop as needed)
-final_thought: I now know the final answer.
-final_answer: Provide the final answer.
+Thought: I now know the final answer.
+Final Answer: Provide the final answer.
 
 Begin!{end_of_turn_id}
 """
+)
+
+
+
+TOOL_DESC_PROMPT = PromptTemplate.from_template(
+"""{name_for_model}: Call this tool to interact with the {name_for_human} API. 
+What is the {name_for_human} API useful for? 
+{description_for_model}.
+Type: {type}.
+Properties: {properties}.
+Required: {required}."""
 )

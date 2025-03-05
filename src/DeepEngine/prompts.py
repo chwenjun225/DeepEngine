@@ -2,17 +2,141 @@ from langchain_core.prompts import PromptTemplate
 
 
 
-begin_of_text = "<|begin_of_text|>"
-end_of_text = "<|end_of_text|>"
-start_header_id = "<|start_header_id|>"
-end_header_id = "<|end_header_id|>"
-end_of_message_id = "<|eom_id|>"
-end_of_turn_id = "<|eot_id|>"
-
-
-
 # TODO: Tổng hợp prompts từ bài báo: https://arxiv.org/pdf/2410.02958
 # Phát triển hệ thống multi-agent theo sách hướng dẫn sau: https://learning.oreilly.com/library/view/learning-langchain/9781098167271/ch05.html#ch05_summary_1736545670031127 [Tìm với từ khóa này: medical_records_store = InMemoryVectorStore.from_documents([], ]
+
+
+
+IMPLEMENTATION_VERIFICATION_PROMPT = PromptTemplate.from_template("""As the project manager, please carefully verify whether the given Python code and results satisfy the user's requirements.
+
+- Python Code
+```python
+{implementation_result[`code`]}
+```
+
+- Code Execution Result
+{implementation_result[`action_result`]}
+
+- User's Requirements
+{user_requirements}
+
+Answer only `Pass` or `Fail`""") # Tham khảo tại: https://arxiv.org/pdf/2410.02958 - Trang 28
+
+
+
+EXECUTION_VERIFICATION_PROMPT = PromptTemplate.from_template("""Given the proposed solution and user's requirements, please carefully check and verify whether the proposed solution `pass` or `fail` the user's requirements.
+
+**Proposed Solution and Its Implementation**
+Data Manipulation and Analysis: {data_agent_outcomes}
+Modeling and Optimization: {model_agent_outcomes}
+
+**User Requirements**
+```json
+{user_requirements}
+```
+
+Answer only `Pass` or `Fail`""") # Tham khảo tại: https://arxiv.org/pdf/2410.02958 - Trang 27
+
+
+
+REQUEST_VERIFICATION_ADEQUACY = PromptTemplate.from_template(""" Given the following JSON object representing the user`s requirement for a potential ML or AI project, please tell me whether we have essential information (e.g., problem and dataset) to be used for a AutoML project?
+Please note that our users are not AI experts, you must focus only on the essential requirements, e.g., problem and brief dataset descriptions.
+You do not need to check every details of the requirements. You must also answer `yes` even
+though it lacks detailed and specific information.
+
+```json
+{parsed user requirements}
+```
+
+Please answer with this format: `a `yes` or `no` answer; your reasons for the answer` by using `;` to separate between the answer and its reasons.
+If the answer is `no`, you must tell me the alternative solutions or examples for completing such missing information.""") # Tham khảo tại: https://arxiv.org/pdf/2410.02958 - Trang 27
+
+
+
+REQUEST_VERIFICATION_RELEVANCY = PromptTemplate.from_template("""Is the following statement relevant to machine learning or artificial intelligence?
+`{user instruction}`
+Answer only `Yes` or `No`""") # Tham khảo tại: https://arxiv.org/pdf/2410.02958 - Trang 27
+
+
+
+TRAINING_FREE_MODEL_SEARCH_AND_HPO_PROMPT = PromptTemplate.from_template("""As a proficient machine learning research engineer, your task is to explain **detailed** steps for modeling and optimization parts by executing the following machine learning development plan with the goal of finding top-{k} candidate models/algorithms.
+
+# Suggested Plan
+{decomposed_model_plan}
+
+# Available Model Source
+{available_sources}
+
+Make sure that your explanation for finding the top-{k} high-performance models or algorithms follows these instructions:
+- All of your explanations must be self-contained without using any placeholder to ensure that other machine learning research engineers can exactly reproduce all the steps, but do not include any code.
+- Include how and where to retrieve or find the top-{k} well-performing models/algorithms.
+- Include how to optimize the hyperparamters of the candidate models or algorithms by clearly specifying which hyperparamters are optimized in detail.- Corresponding to each hyperparamter, explicitly include the actual numerical value that you think it is the optimal value for the given dataset and machine learning task.
+- Include how to extract and understand the characteristics of the candidate models or algorithms, such as their computation complexity, memory usage, and inference latency. This part is not related to visualization and interpretability.
+- Include reasons why each step in your explanations is essential to effectively complete
+the plan.
+Make sure to focus only on the modeling part as it is your expertise. Do not conduct or perform anything regarding data manipulation or analysis.
+After complete the explanations, explicitly specify the names and (expected) quantitative performance using relevant numerical performance and complexity metrics (e.g., number of parameters, FLOPs, model size, training time, inference speed, and so on) of the {num2words(k)} candidate models/algorithms potentially to be the optimal model below.
+Do not use any placeholder for the quantitative performance. If you do not know the exact values, please use the knowledge and expertise you have to estimate those performance and complexity values.""") # Tham khảo tại: https://arxiv.org/pdf/2410.02958 - Trang 26, 27
+
+
+
+PSEUDO_DATA_ANALYSIS_BY_DATA_AGENT_PROMPT = PromptTemplate.from_template("""As a proficient data scientist, your task is to explain **detailed** steps for data manipulation and analysis parts by executing the following machine learning development plan.
+
+# Plan
+{decomposed_data_plan}
+
+# Potential Source of Dataset
+{available_sources}
+
+Make sure that your explanation follows these instructions:
+- All of your explanation must be self-contained without using any placeholder to ensure that other data scientists can exactly reproduce all the steps, but do not include any code.
+- Include how and where to retrieve or collect the data.
+- Include how to preprocess the data and which tools or libraries are used for the
+preprocessing.
+- Include how to do the data augmentation with details and names.
+- Include how to extract and understand the characteristics of the data.
+- Include reasons why each step in your explanations is essential to effectively complete
+the plan.
+Note that you should not perform data visualization because you cannot see it. Make sure to focus only on the data part as it is your expertise. Do not conduct or perform anything regarding modeling or training. 
+After complete the explanations, explicitly specify the (expected) outcomes and results both quantitative and qualitative of your explanations.""") # Tham khảo tại: https://arxiv.org/pdf/2410.02958 - Trang 26
+
+
+
+PLAN_DECOMPOSITION_MODEL_AGENT_PROMPT = PromptTemplate.from_template("""As a proficient machine learning research engineer, summarize the following plan given by the senior AutoML project manager according to the user's requirements, your expertise in machine learning, and the outcomes from data scientist.
+
+**User's Requirements**
+```json
+{user_requirements}
+```
+
+**Project Plan**
+{project_plan}
+**Explanations and Results from the Data Scientist**
+{data_result}
+The summary of the plan should enable you to fulfill your responsibilities as the answers to the following questions by focusing on the modeling and optimization tasks.
+1. How to retrieve or find the high-performance model(s)?
+2. How to optimize the hyperparamters of the retrieved models?
+3. How to extract and understand the underlying characteristics of the dataset(s)?
+4. How to select the top-k models or algorithms based on the given plans?""") # Tham khảo tại: https://arxiv.org/pdf/2410.02958 - Trang 25, 26
+
+
+
+PLAN_DECOMPOSITION_DATA_AGENT_PROMPT = PromptTemplate.from_template("""As a proficient data scientist, summarize the following plan given by the senior AutoML project manager according to the user's requirements and your expertise in data science.
+
+# User's Requirements
+```json
+{user_requirements}
+```
+
+# Project Plan
+{plan}
+The summary of the plan should enable you to fulfill your responsibilities as the answers to the following questions by focusing on the data manipulation and analysis.
+1. How to retrieve or collect the dataset(s)?
+2. How to preprocess the retrieved dataset(s)?
+3. How to efficiently augment the dataset(s)?
+4. How to extract and understand the underlying characteristics of the dataset(s)?
+
+Note that you should not perform data visualization because you cannot see it. Make sure that another data scientist can exectly reproduce the results based on your summary.""") # Tham khảo tại: https://arxiv.org/pdf/2410.02958 - Trang 25
 
 
 

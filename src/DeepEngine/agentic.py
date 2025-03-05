@@ -33,8 +33,17 @@ from langgraph.prebuilt import (create_react_agent, ToolNode, tools_condition)
 
 
 
-from prompts import (TOOL_DESC_PROMPT, REACT_PROMPT, begin_of_text, end_of_text, start_header_id, end_header_id, end_of_message_id, end_of_turn_id)
+from prompts import (TOOL_DESC_PROMPT, REACT_PROMPT)
 from tools import (add, subtract, multiply, divide, power, square_root)
+
+
+
+begin_of_text = "<|begin_of_text|>"
+end_of_text = "<|end_of_text|>"
+start_header_id = "<|start_header_id|>"
+end_header_id = "<|end_header_id|>"
+end_of_message_id = "<|eom_id|>"
+end_of_turn_id = "<|eot_id|>"
 
 
 

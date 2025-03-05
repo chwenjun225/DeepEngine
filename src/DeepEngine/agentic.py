@@ -38,6 +38,36 @@ from tools import (tavily_search, random_number_maker, text_to_image, add, subtr
 
 
 
+class State(BaseModel):
+	"""Represents the structured conversation state with categorized messages."""
+	user_query: Annotated[List, add_messages]
+	messages: Dict[str, Annotated[List[BaseMessage], add_messages]] = Field(
+		default_factory=lambda: {
+			"SYSTEM": [], 
+			"HUMAN": [],
+			"AI": []
+		}, description="Categorized messages: SYSTEM, HUMAN, AI."
+	)
+	is_last_step: IsLastStep
+	remaining_steps: int = 3
+
+	def add_message(self, message: BaseMessage):
+		"""Adds a message to the appropriate category if it does not already exist."""
+		message_type_map = {
+			SystemMessage: "SYSTEM",
+			HumanMessage: "HUMAN",
+			AIMessage: "AI"
+		}
+		category = message_type_map.get(type(message))
+		if not any(m.content == message.content for m in self.messages[category]):
+			self.messages[category].append(message)
+
+	def get_all_messages(self) -> List[BaseMessage]:
+		"""Returns all messages in chronological order."""
+		return self.messages["SYSTEM"] + self.messages["HUMAN"] + self.messages["AI"]
+
+
+
 TOOLS = [tavily_search, random_number_maker, text_to_image, add, subtract, multiply, divide, power, square_root]
 
 
@@ -54,116 +84,157 @@ class ChainOfThoughtStructureRepsonse(BaseModel):
 
 
 
-class State(BaseModel):
-	"""Represents the structured conversation state with categorized messages."""
-	user_query: Annotated[List, add_messages]
-	messages: dict[str, Annotated[List, add_messages]] = Field(
-		default_factory=lambda: {
-			"SYSTEM": [], 
-			"HUMAN": [],
-			"AI": []
-		}, description="Categorized messages: SYSTEM, HUMAN, AI."
-	)
-	is_last_step: IsLastStep
-	remaining_steps: int = 3
-
-	def add_message(self, message):
-		"""Adds a message to the appropriate category."""
-		if isinstance(message, SystemMessage):
-			self.messages["SYSTEM"].append(message)
-		elif isinstance(message, HumanMessage):
-			self.messages["HUMAN"].append(message)
-		elif isinstance(message, AIMessage):
-			self.messages["AI"].append(message)
-
-	def get_all_messages(self) -> List:
-		"""Returns all messages in chronological order."""
-		return self.messages["SYSTEM"] + self.messages["HUMAN"] + self.messages["AI"]
-
-
-
 def build_system_prompt(tool_desc_prompt: str, react_prompt: str, tools: list) -> str:
-	"""Builds a formatted query with tool descriptions.
+	"""Builds a formatted system prompt with tool descriptions.
 
 	Args:
-		tool_desc_prompt (str): The prompt template for tool descriptions.
-		react_prompt (str): The template for constructing the final user query.
-		tools (list): A list of tool objects.
+		tool_desc_prompt (str): Template for tool descriptions.
+		react_prompt (str): Template for constructing the final system prompt.
+		tools (list): List of tool objects.
 
 	Returns:
-		str: A fully formatted user query with tool descriptions.
+		str: A fully formatted system prompt with tool descriptions.
 	"""
-	list_tool_desc = []
-	for tool in tools:
-		tool_info = tool.args_schema.model_json_schema()
-		tool_desc = tool_desc_prompt.format(
-			name_for_model=tool_info["title"], 
-			name_for_human=tool_info["title"], 
-			description_for_model=tool_info["description"],
-			type=tool_info["type"], 
-			properties=json.dumps(tool_info["properties"], ensure_ascii=False), 
-			required=json.dumps(tool_info["required"], ensure_ascii=False)
-		)
-		tool_desc += " Format the arguments as a JSON object."
-		list_tool_desc.append(tool_desc)
+	list_tool_desc = [
+		tool_desc_prompt.format(
+			name_for_model=(tool_info := getattr(tool.args_schema, "model_json_schema", lambda: {})()).get("title", "Unknown Tool"),
+			name_for_human=tool_info.get("title", "Unknown Tool"),
+			description_for_model=tool_info.get("description", "No description available."),
+			type=tool_info.get("type", "N/A"),
+			properties=json.dumps(tool_info.get("properties", {}), ensure_ascii=False),
+			required=json.dumps(tool_info.get("required", []), ensure_ascii=False),
+		) + " Format the arguments as a JSON object."
+		for tool in tools
+	]
+
 	return react_prompt.format(
 		begin_of_text=begin_of_text, 
 		start_header_id=start_header_id, 
 		end_header_id=end_header_id, 
 		end_of_turn_id=end_of_turn_id, 
 		tools_desc="\n\n".join(list_tool_desc), 
-		tools_name=", ".join(tool.name for tool in tools), 
+		tools_name=", ".join(tool.name for tool in tools),
 	)
+
+
+
+def enhance_human_message(state: State) -> HumanMessage:
+	"""Enhances the human query by formatting it with system and assistant structure.
+
+	This function constructs a structured prompt including:
+	- `system_prompt (from context)
+	- `user_query (latest human query)
+	- `ai_resp (space for AI response)
+
+	Args:
+		state (State): The current conversation state.
+
+	Returns:
+		HumanMessage: A formatted human query wrapped with special tokens.
+
+	Example:
+		>>> state.user_query = [HumanMessage(content="What is AI?")]
+		>>> enhance_human_query(state)
+		HumanMessage(content='<|start_header_id|>user<|end_header_id|>What is AI?<|end_of_turn_id|><|start_header_id|>assistant<|end_header_id|>')
+	"""
+	user_query = state.user_query[-1].content if state.user_query else ""
+	formatted_query = (
+		f"{start_header_id}user{end_header_id}"
+		f"{user_query}"
+		f"{end_of_turn_id}"
+		f"{start_header_id}assistant{end_header_id}"
+	)
+	return HumanMessage(content=formatted_query)
+
+
+
+def add_eot_id_to_ai_message(ai_message: AIMessage, special_token: str = end_of_turn_id) -> AIMessage:
+	"""Appends a special token at the end of an AIMessage's content if it's not already present.
+
+	This function ensures that the AI-generated message always ends with the specified special token.
+	If the message already contains the token at the end, it remains unchanged.
+
+	Args:
+		ai_message (AIMessage): The AI-generated message.
+		special_token (str, optional): The special token to append (default is `end_of_turn_id`).
+
+	Returns:
+		AIMessage: The updated AI message with the special token appended if necessary.
+
+	Example:
+		>>> message = AIMessage(content="Hello, how can I assist you?")
+		>>> add_eot_id_to_ai_message(message, special_token="<|eot_id|>")
+		AIMessage(content="Hello, how can I assist you?<|eot_id|>")
+	"""
+	if not ai_message.content.strip().endswith(special_token):
+		return AIMessage(content=ai_message.content.strip() + special_token)
+	return ai_message 
 
 
 
 CONFIG = {"configurable": {"thread_id": str(uuid.uuid4())}}
 CHECKPOINTER = MemorySaver()
 STORE = InMemoryStore()
-
-
-
 MODEL = ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0.8, num_predict=128_000)
 MODEL_CHAIN_OF_THOUGHT = MODEL.with_structured_output(schema=ChainOfThoughtStructureRepsonse)
 MODEL_BIND_TOOLS = MODEL.bind_tools(tools=TOOLS)
-
-
-
 SYSTEM_PROMPT = build_system_prompt(tool_desc_prompt=TOOL_DESC_PROMPT, react_prompt=REACT_PROMPT, tools=TOOLS)
 
 
 
-def enhance_human_query(state: State) -> str:
-	"""
-	{start_header_id}system{end_header_id}
-	{system_prompt}
-	{end_of_turn_id}
-
-	{start_header_id}user{end_header_id}
-	{user_query}
-	{end_of_turn_id}
-
-	{start_header_id}assistant{end_header_id}
-	{ai_resp}
-	{end_of_turn_id}
-	"""
-	user_query = state.user_query[-1].content
-	return start_header_id + "user" + end_header_id + \
-			user_query + end_of_turn_id + start_header_id + \
-				"assistant" + end_header_id
-
-
-
 def chatbot(state: State) -> dict:
-	"""Processes user query and updates state with chatbot response."""
-	enhanced_user_query = enhance_human_query(state=state)
-	resp = MODEL.invoke([SystemMessage(content=SYSTEM_PROMPT), HumanMessage(content=enhanced_user_query)])
-	if resp is None or not isinstance(resp, AIMessage):  
-		resp = "I'm unable to generate a response."
-	state.add_message(HumanMessage(enhanced_user_query))
-	state.add_message(resp) if hasattr(resp, AIMessage) else state.add_message(AIMessage(resp))
-	return {"messages": {"HUMAN": HumanMessage(enhanced_user_query), "AI": AIMessage(resp)}}
-# TODO: working on this
+	"""Processes a user query and updates the conversation state with the chatbot's response.
+
+	This function enhances the user query, invokes the AI model to generate a response, 
+	and ensures the response follows the expected format. The chatbot response is then 
+	appended to the conversation state.
+
+	Args:
+		state (State): The current conversation state, containing message history.
+
+	Returns:
+		dict: A dictionary containing updated messages from both the user and the AI.
+
+	Workflow:
+		1. Enhances the user's query.
+		2. Calls the AI model (`MODEL.invoke()`) with `SYSTEM_PROMPT` and the enhanced query.
+		3. Ensures the AI response is formatted as `AIMessage`.
+		4. Appends the special token `<|eot_id|>` if it is missing.
+		5. Adds `SYSTEM_PROMPT` to `state.messages["SYSTEM"]` if it hasn't reached the 
+			number of workflow nodes.
+		6. Updates `state.messages` with the user query and AI response.
+
+	Example:
+		>>> state = State(messages={"SYSTEM": [], "HUMAN": [], "AI": []})
+		>>> chatbot(state)
+		{'messages': 
+			{'HUMAN': HumanMessage(content='Formatted user query'), 
+				'AI': AIMessage(content='Chatbot response<|eot_id|>')
+			}
+		}
+	"""
+	human_message = enhance_human_message(state=state)
+	resp = MODEL.invoke([
+			SystemMessage(content=SYSTEM_PROMPT), 
+			human_message
+		])
+	if not isinstance(resp, AIMessage):
+		resp = AIMessage(
+			content=resp.strip() 
+			if isinstance(resp, str) 
+			else "I'm unable to generate a response."
+		)
+	resp = add_eot_id_to_ai_message(
+		ai_message=resp, 
+		special_token=end_of_turn_id
+	)
+	if len(state.messages["SYSTEM"]) < len(workflow.nodes) and \
+		all(msg.content != SYSTEM_PROMPT for msg in state.messages["SYSTEM"]):
+		state.add_message(SystemMessage(SYSTEM_PROMPT))
+	state.add_message(human_message)
+	state.add_message(resp)
+	return {"messages": {"HUMAN": HumanMessage(human_message), "AI": resp}}
+
 
 
 def chatbot_cot(state: State):

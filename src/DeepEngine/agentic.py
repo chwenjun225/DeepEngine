@@ -38,24 +38,21 @@ from prompts_lib import Prompts
 
 
 
-begin_of_text = "<|begin_of_text|>"
-end_of_text = "<|end_of_text|>"
-start_header_id = "<|start_header_id|>"
-end_header_id = "<|end_header_id|>"
-end_of_message_id = "<|eom_id|>"
-end_of_turn_id = "<|eot_id|>"
+BEGIN_OF_TEXT        = 		"<|begin_of_text|>"
+END_OF_TEXT          = 		"<|end_of_text|>"
+START_HEADER_ID      = 		"<|start_header_id|>"
+END_HEADER_ID        = 		"<|end_header_id|>"
+END_OF_MESSAGE_ID    = 		"<|eom_id|>"
+END_OF_TURN_ID       = 		"<|eot_id|>"
 
 
 
 TOOLS = [add, subtract, multiply, divide, power, square_root]
-
-
-
 MESSAGE_TYPES = {SystemMessage: "SYSTEM", HumanMessage: "HUMAN", AIMessage: "AI"}
 
 
 
-def add_unique_messages(
+def add_unique_msgs(
 		messages: Dict[str, List[BaseMessage]], 
 		message: BaseMessage
 	) -> None:
@@ -69,13 +66,16 @@ def add_unique_messages(
 
 class State(BaseModel):
 	"""Represents the structured conversation state with categorized messages."""
-	user_query: Annotated[List, add_messages] = Field(default_factory=list)
-	messages: Dict[str, Annotated[List[BaseMessage], add_unique_messages]] = Field(
+	user_query: Annotated[List[HumanMessage], add_messages] = Field(default_factory=list)
+	messages: Dict[str, Dict[str, Annotated[List[BaseMessage], add_unique_msgs]]] = Field(
 		default_factory=lambda: {
-			"SYSTEM": [], 
-			"HUMAN": [], 
-			"AI": []
-		}, description="Categorized messages: SYSTEM, HUMAN, AI."
+			"MANAGER_AGENT"		: 	{	"SYSTEM": [], "HUMAN": [], "AI": []		}, 
+			"REQUEST_VERIFY"	: 	{	"SYSTEM": [], "HUMAN": [], "AI": []		}, 
+			"PROMPT_AGENT"		: 	{	"SYSTEM": [], "HUMAN": [], "AI": []		}, 
+			"DATA_AGENT"		: 	{	"SYSTEM": [], "HUMAN": [], "AI": []		}, 
+			"MODEL_AGENT"		: 	{	"SYSTEM": [], "HUMAN": [], "AI": []		}, 
+			"OP_AGENT"			: 	{	"SYSTEM": [], "HUMAN": [], "AI": []		}
+		}, description="Categorized multi agent messages: MANAGER_AGENT, REQUEST_VERIFY, PROMPT_AGENT, DATA_AGENT, MODEL_AGENT, OP_AGENT."
 	)
 	is_last_step: bool = False
 	remaining_steps: int = 3
@@ -119,23 +119,26 @@ def enhance_human_msg(state: State) -> HumanMessage:
 	"""
 	user_query = state.user_query[-1].content if state.user_query else ""
 	formatted_query = (
-		f"{start_header_id}user{end_header_id}"
+		f"{START_HEADER_ID}user{END_HEADER_ID}"
 		f"{user_query}"
-		f"{end_of_turn_id}"
-		f"{start_header_id}assistant{end_header_id}"
+		f"{END_OF_TURN_ID}"
+		f"{START_HEADER_ID}assistant{END_HEADER_ID}"
 	)
 	return HumanMessage(content=formatted_query)
 
 
 
-def add_eot_id_to_ai_message(ai_message: AIMessage, special_token: str = end_of_turn_id) -> AIMessage:
+def add_eot_id_to_ai_message(
+		ai_msg: AIMessage, 
+		special_token: str = END_OF_TURN_ID
+	) -> AIMessage:
 	"""Appends a special token at the end of an AIMessage's content if it's not already present.
 
 	This function ensures that the AI-generated message always ends with the specified special token.
 	If the message already contains the token at the end, it remains unchanged.
 
 	Args:
-		ai_message (AIMessage): The AI-generated message.
+		ai_msg (AIMessage): The AI-generated message.
 		special_token (str, optional): The special token to append (default is `end_of_turn_id`).
 
 	Returns:
@@ -146,9 +149,9 @@ def add_eot_id_to_ai_message(ai_message: AIMessage, special_token: str = end_of_
 		>>> add_eot_id_to_ai_message(message, special_token="<|eot_id|>")
 		AIMessage(content="Hello, how can I assist you?<|eot_id|>")
 	"""
-	if not ai_message.content.strip().endswith(special_token):
-		return AIMessage(content=ai_message.content.strip() + special_token)
-	return ai_message 
+	if not ai_msg.content.strip().endswith(special_token):
+		return AIMessage(content=ai_msg.content.strip() + special_token)
+	return ai_msg 
 
 
 
@@ -175,10 +178,10 @@ def build_react_sys_msg_prompt(tool_desc_prompt: str, react_prompt: str, tools: 
 		for tool in tools
 	]
 	prompt = react_prompt.format(
-		begin_of_text=begin_of_text, 
-		start_header_id=start_header_id, 
-		end_header_id=end_header_id, 
-		end_of_turn_id=end_of_turn_id, 
+		begin_of_text=BEGIN_OF_TEXT, 
+		start_header_id=START_HEADER_ID, 
+		end_header_id=END_HEADER_ID, 
+		end_of_turn_id=END_OF_TURN_ID, 
 		tools_desc="\n\n".join(list_tool_desc), 
 		tools_name=", ".join(tool.name for tool in tools),
 	)
@@ -186,8 +189,9 @@ def build_react_sys_msg_prompt(tool_desc_prompt: str, react_prompt: str, tools: 
 
 
 
-MGR_SYS_MSG_PROMPT = SystemMessage(Prompts.AGENT_MANAGER_PROMPT)
 REACT_SYS_MSG_PROMPT = SystemMessage(build_react_sys_msg_prompt(tool_desc_prompt=Prompts.TOOL_DESC_PROMPT, react_prompt=Prompts.REACT_PROMPT, tools=TOOLS))
+MGR_SYS_MSG_PROMPT = SystemMessage(Prompts.AGENT_MANAGER_PROMPT)
+REQ_VER_MSG_PROMPT = SystemMessage(Prompts.REQUEST_VERIFY_RELEVANCY)
 
 
 
@@ -197,47 +201,9 @@ STORE = InMemoryStore()
 
 
 
-MODEL_HIGH_TEMP = ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0.8, num_predict=128_000)
-MODEL_LOW_TEMP = ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0.1, num_predict=128_000)
-MODEL_BIND_TOOLS = MODEL_LOW_TEMP.bind_tools(tools=TOOLS)
-
-
-
-def react_agent(state: State) -> State:
-	"""ReAct Agent."""
-	human_msg = enhance_human_msg(state=state)
-	resp = MODEL_HIGH_TEMP.invoke([REACT_SYS_MSG_PROMPT, human_msg])
-	if not isinstance(resp, AIMessage):
-		resp = AIMessage(
-			content=resp.strip() 
-			if isinstance(resp, str) 
-			else "At node-react-agent, I'm unable to generate a response."
-		)
-	resp = add_eot_id_to_ai_message(ai_message=resp, special_token=end_of_turn_id)
-	return {"messages": {
-		"SYSTEM": [REACT_SYS_MSG_PROMPT], 
-		"HUMAN": [human_msg], 
-		"AI": [resp]
-	}}
-
-
-
-def manager_agent(state: State) -> State:
-	"""Manager Agent."""
-	human_msg = enhance_human_msg(state=state)
-	resp = MODEL_LOW_TEMP.invoke([MGR_SYS_MSG_PROMPT, human_msg])
-	if not isinstance(resp, AIMessage):
-		resp = AIMessage(
-			content=resp.strip() 
-			if isinstance(resp, str) 
-			else "At node-mgr-agent, I'm unable to generate a response."
-		)
-	resp = add_eot_id_to_ai_message(ai_message=resp, special_token=end_of_turn_id)
-	return {"messages": {
-		"SYSTEM": [MGR_SYS_MSG_PROMPT], 
-		"HUMAN": [human_msg], 
-		"AI": [resp]
-	}}
+HIGH_TEMP_MODEL = ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0.8, num_predict=128_000)
+LOW_TEMP_MODEL = ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0.1, num_predict=128_000)
+TOOLS_MODEL = LOW_TEMP_MODEL.bind_tools(tools=TOOLS)
 
 
 
@@ -302,42 +268,110 @@ def reflection(state: State):
 
 
 
-def request_verification(state: State):
-	pass
+def react_agent(state: State) -> State:
+	"""ReAct Agent."""
+	human_msg = enhance_human_msg(state=state)
+	resp = LOW_TEMP_MODEL.invoke([REACT_SYS_MSG_PROMPT, human_msg])
+	if not isinstance(resp, AIMessage):
+		resp = AIMessage(
+			content=resp.strip() 
+			if isinstance(resp, str) 
+			else "At node-react-agent, I'm unable to generate a response."
+		)
+	resp = add_eot_id_to_ai_message(ai_message=resp, special_token=END_OF_TURN_ID)
+	return {"messages": {
+		"SYSTEM": [REACT_SYS_MSG_PROMPT], 
+		"HUMAN": [human_msg], 
+		"AI": [resp]
+	}}
+
+
+
+def manager_agent(state: State) -> State:
+	"""Manager Agent.
+	
+	Example:
+		>>> human_msg: I need a very accurate model to classify images in the Butterfly Image Classification dataset into their respective categories. The dataset has been uploaded with its label information in the labels.csv file.
+		>>> AI response: ...
+	"""
+	human_msg = enhance_human_msg(state=state)
+	ai_msg = LOW_TEMP_MODEL.invoke([MGR_SYS_MSG_PROMPT, human_msg])
+	if not isinstance(ai_msg, AIMessage):
+		ai_msg = AIMessage(
+			content=ai_msg.strip() 
+			if isinstance(ai_msg, str) 
+			else "At node_manager_agent, I'm unable to generate a response."
+		)
+	ai_msg = add_eot_id_to_ai_message(ai_message=ai_msg, special_token=END_OF_TURN_ID)
+	return {"messages": {
+		"SYSTEM": [MGR_SYS_MSG_PROMPT], 
+		"HUMAN": [human_msg], 
+		"AI": [ai_msg]
+	}}
+
+
+
+def request_verify(state: State):
+	"""Request verification output of Agent Manager."""
+	user_instruct = ""
+	human_msg = enhance_human_msg(state=state)
+	ai_msg = LOW_TEMP_MODEL.invoke([MGR_SYS_MSG_PROMPT, human_msg])
+	if not isinstance(ai_msg, AIMessage):
+		ai_msg = AIMessage(
+			content=ai_msg.strip() 
+			if isinstance(ai_msg, str) 
+			else "At node_manager_agent, I'm unable to generate a response."
+		)
+	ai_msg = add_eot_id_to_ai_message(ai_message=ai_msg, special_token=END_OF_TURN_ID)
+	return {"messages": {
+		"SYSTEM": [MGR_SYS_MSG_PROMPT], 
+		"HUMAN": [human_msg], 
+		"AI": [ai_msg]
+	}}
 
 
 
 workflow = StateGraph(State)
 
-workflow.add_node("react_agent", react_agent)
-workflow.add_node("manager_agent", manager_agent)
-workflow.add_node("prompt_agent", prompt_agent)
-workflow.add_node("data_agent", data_agent)
-workflow.add_node("model_agent", model_agent)
-workflow.add_node("op_agent", op_agent)
-workflow.add_node("request_verification", request_verification)
+workflow.add_node("REACT_AGENT", react_agent)
+workflow.add_node("MANAGER_AGENT", manager_agent)
+workflow.add_node("REQUEST_VERIFY", request_verify)
+workflow.add_node("PROMPT_AGENT", prompt_agent)
+workflow.add_node("DATA_AGENT", data_agent)
+workflow.add_node("MODEL_AGENT", model_agent)
+workflow.add_node("OP_AGENT", op_agent)
 
-workflow.add_edge(START, "manager_agent")
-workflow.add_edge("manager_agent", "request_verification")
-workflow.add_conditional_edges("request_verification", "manager_agent")
+workflow.add_edge(START, "MANAGER_AGENT")
+workflow.add_edge("MANAGER_AGENT", "REQUEST_VERIFY")
+workflow.add_conditional_edges("REQUEST_VERIFY", "MANAGER_AGENT")
 
-workflow.add_edge("request_verification", END)
+workflow.add_edge("REQUEST_VERIFY", END)
 
 app = workflow.compile(checkpointer=CHECKPOINTER, store=STORE)
 
 
 
 def main() -> None:
-	"""Nhận truy vấn từ người dùng và hiển thị kết quả phản hồi."""
-	while True: 
+	"""Nhập truy vấn từ người dùng và hiển thị kết quả phản hồi."""
+	for user_query in [
+		"""I need a very accurate model to classify images in the Butterfly Image Classification dataset into their respective categories. The dataset has been uploaded with its label information in the labels.csv file.""", 
+
+
+
+		"""Please provide a classification model that categorizes images into one of four clothing categories. The image path, along with its label information, can be found in the files train labels.csv and test labels.csv.""", 
+
+
+
+		"""exit"""
+	]:
 		user_query = input("👨_query: ")
 		if user_query.lower() == "exit":
 			print(">>> SystemExit: Goodbye! Have a great day!😊")
 			break
 		print_stream(
 			app.stream(input={"user_query": [user_query]}, 
-			stream_mode="values", config=CONFIG)
-	)
+			stream_mode="values", config=CONFIG
+		))
 
 
 

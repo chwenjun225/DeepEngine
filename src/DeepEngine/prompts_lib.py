@@ -47,7 +47,7 @@ Answer only `Pass` or `Fail`""" # Tham khảo tại: https://arxiv.org/pdf/2410.
 
 
 
-	REQUEST_VERIFICATION_ADEQUACY = """ Given the following JSON object representing the user`s requirement for a potential ML or AI project, please tell me whether we have essential information (e.g., problem and dataset) to be used for a AutoML project?
+	REQUEST_VERIFY_ADEQUACY = """Given the following JSON object representing the user's requirement for a potential ML or AI project, please tell me whether we have essential information (e.g., problem and dataset) to be used for a AutoML project?
 Please note that our users are not AI experts, you must focus only on the essential requirements, e.g., problem and brief dataset descriptions.
 You do not need to check every details of the requirements. You must also answer `yes` even
 though it lacks detailed and specific information.
@@ -58,10 +58,24 @@ though it lacks detailed and specific information.
 
 Please answer with this format: `a `yes` or `no` answer; your reasons for the answer` by using `;` to separate between the answer and its reasons.
 If the answer is `no`, you must tell me the alternative solutions or examples for completing such missing information.""" # Tham khảo tại: https://arxiv.org/pdf/2410.02958 - Trang 27
+# Giả lập input JSON object cho REQUEST_VERIFICATION_ADEQUACY: 
+# {
+#   "project_name": "Customer Churn Prediction",
+#   "problem_statement": "Predict whether a customer will churn based on past interactions and behaviors.",
+#   "dataset": {
+#     "description": "A dataset containing customer interaction logs, demographic information, and historical churn labels.",
+#     "data_sources": ["CRM database", "Website interaction logs"],
+#     "features": ["customer_id", "age", "subscription_length", "monthly_spend", "support_tickets", "last_login"],
+#     "target_variable": "churn (0 = No, 1 = Yes)"
+#   },
+#   "expected_output": "A trained model that can predict the probability of churn for a given customer.",
+#   "performance_metrics": ["Accuracy", "F1-score", "AUC-ROC"],
+#   "deployment_preference": "Cloud-based API"
+# }
 
 
 
-	REQUEST_VERIFICATION_RELEVANCY = """Is the following statement relevant to machine learning or artificial intelligence?
+	REQUEST_VERIFY_RELEVANCY = """Is the following statement relevant to a potential machine learning or a artificial intelligence project 
 `{user instruction}`
 Answer only `Yes` or `No`""" # Tham khảo tại: https://arxiv.org/pdf/2410.02958 - Trang 27
 

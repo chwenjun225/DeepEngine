@@ -376,13 +376,7 @@ def main() -> None:
 	"""Nhập truy vấn từ người dùng và hiển thị kết quả phản hồi."""
 	for user_query in [
 		"""I need a very accurate model to classify images in the Butterfly Image Classification dataset into their respective categories. The dataset has been uploaded with its label information in the labels.csv file.""", 
-
-
-
 		"""Please provide a classification model that categorizes images into one of four clothing categories. The image path, along with its label information, can be found in the files train labels.csv and test labels.csv.""", 
-
-
-
 		"""exit"""
 	]:
 		user_query = input("👨_query: ")

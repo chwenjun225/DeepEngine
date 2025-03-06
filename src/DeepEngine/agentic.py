@@ -222,7 +222,7 @@ def react_agent(state: State) -> State:
 
 
 
-def manager_agent(state: State):
+def manager_agent(state: State) -> State:
 	"""Manager Agent."""
 	human_msg = enhance_human_msg(state=state)
 	resp = MODEL_LOW_TEMP.invoke([MGR_SYS_MSG_PROMPT, human_msg])
@@ -241,7 +241,7 @@ def manager_agent(state: State):
 
 
 
-def prompt_agent(state: State):
+def prompt_agent(state: State) -> State:
 	"Prompt Agent."
 	human_msg = ""
 	resp = ""
@@ -253,7 +253,7 @@ def prompt_agent(state: State):
 
 
 
-def data_agent(state: State):
+def data_agent(state: State) -> State:
 	"""Data Agent."""
 	human_msg = ""
 	resp = ""
@@ -265,7 +265,7 @@ def data_agent(state: State):
 
 
 
-def model_agent(state: State):
+def model_agent(state: State) -> State:
 	"""Model Agent."""
 	human_msg = ""
 	resp = ""
@@ -277,7 +277,7 @@ def model_agent(state: State):
 
 
 
-def op_agent(state: State):
+def op_agent(state: State) -> State:
 	"""Operation Agent."""
 	human_msg = ""
 	resp = ""
@@ -289,17 +289,39 @@ def op_agent(state: State):
 
 
 
+def reflection(state: State):
+	"""Self-Critique Agent."""
+	reflection_prompt = "" 
+	human_msg = ""
+	resp = ""
+	return {"messages": {
+		"SYSTEM": [MGR_SYS_MSG_PROMPT], 
+		"HUMAN": [human_msg], 
+		"AI": [resp]
+	}}
+
+
+
+def request_verification(state: State):
+	pass
+
+
+
 workflow = StateGraph(State)
 
-workflow.add_node("manager_agent", manager_agent)
 workflow.add_node("react_agent", react_agent)
+workflow.add_node("manager_agent", manager_agent)
 workflow.add_node("prompt_agent", prompt_agent)
 workflow.add_node("data_agent", data_agent)
 workflow.add_node("model_agent", model_agent)
 workflow.add_node("op_agent", op_agent)
+workflow.add_node("request_verification", request_verification)
 
 workflow.add_edge(START, "manager_agent")
-workflow.add_edge("manager_agent", END)
+workflow.add_edge("manager_agent", "request_verification")
+workflow.add_conditional_edges("request_verification", "manager_agent")
+
+workflow.add_edge("request_verification", END)
 
 app = workflow.compile(checkpointer=CHECKPOINTER, store=STORE)
 
@@ -324,9 +346,9 @@ def print_stream(stream) -> None:
 	for s in stream:
 		if len(list(s.keys())) == 2:
 			messages = s["messages"]
-			# if "SYSTEM" in messages and messages["SYSTEM"]:
-			# 	print("\n ⚙️ **SYSTEM**:")
-			# 	messages["SYSTEM"][-1].pretty_print()
+			if "SYSTEM" in messages and messages["SYSTEM"]:
+				print("\n ⚙️ **SYSTEM**:")
+				messages["SYSTEM"][-1].pretty_print()
 
 			if "HUMAN" in messages and messages["HUMAN"]:
 				print("\n 👨 **ENHANCE HUMAN QUERY**:")

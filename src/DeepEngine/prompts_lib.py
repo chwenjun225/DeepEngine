@@ -351,3 +351,7 @@ What is the {name_for_human} API useful for?
 Type: {type}.
 Properties: {properties}.
 Required: {required}.""" # Tham khảo tại: https://github.com/OpenBMB/MiniCPM-CookBook/blob/d0772b24af057c8e7f5d6e12fd00f3cde0481a3c/agent_demo/agent_demo.py#L76
+
+
+
+	REFLECTION_PROMPT = """Phát triển sau"""

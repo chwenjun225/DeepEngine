@@ -34,12 +34,7 @@ from langgraph.prebuilt import (create_react_agent, ToolNode, tools_condition)
 
 
 from tools import (add, subtract, multiply, divide, power, square_root)
-from prompts import (
-	AGENT_MANAGER_PROMPT, 
-	ROUTER_PROMPT, 
-	TOOL_DESC_PROMPT, 
-	REACT_PROMPT
-	)
+from prompts_lib import Prompts 
 
 
 
@@ -103,40 +98,7 @@ class State(BaseModel):
 
 
 
-def build_system_prompt(tool_desc_prompt: str, react_prompt: str, tools: List[BaseTool]) -> SystemMessage:
-	"""Builds a formatted system prompt with tool descriptions.
-
-	Args:
-		tool_desc_prompt (str): Template for tool descriptions.
-		react_prompt (str): Template for constructing the final system prompt.
-		tools (list): List of tool objects.
-
-	Returns:
-		str: A fully formatted system prompt with tool descriptions.
-	"""
-	list_tool_desc = [
-		tool_desc_prompt.format(
-			name_for_model=(tool_info := getattr(tool.args_schema, "model_json_schema", lambda: {})()).get("title", "Unknown Tool"),
-			name_for_human=tool_info.get("title", "Unknown Tool"),
-			description_for_model=tool_info.get("description", "No description available."),
-			type=tool_info.get("type", "N/A"),
-			properties=json.dumps(tool_info.get("properties", {}), ensure_ascii=False),
-			required=json.dumps(tool_info.get("required", []), ensure_ascii=False),
-		) + " Format the arguments as a JSON object."
-		for tool in tools
-	]
-	return SystemMessage(react_prompt.format(
-		begin_of_text=begin_of_text, 
-		start_header_id=start_header_id, 
-		end_header_id=end_header_id, 
-		end_of_turn_id=end_of_turn_id, 
-		tools_desc="\n\n".join(list_tool_desc), 
-		tools_name=", ".join(tool.name for tool in tools),
-	))
-
-
-
-def enhance_human_message(state: State) -> HumanMessage:
+def enhance_human_msg(state: State) -> HumanMessage:
 	"""Enhances the human query by formatting it with system and assistant structure.
 
 	This function constructs a structured prompt including:
@@ -190,6 +152,45 @@ def add_eot_id_to_ai_message(ai_message: AIMessage, special_token: str = end_of_
 
 
 
+def build_react_sys_msg_prompt(tool_desc_prompt: str, react_prompt: str, tools: List[BaseTool])-> str:
+	"""Builds a formatted system prompt with tool descriptions.
+
+	Args:
+		tool_desc_prompt (PromptTemplate): Template for tool descriptions.
+		react_prompt (PromptTemplate): Template for constructing the final system prompt.
+		tools (List[BaseTool]): List of tool objects.
+
+	Returns:
+		str: A fully formatted system prompt with tool descriptions.
+	"""
+	list_tool_desc = [
+		tool_desc_prompt.format(
+			name_for_model=(tool_info := getattr(tool.args_schema, "model_json_schema", lambda: {})()).get("title", "Unknown Tool"),
+			name_for_human=tool_info.get("title", "Unknown Tool"),
+			description_for_model=tool_info.get("description", "No description available."),
+			type=tool_info.get("type", "N/A"),
+			properties=json.dumps(tool_info.get("properties", {}), ensure_ascii=False),
+			required=json.dumps(tool_info.get("required", []), ensure_ascii=False),
+		) + " Format the arguments as a JSON object."
+		for tool in tools
+	]
+	prompt = react_prompt.format(
+		begin_of_text=begin_of_text, 
+		start_header_id=start_header_id, 
+		end_header_id=end_header_id, 
+		end_of_turn_id=end_of_turn_id, 
+		tools_desc="\n\n".join(list_tool_desc), 
+		tools_name=", ".join(tool.name for tool in tools),
+	)
+	return prompt
+
+
+
+MGR_SYS_MSG_PROMPT = SystemMessage(Prompts.AGENT_MANAGER_PROMPT)
+REACT_SYS_MSG_PROMPT = SystemMessage(build_react_sys_msg_prompt(tool_desc_prompt=Prompts.TOOL_DESC_PROMPT, react_prompt=Prompts.REACT_PROMPT, tools=TOOLS))
+
+
+
 CONFIG = {"configurable": {"thread_id": str(uuid.uuid4())}}
 CHECKPOINTER = MemorySaver()
 STORE = InMemoryStore()
@@ -202,46 +203,87 @@ MODEL_BIND_TOOLS = MODEL_LOW_TEMP.bind_tools(tools=TOOLS)
 
 
 
-REACT_SYSTEM_MESSAGE_PROMPT = build_system_prompt(tool_desc_prompt=TOOL_DESC_PROMPT, react_prompt=REACT_PROMPT, tools=TOOLS)
-
-
-
-def chatbot_react(state: State) -> State:
-	"""Processes a user query and updates the conversation state with the chatbot's response.
-
-	This function:
-	- Enhances the user query.
-	- Calls the AI model with `SYSTEM_PROMPT` and the enhanced query.
-	- Ensures the AI response is formatted correctly.
-	- Appends the special token `<|eot_id|>` if missing.
-	- Prevents duplicate messages in `state.messages`.
-
-	Args:
-		state (State): The current conversation state, containing message history.
-
-	Example:
-		>>> state = State(messages={"SYSTEM": [], "HUMAN": [], "AI": []})
-		>>> chatbot(state)
-		{'messages': 
-			{
-				'HUMAN': HumanMessage(content='Formatted user query'), 
-				'AI': AIMessage(content='Chatbot response<|eot_id|>')
-			}
-		}
-	"""
-	human_message = enhance_human_message(state=state)
-	resp = MODEL_HIGH_TEMP.invoke([REACT_SYSTEM_MESSAGE_PROMPT, human_message])
-
+def react_agent(state: State) -> State:
+	"""ReAct Agent."""
+	human_msg = enhance_human_msg(state=state)
+	resp = MODEL_HIGH_TEMP.invoke([REACT_SYS_MSG_PROMPT, human_msg])
 	if not isinstance(resp, AIMessage):
 		resp = AIMessage(
 			content=resp.strip() 
 			if isinstance(resp, str) 
-			else "I'm unable to generate a response."
+			else "At node-react-agent, I'm unable to generate a response."
 		)
 	resp = add_eot_id_to_ai_message(ai_message=resp, special_token=end_of_turn_id)
 	return {"messages": {
-		"SYSTEM": [REACT_SYSTEM_MESSAGE_PROMPT], 
-		"HUMAN": [human_message], 
+		"SYSTEM": [REACT_SYS_MSG_PROMPT], 
+		"HUMAN": [human_msg], 
+		"AI": [resp]
+	}}
+
+
+
+def manager_agent(state: State):
+	"""Manager Agent."""
+	human_msg = enhance_human_msg(state=state)
+	resp = MODEL_LOW_TEMP.invoke([MGR_SYS_MSG_PROMPT, human_msg])
+	if not isinstance(resp, AIMessage):
+		resp = AIMessage(
+			content=resp.strip() 
+			if isinstance(resp, str) 
+			else "At node-mgr-agent, I'm unable to generate a response."
+		)
+	resp = add_eot_id_to_ai_message(ai_message=resp, special_token=end_of_turn_id)
+	return {"messages": {
+		"SYSTEM": [MGR_SYS_MSG_PROMPT], 
+		"HUMAN": [human_msg], 
+		"AI": [resp]
+	}}
+
+
+
+def prompt_agent(state: State):
+	"Prompt Agent."
+	human_msg = ""
+	resp = ""
+	return {"messages": {
+		"SYSTEM": [MGR_SYS_MSG_PROMPT], 
+		"HUMAN": [human_msg], 
+		"AI": [resp]
+	}}
+
+
+
+def data_agent(state: State):
+	"""Data Agent."""
+	human_msg = ""
+	resp = ""
+	return {"messages": {
+		"SYSTEM": [MGR_SYS_MSG_PROMPT], 
+		"HUMAN": [human_msg], 
+		"AI": [resp]
+	}}
+
+
+
+def model_agent(state: State):
+	"""Model Agent."""
+	human_msg = ""
+	resp = ""
+	return {"messages": {
+		"SYSTEM": [MGR_SYS_MSG_PROMPT], 
+		"HUMAN": [human_msg], 
+		"AI": [resp]
+	}}
+
+
+
+def op_agent(state: State):
+	"""Operation Agent."""
+	human_msg = ""
+	resp = ""
+	return {"messages": {
+		"SYSTEM": [MGR_SYS_MSG_PROMPT], 
+		"HUMAN": [human_msg], 
 		"AI": [resp]
 	}}
 
@@ -249,17 +291,23 @@ def chatbot_react(state: State) -> State:
 
 workflow = StateGraph(State)
 
-workflow.add_node("chatbot_react", chatbot_react)
+workflow.add_node("react_agent", react_agent)
+workflow.add_node("manager_agent", manager_agent)
+workflow.add_node("prompt_agent", prompt_agent)
+workflow.add_node("data_agent", data_agent)
+workflow.add_node("model_agent", model_agent)
+workflow.add_node("op_agent", op_agent)
 
-workflow.add_edge(START, "chatbot_react")
-workflow.add_edge("chatbot_react", END)
+workflow.add_edge(START, "manager_agent")
+workflow.add_edge("manager_agent", "react_agent")
+workflow.add_edge("react_agent", END)
 
 app = workflow.compile(checkpointer=CHECKPOINTER, store=STORE)
 
 
 
 def main() -> None:
-	"""Hàm chính để nhận truy vấn từ người dùng và hiển thị phản hồi."""
+	"""Nhận truy vấn từ người dùng và hiển thị kết quả phản hồi."""
 	while True: 
 		user_query = input("👨_query: ")
 		if user_query.lower() == "exit":

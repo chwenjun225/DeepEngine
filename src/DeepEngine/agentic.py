@@ -33,8 +33,13 @@ from langgraph.prebuilt import (create_react_agent, ToolNode, tools_condition)
 
 
 
-from prompts import (TOOL_DESC_PROMPT, REACT_PROMPT)
 from tools import (add, subtract, multiply, divide, power, square_root)
+from prompts import (
+	AGENT_MANAGER_PROMPT, 
+	ROUTER_PROMPT, 
+	TOOL_DESC_PROMPT, 
+	REACT_PROMPT
+	)
 
 
 
@@ -95,12 +100,6 @@ class State(BaseModel):
 		if category not in self.messages:
 			raise ValueError(f"[ERROR]: Invalid category '{category}'. Must be 'SYSTEM', 'HUMAN', or 'AI'.")
 		return self.messages[category]
-
-
-
-class React(TypedDict):
-	"""ReAct structured response format."""
-	final_answer: str
 
 
 
@@ -194,8 +193,15 @@ def add_eot_id_to_ai_message(ai_message: AIMessage, special_token: str = end_of_
 CONFIG = {"configurable": {"thread_id": str(uuid.uuid4())}}
 CHECKPOINTER = MemorySaver()
 STORE = InMemoryStore()
-MODEL = ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0.8, num_predict=128_000)
-MODEL_BIND_TOOLS = MODEL.bind_tools(tools=TOOLS)
+
+
+
+MODEL_HIGH_TEMP = ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0.8, num_predict=128_000)
+MODEL_LOW_TEMP = ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0.1, num_predict=128_000)
+MODEL_BIND_TOOLS = MODEL_LOW_TEMP.bind_tools(tools=TOOLS)
+
+
+
 REACT_SYSTEM_MESSAGE_PROMPT = build_system_prompt(tool_desc_prompt=TOOL_DESC_PROMPT, react_prompt=REACT_PROMPT, tools=TOOLS)
 
 
@@ -224,7 +230,7 @@ def chatbot_react(state: State) -> State:
 		}
 	"""
 	human_message = enhance_human_message(state=state)
-	resp = MODEL.invoke([REACT_SYSTEM_MESSAGE_PROMPT, human_message])
+	resp = MODEL_HIGH_TEMP.invoke([REACT_SYSTEM_MESSAGE_PROMPT, human_message])
 
 	if not isinstance(resp, AIMessage):
 		resp = AIMessage(

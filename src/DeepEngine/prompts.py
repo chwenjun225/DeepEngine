@@ -2,8 +2,17 @@ from langchain_core.prompts import PromptTemplate
 
 
 
-# TODO: Tổng hợp prompts từ bài báo: https://arxiv.org/pdf/2410.02958
-# Phát triển hệ thống multi-agent theo sách hướng dẫn sau: https://learning.oreilly.com/library/view/learning-langchain/9781098167271/ch05.html#ch05_summary_1736545670031127 [Tìm với từ khóa này: medical_records_store = InMemoryVectorStore.from_documents([], ]
+# Tổng hợp prompts từ bài báo: https://arxiv.org/pdf/2410.02958
+# 
+# 
+#
+# Phát triển hệ thống multi-agent theo sách hướng dẫn sau: https://learning.oreilly.com/library/view/learning-langchain/9781098167271/ch05.html#ch05_summary_1736545670031127 
+# Tìm với từ khóa này: medical_records_store = InMemoryVectorStore.from_documents([], 
+# 
+#
+#
+# Ví dụ cách thêm ToolNode vào Graph: https://learning.oreilly.com/library/view/learning-langchain/9781098167271/ch06.html
+# Tìm với từ khóa này: builder.add_node("tools", ToolNode(tools))
 
 
 
@@ -288,12 +297,6 @@ Your response must begin with "```json" or "{{" and end with "```" or "}}", resp
 
 
 
-AGENT_MANAGER_PROMPT = PromptTemplate.from_template(""" You are an experienced senior project manager of a automated machine learning project (AutoML). You have two main responsibilities as follows.
-1. Receive requirements and/or inquiries from users through a well-structured JSON object.
-2. Using recent knowledge and state-of-the-art studies to devise promising high-quality plans for data scientists, machine learning research engineers, and MLOps engineers in your team to execute subsequent processes based on the user requirements you have received.""") # Tham khảo tại: https://arxiv.org/pdf/2410.02958 - Trang 21
-
-
-
 ZERO_SHOT_PROMPT_FOR_GPT_3_5_AND_GPT_4_BASELINES = PromptTemplate.from_template("""You are a helpful intelligent assistant. Now please help solve the following machine learning task.
 [Task]
 {user instruction}
@@ -303,6 +306,12 @@ ZERO_SHOT_PROMPT_FOR_GPT_3_5_AND_GPT_4_BASELINES = PromptTemplate.from_template(
 {full-pipeline skeleton script}
 ```
 Start the python code with "```python". Please ensure the completeness of the code so that it can be run without additional modifications.""") # Tham khảo tại: https://arxiv.org/pdf/2410.02958 - Trang 20
+
+
+
+AGENT_MANAGER_PROMPT = PromptTemplate.from_template("""You are an experienced senior project manager of a automated machine learning project (AutoML). You have two main responsibilities as follows.
+1. Receive requirements and/or inquiries from users through a well-structured JSON object.
+2. Using recent knowledge and state-of-the-art studies to devise promising high-quality plans for data scientists, machine learning research engineers, and MLOps engineers in your team to execute subsequent processes based on the user requirements you have received.""") # Tham khảo tại: https://arxiv.org/pdf/2410.02958 - Trang 21
 
 
 

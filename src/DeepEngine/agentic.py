@@ -38,29 +38,30 @@ from prompts_lib import Prompts
 
 
 
-BEGIN_OF_TEXT        = 		"<|begin_of_text|>"
-END_OF_TEXT          = 		"<|end_of_text|>"
-START_HEADER_ID      = 		"<|start_header_id|>"
-END_HEADER_ID        = 		"<|end_header_id|>"
-END_OF_MESSAGE_ID    = 		"<|eom_id|>"
-END_OF_TURN_ID       = 		"<|eot_id|>"
+BEGIN_OF_TEXT		=	"<|begin_of_text|>"
+END_OF_TEXT			= 	"<|end_of_text|>"
+START_HEADER_ID		= 	"<|start_header_id|>"
+END_HEADER_ID		= 	"<|end_header_id|>"
+END_OF_MESSAGE_ID	= 	"<|eom_id|>"
+END_OF_TURN_ID		= 	"<|eot_id|>"
 
 
 
 TOOLS = [add, subtract, multiply, divide, power, square_root]
-MESSAGE_TYPES = {SystemMessage: "SYSTEM", HumanMessage: "HUMAN", AIMessage: "AI"}
+MSG_TYPES = {SystemMessage: "SYSTEM", HumanMessage: "HUMAN", AIMessage: "AI"}
 
 
 
 def add_unique_msgs(
-		messages: Dict[str, List[BaseMessage]], 
-		message: BaseMessage
+		msgs: Dict[str, Dict[str, List[BaseMessage]]],
+		agent_type: str, 
+		msg: BaseMessage
 	) -> None:
-	"""Custom reducer, adds a message to the appropriate category if it does not already exist."""
-
-	category = MESSAGE_TYPES.get(type(message))
-	if category and all(message.content != msg.content for msg in messages[category]):
-		messages[category].append(message)
+	"""Adds a message to the appropriate agent category if it does not already exist."""
+	agent_msgs_type = MSG_TYPES.get(type(msg))
+	if agent_msgs_type and agent_type in msgs:
+		if all(msg.content != msg.content for msg in msgs[agent_type][agent_msgs_type]):
+			msgs[agent_type][agent_msgs_type].append(msg)
 
 
 
@@ -75,26 +76,43 @@ class State(BaseModel):
 			"DATA_AGENT"		: 	{	"SYSTEM": [], "HUMAN": [], "AI": []		}, 
 			"MODEL_AGENT"		: 	{	"SYSTEM": [], "HUMAN": [], "AI": []		}, 
 			"OP_AGENT"			: 	{	"SYSTEM": [], "HUMAN": [], "AI": []		}
-		}, description="Categorized multi agent messages: MANAGER_AGENT, REQUEST_VERIFY, PROMPT_AGENT, DATA_AGENT, MODEL_AGENT, OP_AGENT."
+		}, 
+		description="Categorized Multi-Agent messages: MANAGER_AGENT, REQUEST_VERIFY, PROMPT_AGENT, DATA_AGENT, MODEL_AGENT, OP_AGENT."
 	)
 	is_last_step: bool = False
 	remaining_steps: int = 3
 
-	def get_all_messages(self) -> List[BaseMessage]:
-		"""Returns all messages in chronological order."""
-		return sum(self.messages.values(), [])
+	def get_all_msgs(self) -> List[BaseMessage]:
+		"""Returns all messages across all agents in chronological order."""
+		all_messages = []
+		for agent_messages in self.messages.values():
+			for msg_list in agent_messages.values():
+				all_messages.extend(msg_list)
+		return all_messages
 
-	def get_latest_message(self, category: str) -> BaseMessage:
-		"""Returns the latest message from a given category, if available."""
-		if category not in self.messages:
-			raise ValueError(f"[ERROR]: Invalid category '{category}'. Must be 'SYSTEM', 'HUMAN', or 'AI'.")
-		return self.messages[category][-1] if self.messages[category] else None 
+	def get_latest_msg(self, agent_type: str, msg_type: str) -> BaseMessage:
+		"""Returns the latest message from a given agent category and message type."""
+		if agent_type not in self.messages:
+			raise ValueError(
+				f"[ERROR]: Invalid agent category '{agent_type}'. Must be one of {list(self.messages.keys())}."
+			)
+		if msg_type not in self.messages[agent_type]:
+			raise ValueError(
+				f"[ERROR]: Invalid message type '{msg_type}'. Must be 'SYSTEM', 'HUMAN', or 'AI'."
+			)
+		return self.messages[agent_type][msg_type][-1] if self.messages[agent_type][msg_type] else None
 
-	def get_messages_by_category(self, category: str) -> List[BaseMessage]:
-		"""Returns all messages from a specific category."""
-		if category not in self.messages:
-			raise ValueError(f"[ERROR]: Invalid category '{category}'. Must be 'SYSTEM', 'HUMAN', or 'AI'.")
-		return self.messages[category]
+	def get_msgs_by_agent_type_and_msg_type(self, agent_type: str, msgs_type: str) -> List[BaseMessage]:
+		"""Returns all messages from a specific agent and type."""
+		if agent_type not in self.messages:
+			raise ValueError(
+				f"[ERROR]: Invalid agent category '{agent_type}'. Must be one of {list(self.messages.keys())}."
+			)
+		if msgs_type not in self.messages[agent_type]:
+			raise ValueError(
+				f"[ERROR]: Invalid message type '{msgs_type}'. Must be 'SYSTEM', 'HUMAN', or 'AI'."
+			)
+		return self.messages[agent_type][msgs_type]
 
 
 
@@ -128,7 +146,7 @@ def enhance_human_msg(state: State) -> HumanMessage:
 
 
 
-def add_eot_id_to_ai_message(
+def add_eot_id_to_ai_msg(
 		ai_msg: AIMessage, 
 		special_token: str = END_OF_TURN_ID
 	) -> AIMessage:
@@ -210,80 +228,72 @@ TOOLS_MODEL = LOW_TEMP_MODEL.bind_tools(tools=TOOLS)
 def prompt_agent(state: State) -> State:
 	"Prompt Agent."
 	human_msg = ""
-	resp = ""
+	ai_msg = ""
 	return {"messages": {
-		"SYSTEM": [MGR_SYS_MSG_PROMPT], 
-		"HUMAN": [human_msg], 
-		"AI": [resp]
-	}}
+		"PROMPT_AGENT": {
+			"SYSTEM": [MGR_SYS_MSG_PROMPT], 
+			"HUMAN": [human_msg], 
+			"AI": [ai_msg]
+		}}}
 
 
 
 def data_agent(state: State) -> State:
 	"""Data Agent."""
 	human_msg = ""
-	resp = ""
+	ai_msg = ""
 	return {"messages": {
-		"SYSTEM": [MGR_SYS_MSG_PROMPT], 
-		"HUMAN": [human_msg], 
-		"AI": [resp]
-	}}
+		"DATA_AGENT": {
+			"SYSTEM": [MGR_SYS_MSG_PROMPT], 
+			"HUMAN": [human_msg], 
+			"AI": [ai_msg]
+		}}}
 
 
 
 def model_agent(state: State) -> State:
 	"""Model Agent."""
 	human_msg = ""
-	resp = ""
+	ai_msg = ""
 	return {"messages": {
-		"SYSTEM": [MGR_SYS_MSG_PROMPT], 
-		"HUMAN": [human_msg], 
-		"AI": [resp]
-	}}
+		"MODEL_AGENT": {
+			"SYSTEM": [MGR_SYS_MSG_PROMPT], 
+			"HUMAN": [human_msg], 
+			"AI": [ai_msg]
+		}}}
 
 
 
 def op_agent(state: State) -> State:
 	"""Operation Agent."""
 	human_msg = ""
-	resp = ""
+	ai_msg = ""
 	return {"messages": {
-		"SYSTEM": [MGR_SYS_MSG_PROMPT], 
-		"HUMAN": [human_msg], 
-		"AI": [resp]
-	}}
-
-
-
-def reflection(state: State):
-	"""Self-Critique Agent."""
-	reflection_prompt = "" 
-	human_msg = ""
-	resp = ""
-	return {"messages": {
-		"SYSTEM": [MGR_SYS_MSG_PROMPT], 
-		"HUMAN": [human_msg], 
-		"AI": [resp]
-	}}
+		"OP_AGENT": {
+			"SYSTEM": [MGR_SYS_MSG_PROMPT], 
+			"HUMAN": [human_msg], 
+			"AI": [ai_msg]
+		}}}
 
 
 
 def react_agent(state: State) -> State:
 	"""ReAct Agent."""
 	human_msg = enhance_human_msg(state=state)
-	resp = LOW_TEMP_MODEL.invoke([REACT_SYS_MSG_PROMPT, human_msg])
-	if not isinstance(resp, AIMessage):
-		resp = AIMessage(
-			content=resp.strip() 
-			if isinstance(resp, str) 
+	ai_msg = LOW_TEMP_MODEL.invoke([REACT_SYS_MSG_PROMPT, human_msg])
+	if not isinstance(ai_msg, AIMessage):
+		ai_msg = AIMessage(
+			content=ai_msg.strip() 
+			if isinstance(ai_msg, str) 
 			else "At node-react-agent, I'm unable to generate a response."
 		)
-	resp = add_eot_id_to_ai_message(ai_message=resp, special_token=END_OF_TURN_ID)
+	ai_msg = add_eot_id_to_ai_msg(ai_msg=ai_msg, special_token=END_OF_TURN_ID)
 	return {"messages": {
-		"SYSTEM": [REACT_SYS_MSG_PROMPT], 
-		"HUMAN": [human_msg], 
-		"AI": [resp]
-	}}
+		"REACT_AGENT": {
+			"SYSTEM": [MGR_SYS_MSG_PROMPT], 
+			"HUMAN": [human_msg], 
+			"AI": [ai_msg]
+		}}}
 
 
 
@@ -291,23 +301,30 @@ def manager_agent(state: State) -> State:
 	"""Manager Agent.
 	
 	Example:
-		>>> human_msg: I need a very accurate model to classify images in the Butterfly Image Classification dataset into their respective categories. The dataset has been uploaded with its label information in the labels.csv file.
+		>>> User query: I need a very accurate model to classify images in the Butterfly Image Classification dataset into their respective categories. The dataset has been uploaded with its label information in the labels.csv file.
 		>>> AI response: ...
 	"""
 	human_msg = enhance_human_msg(state=state)
-	ai_msg = LOW_TEMP_MODEL.invoke([MGR_SYS_MSG_PROMPT, human_msg])
+	ai_msg = LOW_TEMP_MODEL.invoke([
+		MGR_SYS_MSG_PROMPT, 
+		human_msg
+	])
 	if not isinstance(ai_msg, AIMessage):
 		ai_msg = AIMessage(
 			content=ai_msg.strip() 
 			if isinstance(ai_msg, str) 
 			else "At node_manager_agent, I'm unable to generate a response."
 		)
-	ai_msg = add_eot_id_to_ai_message(ai_message=ai_msg, special_token=END_OF_TURN_ID)
+	ai_msg = add_eot_id_to_ai_msg(
+		ai_msg=ai_msg, 
+		special_token=END_OF_TURN_ID
+	)
 	return {"messages": {
-		"SYSTEM": [MGR_SYS_MSG_PROMPT], 
-		"HUMAN": [human_msg], 
-		"AI": [ai_msg]
-	}}
+		"MANAGER_AGENT": {
+			"SYSTEM": [MGR_SYS_MSG_PROMPT], 
+			"HUMAN": [human_msg], 
+			"AI": [ai_msg]
+		}}}
 
 
 
@@ -322,12 +339,16 @@ def request_verify(state: State):
 			if isinstance(ai_msg, str) 
 			else "At node_manager_agent, I'm unable to generate a response."
 		)
-	ai_msg = add_eot_id_to_ai_message(ai_message=ai_msg, special_token=END_OF_TURN_ID)
+	ai_msg = add_eot_id_to_ai_msg(
+		ai_msg=ai_msg, 
+		special_token=END_OF_TURN_ID
+	)
 	return {"messages": {
-		"SYSTEM": [MGR_SYS_MSG_PROMPT], 
-		"HUMAN": [human_msg], 
-		"AI": [ai_msg]
-	}}
+		"REQUEST_VERIFY": {
+			"SYSTEM": [MGR_SYS_MSG_PROMPT], 
+			"HUMAN": [human_msg], 
+			"AI": [ai_msg]
+		}}}
 
 
 

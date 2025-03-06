@@ -291,16 +291,15 @@ def op_agent(state: State):
 
 workflow = StateGraph(State)
 
-workflow.add_node("react_agent", react_agent)
 workflow.add_node("manager_agent", manager_agent)
+workflow.add_node("react_agent", react_agent)
 workflow.add_node("prompt_agent", prompt_agent)
 workflow.add_node("data_agent", data_agent)
 workflow.add_node("model_agent", model_agent)
 workflow.add_node("op_agent", op_agent)
 
 workflow.add_edge(START, "manager_agent")
-workflow.add_edge("manager_agent", "react_agent")
-workflow.add_edge("react_agent", END)
+workflow.add_edge("manager_agent", END)
 
 app = workflow.compile(checkpointer=CHECKPOINTER, store=STORE)
 
@@ -325,12 +324,12 @@ def print_stream(stream) -> None:
 	for s in stream:
 		if len(list(s.keys())) == 2:
 			messages = s["messages"]
-			if "SYSTEM" in messages and messages["SYSTEM"]:
-				print("\n ⚙️ **SYSTEM**:")
-				messages["SYSTEM"][-1].pretty_print()
+			# if "SYSTEM" in messages and messages["SYSTEM"]:
+			# 	print("\n ⚙️ **SYSTEM**:")
+			# 	messages["SYSTEM"][-1].pretty_print()
 
 			if "HUMAN" in messages and messages["HUMAN"]:
-				print("\n 👨 **HUMAN**:")
+				print("\n 👨 **ENHANCE HUMAN QUERY**:")
 				messages["HUMAN"][-1].pretty_print()
 
 			if "AI" in messages and messages["AI"]:

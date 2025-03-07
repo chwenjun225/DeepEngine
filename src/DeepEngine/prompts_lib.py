@@ -53,31 +53,23 @@ You do not need to check every details of the requirements. You must also answer
 though it lacks detailed and specific information.
 
 ```json
-{parsed user requirements}
+{parsed_user_requirements}
 ```
 
 Please answer with this format: `a `yes` or `no` answer; your reasons for the answer` by using `;` to separate between the answer and its reasons.
 If the answer is `no`, you must tell me the alternative solutions or examples for completing such missing information.""" # Tham khảo tại: https://arxiv.org/pdf/2410.02958 - Trang 27
-# Giả lập input JSON object cho REQUEST_VERIFICATION_ADEQUACY: 
-# {
-#   "project_name": "Customer Churn Prediction",
-#   "problem_statement": "Predict whether a customer will churn based on past interactions and behaviors.",
-#   "dataset": {
-#     "description": "A dataset containing customer interaction logs, demographic information, and historical churn labels.",
-#     "data_sources": ["CRM database", "Website interaction logs"],
-#     "features": ["customer_id", "age", "subscription_length", "monthly_spend", "support_tickets", "last_login"],
-#     "target_variable": "churn (0 = No, 1 = Yes)"
-#   },
-#   "expected_output": "A trained model that can predict the probability of churn for a given customer.",
-#   "performance_metrics": ["Accuracy", "F1-score", "AUC-ROC"],
-#   "deployment_preference": "Cloud-based API"
-# }
 
 
 
-	REQUEST_VERIFY_RELEVANCY = """Is the following statement relevant to a potential machine learning or a artificial intelligence project 
-`{user instruction}`
-Answer only `Yes` or `No`""" # Tham khảo tại: https://arxiv.org/pdf/2410.02958 - Trang 27
+	REQUEST_VERIFY_RELEVANCY = """{begin_of_text}{start_header_id}SYSTEM{end_header_id}
+Is the following statement relevant to a potential machine learning or a artificial intelligence project.{end_of_turn_id}
+
+{start_header_id}HUMAN{end_header_id}
+`{instruction}`.{end_of_turn_id}
+
+{start_header_id}AI{end_header_id}
+Remember, only answer Yes or No.{end_of_turn_id}
+""" # Tham khảo tại: https://arxiv.org/pdf/2410.02958 - Trang 27
 
 
 
@@ -268,7 +260,7 @@ The user's requirements are summarized as follows.
 
 
 
-	OPERATION_AGENT = """ You are the world's best MLOps engineer of an automated machine learning project (AutoML) that can implement the optimal solution for production-level deployment, given any datasets and models. You have the following main responsibilities to complete.
+	OPERATION_AGENT = """You are the world's best MLOps engineer of an automated machine learning project (AutoML) that can implement the optimal solution for production-level deployment, given any datasets and models. You have the following main responsibilities to complete.
 1. Write accurate Python codes to retrieve/load the given dataset from the corresponding source.
 2. Write effective Python codes to preprocess the retrieved dataset.
 3. Write precise Python codes to retrieve/load the given model and optimize it with the
@@ -296,7 +288,7 @@ suggested hyperparameters.
 
 
 
-	PROMPT_AGENT_PROMPT = """ You are an assistant project manager in the AutoML development team.
+	PROMPT_AGENT_PROMPT = """You are an assistant project manager in the AutoML development team.
 Your task is to parse the user's requirement into a valid JSON format using the JSON specification schema as your reference. Your response must exactly follow the given JSON schema and be based only on the user's instruction.
 Make sure that your answer contains only the JSON response without any comment or explanation because it can cause parsing errors.
 
@@ -321,9 +313,11 @@ Start the python code with "```python". Please ensure the completeness of the co
 
 
 
-	AGENT_MANAGER_PROMPT = """You are an experienced senior project manager of a automated machine learning project (AutoML). You have two main responsibilities as follows.
+	AGENT_MANAGER_PROMPT = """{BEGIN_OF_TEXT}{START_HEADER_ID}SYSTEM{END_HEADER_ID}
+You are an experienced senior project manager of a automated machine learning project (AutoML). You have two main responsibilities as follows.
 1. Receive requirements and/or inquiries from users through a well-structured JSON object.
-2. Using recent knowledge and state-of-the-art studies to devise promising high-quality plans for data scientists, machine learning research engineers, and MLOps engineers in your team to execute subsequent processes based on the user requirements you have received.""" # Tham khảo tại: https://arxiv.org/pdf/2410.02958 - Trang 21
+2. Using recent knowledge and state-of-the-art studies to devise promising high-quality plans for data scientists, machine learning research engineers, and MLOps engineers in your team to execute subsequent processes based on the user requirements you have received.{END_OF_TURN_ID}
+""" # Tham khảo tại: https://arxiv.org/pdf/2410.02958 - Trang 21
 
 
 
@@ -335,8 +329,7 @@ Output only the domain name.""" # Tham khảo tại: https://learning.oreilly.co
 
 
 
-	REACT_PROMPT = """{begin_of_text}
-{start_header_id}system{end_header_id}
+	REACT_PROMPT = """{BEGIN_OF_TEXT}{START_HEADER_ID}SYSTEM{END_HEADER_ID}
 You are an AI assistant that follows the ReAct reasoning framework. 
 You have access to the following APIs:
 
@@ -355,7 +348,7 @@ Observation: The outcome of executing the action.
 Thought: I now know the final answer.
 Final Answer: Provide the final answer.
 
-Begin{end_of_turn_id}""" # Tham khảo tại: https://github.com/OpenBMB/MiniCPM-CookBook/blob/d0772b24af057c8e7f5d6e12fd00f3cde0481a3c/agent_demo/agent_demo.py#L79
+Begin{END_OF_TURN_ID}""" # Tham khảo tại: https://github.com/OpenBMB/MiniCPM-CookBook/blob/d0772b24af057c8e7f5d6e12fd00f3cde0481a3c/agent_demo/agent_demo.py#L79
 
 
 

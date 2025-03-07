@@ -1,3 +1,4 @@
+import re
 import uuid
 import random
 import tqdm
@@ -58,18 +59,35 @@ def add_unique_msgs(
 		msg: BaseMessage
 	) -> None:
 	"""Adds a message to the appropriate agent category if it does not already exist."""
-	agent_msgs_type = MSG_TYPES.get(type(msg))
-	if agent_msgs_type and agent_type in msgs:
-		if all(msg.content != msg.content for msg in msgs[agent_type][agent_msgs_type]):
-			msgs[agent_type][agent_msgs_type].append(msg)
+	msg_type = MSG_TYPES.get(type(msg))
+	if not msg_type or agent_type not in msgs: return
+	if agent_type == "REQUEST_VERIFY":
+		msgs[agent_type][msg_type] = [msg]
+	elif msg.content not in {m.content for m in msgs[agent_type][msg_type]}:
+		msgs[agent_type][msg_type].append(msg)
 
 
 
 class State(BaseModel):
-	"""Represents the structured conversation state with categorized messages."""
-	user_query: Annotated[List[HumanMessage], add_messages] = Field(default_factory=list)
+	"""Manages structured conversation state in a multi-agent system.
+
+	Attributes:
+		human_query (List[HumanMessage]): List of user queries.
+		messages (Dict[str, Dict[str, List[BaseMessage]]]): 
+			Stores categorized messages by agent type and message type:
+				- Agents types: MANAGER_AGENT, REQUEST_VERIFY, PROMPT_AGENT, DATA_AGENT, MODEL_AGENT, OP_AGENT.
+				- Message types: SYSTEM, HUMAN, AI.
+		is_last_step (bool): Indicates if this is the final step.
+		remaining_steps (int): Number of steps left.
+
+	Methods:
+		get_all_msgs(): Returns all messages in chronological order.
+		get_latest_msg(agent_type, msg_type): Gets the latest message of a given agent and type.
+		get_msgs_by_agent_type_and_msg_type(agent_type, msgs_type): Retrieves all messages from a specific agent and type.
+	"""
+	human_query: Annotated[List[HumanMessage], add_messages] = Field(default_factory=list)
 	messages: Dict[str, Dict[str, Annotated[List[BaseMessage], add_unique_msgs]]] = Field(
-		default_factory=lambda: {
+		default_factory = lambda: {
 			"MANAGER_AGENT"		: 	{	"SYSTEM": [], "HUMAN": [], "AI": []		}, 
 			"REQUEST_VERIFY"	: 	{	"SYSTEM": [], "HUMAN": [], "AI": []		}, 
 			"PROMPT_AGENT"		: 	{	"SYSTEM": [], "HUMAN": [], "AI": []		}, 
@@ -116,13 +134,13 @@ class State(BaseModel):
 
 
 
-def enhance_human_msg(state: State) -> HumanMessage:
-	"""Enhances the human query by formatting it with system and assistant structure.
+def enhance_human_query(state: State) -> str:
+	"""Enhances the human query by formatting it with special tokens of LLama 3 series models.
 
 	This function constructs a structured prompt including:
-	- `system_prompt (from context)
-	- `user_query (latest human query)
-	- `ai_resp (space for AI response)
+	- `sys_msg (from context)
+	- `human_msg (latest human query)
+	- `ai_msg (space for AI response)
 
 	Args:
 		state (State): The current conversation state.
@@ -133,43 +151,50 @@ def enhance_human_msg(state: State) -> HumanMessage:
 	Example:
 		>>> state.user_query = [HumanMessage(content="What is AI?")]
 		>>> enhance_human_query(state)
-		HumanMessage(content='<|start_header_id|>user<|end_header_id|>What is AI?<|end_of_turn_id|><|start_header_id|>assistant<|end_header_id|>')
+		HumanMessage(content='<|start_header_id|>HUMAN<|end_header_id|>What is AI?<|end_of_turn_id|><|start_header_id|>AI<|end_header_id|>')
 	"""
-	user_query = state.user_query[-1].content if state.user_query else ""
+	human_query = state.human_query[-1].content if state.human_query else ""
 	formatted_query = (
-		f"{START_HEADER_ID}user{END_HEADER_ID}"
-		f"{user_query}"
+		f"{START_HEADER_ID}HUMAN{END_HEADER_ID}"
+		f"{human_query}"
 		f"{END_OF_TURN_ID}"
-		f"{START_HEADER_ID}assistant{END_HEADER_ID}"
+		f"{START_HEADER_ID}AI{END_HEADER_ID}"
 	)
-	return HumanMessage(content=formatted_query)
+	return formatted_query
 
 
 
-def add_eot_id_to_ai_msg(
-		ai_msg: AIMessage, 
-		special_token: str = END_OF_TURN_ID
-	) -> AIMessage:
-	"""Appends a special token at the end of an AIMessage's content if it's not already present.
+def add_eotext_eoturn_to_ai_msg(
+	ai_msg: AIMessage, 
+	end_of_turn_id_token: str = END_OF_TURN_ID,
+	end_of_text_token: str = END_OF_TEXT
+) -> AIMessage:
+	"""
+	Ensures AIMessage content ends with required special tokens.
 
-	This function ensures that the AI-generated message always ends with the specified special token.
-	If the message already contains the token at the end, it remains unchanged.
+	This function appends `<|end_of_text|>` and `<|eot_id|>` at the end of 
+	the message content if they are not already present.
 
 	Args:
 		ai_msg (AIMessage): The AI-generated message.
-		special_token (str, optional): The special token to append (default is `end_of_turn_id`).
+		end_of_text_token (str, optional) = "<|end_of_text|>": Special token indicating the end of the text.
+		end_of_turn_id_token (str, optional) = "<|eot_id|>": Special token marking the end of a conversation turn.
 
 	Returns:
-		AIMessage: The updated AI message with the special token appended if necessary.
+		AIMessage: The updated AI message with the required tokens.
 
 	Example:
 		>>> message = AIMessage(content="Hello, how can I assist you?")
-		>>> add_eot_id_to_ai_message(message, special_token="<|eot_id|>")
-		AIMessage(content="Hello, how can I assist you?<|eot_id|>")
+		>>> add_eotext_eoturn_to_ai_msg(message, "<|end_of_text|>", "<|eot_id|>")
+		AIMessage(content="Hello, how can I assist you?<|end_of_text|><|eot_id|>")
 	"""
-	if not ai_msg.content.strip().endswith(special_token):
-		return AIMessage(content=ai_msg.content.strip() + special_token)
-	return ai_msg 
+	content = ai_msg.content.strip()
+	if not content.endswith(end_of_turn_id_token):
+		content += end_of_turn_id_token
+	if not content.endswith(end_of_text_token + end_of_turn_id_token):
+		content = content.replace(
+			end_of_turn_id_token, end_of_text_token + end_of_turn_id_token)
+	return AIMessage(content=content)
 
 
 
@@ -196,10 +221,10 @@ def build_react_sys_msg_prompt(tool_desc_prompt: str, react_prompt: str, tools: 
 		for tool in tools
 	]
 	prompt = react_prompt.format(
-		begin_of_text=BEGIN_OF_TEXT, 
-		start_header_id=START_HEADER_ID, 
-		end_header_id=END_HEADER_ID, 
-		end_of_turn_id=END_OF_TURN_ID, 
+		BEGIN_OF_TEXT=BEGIN_OF_TEXT, 
+		START_HEADER_ID=START_HEADER_ID, 
+		END_HEADER_ID=END_HEADER_ID, 
+		END_OF_TURN_ID=END_OF_TURN_ID, 
 		tools_desc="\n\n".join(list_tool_desc), 
 		tools_name=", ".join(tool.name for tool in tools),
 	)
@@ -207,9 +232,13 @@ def build_react_sys_msg_prompt(tool_desc_prompt: str, react_prompt: str, tools: 
 
 
 
-REACT_SYS_MSG_PROMPT = SystemMessage(build_react_sys_msg_prompt(tool_desc_prompt=Prompts.TOOL_DESC_PROMPT, react_prompt=Prompts.REACT_PROMPT, tools=TOOLS))
-MGR_SYS_MSG_PROMPT = SystemMessage(Prompts.AGENT_MANAGER_PROMPT)
-REQ_VER_MSG_PROMPT = SystemMessage(Prompts.REQUEST_VERIFY_RELEVANCY)
+REACT_SYS_MSG_PROMPT = build_react_sys_msg_prompt(
+	tool_desc_prompt=Prompts.TOOL_DESC_PROMPT, 
+	react_prompt=Prompts.REACT_PROMPT, 
+	tools=TOOLS
+)
+MGR_SYS_MSG_PROMPT = Prompts.AGENT_MANAGER_PROMPT
+REQ_VER_MSG_PROMPT = Prompts.REQUEST_VERIFY_RELEVANCY
 
 
 
@@ -225,23 +254,14 @@ TOOLS_MODEL = LOW_TEMP_MODEL.bind_tools(tools=TOOLS)
 
 
 
-def prompt_agent(state: State) -> State:
-	"Prompt Agent."
-	human_msg = ""
-	ai_msg = ""
-	return {"messages": {
-		"PROMPT_AGENT": {
-			"SYSTEM": [MGR_SYS_MSG_PROMPT], 
-			"HUMAN": [human_msg], 
-			"AI": [ai_msg]
-		}}}
-
-
-
 def data_agent(state: State) -> State:
 	"""Data Agent."""
 	human_msg = ""
-	ai_msg = ""
+	ai_msg = add_eotext_eoturn_to_ai_msg(
+		ai_msg=ai_msg, 
+		end_of_turn_id_token=END_OF_TURN_ID, 
+		end_of_text_token=END_OF_TEXT,
+	)
 	return {"messages": {
 		"DATA_AGENT": {
 			"SYSTEM": [MGR_SYS_MSG_PROMPT], 
@@ -253,11 +273,16 @@ def data_agent(state: State) -> State:
 
 def model_agent(state: State) -> State:
 	"""Model Agent."""
+	sys_msg = ""
 	human_msg = ""
-	ai_msg = ""
+	ai_msg = add_eotext_eoturn_to_ai_msg(
+		ai_msg=ai_msg, 
+		end_of_turn_id_token=END_OF_TURN_ID, 
+		end_of_text_token=END_OF_TEXT,
+	)
 	return {"messages": {
 		"MODEL_AGENT": {
-			"SYSTEM": [MGR_SYS_MSG_PROMPT], 
+			"SYSTEM": [sys_msg], 
 			"HUMAN": [human_msg], 
 			"AI": [ai_msg]
 		}}}
@@ -267,7 +292,11 @@ def model_agent(state: State) -> State:
 def op_agent(state: State) -> State:
 	"""Operation Agent."""
 	human_msg = ""
-	ai_msg = ""
+	ai_msg = add_eotext_eoturn_to_ai_msg(
+		ai_msg=ai_msg, 
+		end_of_turn_id_token=END_OF_TURN_ID, 
+		end_of_text_token=END_OF_TEXT,
+	)
 	return {"messages": {
 		"OP_AGENT": {
 			"SYSTEM": [MGR_SYS_MSG_PROMPT], 
@@ -279,18 +308,23 @@ def op_agent(state: State) -> State:
 
 def react_agent(state: State) -> State:
 	"""ReAct Agent."""
-	human_msg = enhance_human_msg(state=state)
-	ai_msg = LOW_TEMP_MODEL.invoke([REACT_SYS_MSG_PROMPT, human_msg])
+	sys_msg = SystemMessage(REACT_SYS_MSG_PROMPT)
+	human_msg = enhance_human_query(state=state)
+	ai_msg = LOW_TEMP_MODEL.invoke([sys_msg, human_msg])
 	if not isinstance(ai_msg, AIMessage):
 		ai_msg = AIMessage(
 			content=ai_msg.strip() 
 			if isinstance(ai_msg, str) 
 			else "At node-react-agent, I'm unable to generate a response."
 		)
-	ai_msg = add_eot_id_to_ai_msg(ai_msg=ai_msg, special_token=END_OF_TURN_ID)
+	ai_msg = add_eotext_eoturn_to_ai_msg(
+		ai_msg=ai_msg, 
+		end_of_turn_id_token=END_OF_TURN_ID, 
+		end_of_text_token=END_OF_TEXT,
+	)
 	return {"messages": {
 		"REACT_AGENT": {
-			"SYSTEM": [MGR_SYS_MSG_PROMPT], 
+			"SYSTEM": [sys_msg], 
 			"HUMAN": [human_msg], 
 			"AI": [ai_msg]
 		}}}
@@ -299,14 +333,27 @@ def react_agent(state: State) -> State:
 
 def manager_agent(state: State) -> State:
 	"""Manager Agent.
-	
+
 	Example:
-		>>> User query: I need a very accurate model to classify images in the Butterfly Image Classification dataset into their respective categories. The dataset has been uploaded with its label information in the labels.csv file.
+		>>> Human query: I need a very accurate model 
+				to classify images in the Butterfly Image 
+				Classification dataset into their respective 
+				categories. 
+				The dataset has been uploaded with its label 
+				information in the labels.csv file.
 		>>> AI response: ...
 	"""
-	human_msg = enhance_human_msg(state=state)
+	sys_msg = SystemMessage(content=MGR_SYS_MSG_PROMPT.format(
+		BEGIN_OF_TEXT=BEGIN_OF_TEXT, 
+		START_HEADER_ID=START_HEADER_ID, 
+		END_HEADER_ID=END_HEADER_ID, 
+		END_OF_TURN_ID=END_OF_TURN_ID, 
+	))
+	human_msg = HumanMessage(
+		content=enhance_human_query(state=state)
+	)
 	ai_msg = LOW_TEMP_MODEL.invoke([
-		MGR_SYS_MSG_PROMPT, 
+		sys_msg, 
 		human_msg
 	])
 	if not isinstance(ai_msg, AIMessage):
@@ -315,36 +362,85 @@ def manager_agent(state: State) -> State:
 			if isinstance(ai_msg, str) 
 			else "At node_manager_agent, I'm unable to generate a response."
 		)
-	ai_msg = add_eot_id_to_ai_msg(
+	ai_msg = add_eotext_eoturn_to_ai_msg(
 		ai_msg=ai_msg, 
-		special_token=END_OF_TURN_ID
+		end_of_turn_id_token=END_OF_TURN_ID, 
+		end_of_text_token=END_OF_TEXT,
 	)
 	return {"messages": {
 		"MANAGER_AGENT": {
-			"SYSTEM": [MGR_SYS_MSG_PROMPT], 
+			"SYSTEM": [sys_msg], 
 			"HUMAN": [human_msg], 
 			"AI": [ai_msg]
 		}}}
 
 
 
+def check_contain_yes_or_no(ai_msg: str) -> str:
+	"""Checks if the AI response contains 'Yes' or 'No'."""
+	match = re.search(r"<\|end_header_id\|>\s*(Yes|No)\s*<\|eot_id\|>", ai_msg, re.IGNORECASE)
+	return match.group(1) if match else f"[ERROR]: Can't found ('Yes' or 'No') in this {ai_msg}"
+
+
+
 def request_verify(state: State):
 	"""Request verification output of Agent Manager."""
-	user_instruct = ""
-	human_msg = enhance_human_msg(state=state)
-	ai_msg = LOW_TEMP_MODEL.invoke([MGR_SYS_MSG_PROMPT, human_msg])
+	human_msg = state.get_latest_msg(
+		agent_type="MANAGER_AGENT", 
+		msg_type="HUMAN"
+	)
+	sys_msg = SystemMessage(content=REQ_VER_MSG_PROMPT.format(
+		instruction=human_msg.content, 
+		begin_of_text=BEGIN_OF_TEXT, 
+		start_header_id=START_HEADER_ID, 
+		end_header_id=END_HEADER_ID, 
+		end_of_turn_id=END_OF_TURN_ID
+	))
+	ai_msg = LOW_TEMP_MODEL.invoke([sys_msg])
 	if not isinstance(ai_msg, AIMessage):
 		ai_msg = AIMessage(
 			content=ai_msg.strip() 
 			if isinstance(ai_msg, str) 
-			else "At node_manager_agent, I'm unable to generate a response."
+			else "At node_request_verify, I'm unable to generate a response."
 		)
-	ai_msg = add_eot_id_to_ai_msg(
+	ai_msg = add_eotext_eoturn_to_ai_msg(
 		ai_msg=ai_msg, 
-		special_token=END_OF_TURN_ID
+		end_of_turn_id_token=END_OF_TURN_ID, 
+		end_of_text_token=END_OF_TEXT,
 	)
+	ai_msg_yes_or_no = AIMessage(check_contain_yes_or_no(ai_msg=ai_msg.content))
 	return {"messages": {
 		"REQUEST_VERIFY": {
+			"SYSTEM": [sys_msg], 
+			"HUMAN": [human_msg], 
+			"AI": [ai_msg_yes_or_no] 
+		}}}
+
+
+
+def req_ver_yes_or_no(state: State):
+	"""Determines the next step based on the AI response from REQUEST_VERIFY."""
+	resp_map = {
+		"YES": "PROMPT_AGENT", 
+		"NO": END
+	}
+	ai_msg = state.get_latest_msg(
+		agent_type="REQUEST_VERIFY", 
+		msg_type="AI"
+	)
+	if not ai_msg or not hasattr(ai_msg, "content"):
+		raise ValueError("[ERROR]: No valid AI message found in REQUEST_VERIFY.")
+	resp = ai_msg.content.strip().upper()
+	return resp_map.get(resp, ValueError(f"[ERROR]: Unexpected response '{resp}'"))
+
+
+
+def prompt_agent(state: State) -> State:
+	"Prompt Agent."
+	human_msg = ""
+	ai_msg = ""
+	return {"messages": {
+		"PROMPT_AGENT": {
 			"SYSTEM": [MGR_SYS_MSG_PROMPT], 
 			"HUMAN": [human_msg], 
 			"AI": [ai_msg]
@@ -364,36 +460,46 @@ workflow.add_node("OP_AGENT", op_agent)
 
 workflow.add_edge(START, "MANAGER_AGENT")
 workflow.add_edge("MANAGER_AGENT", "REQUEST_VERIFY")
-workflow.add_conditional_edges("REQUEST_VERIFY", "MANAGER_AGENT")
+workflow.add_conditional_edges("REQUEST_VERIFY", req_ver_yes_or_no)
+workflow.add_edge("PROMPT_AGENT", "REQUEST_VERIFY")
+workflow.add_edge("PROMPT_AGENT", END)
 
-workflow.add_edge("REQUEST_VERIFY", END)
-
-app = workflow.compile(checkpointer=CHECKPOINTER, store=STORE)
+app = workflow.compile(checkpointer=CHECKPOINTER, store=STORE, debug=True, name="FOXCONN-AI Research Tran Van Tuan...")
 
 
 
 def main() -> None:
-	"""Nhập truy vấn từ người dùng và hiển thị kết quả phản hồi."""
-	for user_query in [
-		"""I need a very accurate model to classify images in the Butterfly Image Classification dataset into their respective categories. The dataset has been uploaded with its label information in the labels.csv file.""", 
-		"""Please provide a classification model that categorizes images into one of four clothing categories. The image path, along with its label information, can be found in the files train labels.csv and test labels.csv.""", 
-		"""exit"""
-	]:
-		user_query = input("👨_query: ")
-		if user_query.lower() == "exit":
-			print(">>> SystemExit: Goodbye! Have a great day!😊")
+	"""Handles user queries and displays AI responses."""
+	queries = [
+		"""I need a very accurate model to classify images in the Butterfly Image Classification dataset into their respective categories. 
+The dataset has been uploaded with its label information in the labels.csv file.""",
+
+		"""Please provide a classification model that categorizes images into one of four clothing categories. 
+The image path, along with its label information, can be found in the files train_labels.csv and test_labels.csv.""",
+
+		"exit"
+	]
+	for user_query in queries:
+		user_query = user_query.strip().lower()
+		if user_query == "exit":
+			print(">>> [System Exit] Goodbye! Have a great day! 😊")
 			break
 		print_stream(
-			app.stream(input={"user_query": [user_query]}, 
-			stream_mode="values", config=CONFIG
-		))
+			app.stream(
+				input={
+					"human_query": [user_query], 
+
+				}, 
+				stream_mode="values", 
+				config=CONFIG
+			))
 
 
 
 def print_stream(stream) -> None:
 	"""Hiển thị kết quả hội thoại theo cách dễ đọc hơn."""
 	for s in stream:
-		if len(list(s.keys())) == 2:
+		if len(list(s.keys())) == 50:
 			messages = s["messages"]
 			if "SYSTEM" in messages and messages["SYSTEM"]:
 				print("\n ⚙️ **SYSTEM**:")
@@ -407,6 +513,7 @@ def print_stream(stream) -> None:
 				print("\n 🤖 **AI**:")
 				messages["AI"][-1].pretty_print()
 			print("🔹" * 30)
+	print("DEBUG")
 
 
 

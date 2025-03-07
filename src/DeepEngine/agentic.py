@@ -103,12 +103,6 @@ class HardwareRequirements(BaseModel):
 	cpu_cores: int
 	memory: str
 
-class Requirements(BaseModel):
-	framework: List[str] = Field(..., description="Action the user wants to perform")
-	accuracy_threshold: float = Field(..., description="Action the user wants to perform")
-	training_techniques: List[str] = Field(..., description="Action the user wants to perform")
-	hardware_requirements: HardwareRequirements = Field(..., description="Action the user wants to perform")
-
 class User(BaseModel):
 	intent: str = Field(..., description="Action the user wants to perform")
 	expertise: str = Field(..., description="User's expertise level")
@@ -118,7 +112,6 @@ class HumanQueryParseJSON(BaseModel):
 	problem: Problem
 	dataset: List[Dataset]
 	model: List[Model]
-	requirements: Requirements
 
 
 
@@ -308,8 +301,8 @@ STORE = InMemoryStore()
 
 
 
-MODEL_HIGH_TEMP = ChatOllama(model="deepseek-r1:latest", temperature=0.8, num_predict=128_000)
-MODEL_LOW_TEMP = ChatOllama(model="deepseek-r1:latest", temperature=0.1, num_predict=128_000)
+MODEL_HIGH_TEMP = ChatOllama(model="llama3.2:3b", temperature=0.8, num_predict=128_000)
+MODEL_LOW_TEMP = ChatOllama(model="llama3.2:3b", temperature=0.1, num_predict=128_000)
 MODEL_STRUCTURE_OUTPUT = MODEL_LOW_TEMP.with_structured_output(schema=HumanQueryParseJSON)
 
 
@@ -320,7 +313,7 @@ def data_agent(state: State) -> State:
 	ai_msg = add_eotext_eoturn_to_ai_msg(
 		ai_msg=ai_msg, 
 		end_of_turn_id_token=END_OF_TURN_ID, 
-		end_of_text_token=END_OF_TEXT,
+		end_of_text_token=END_OF_TEXT 
 	)
 	return {"messages": {
 		"DATA_AGENT": {

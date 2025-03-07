@@ -1,19 +1,3 @@
-#
-# Tổng hợp prompts từ bài báo: https://arxiv.org/pdf/2410.02958
-# 
-# 
-#
-# Phát triển hệ thống multi-agent theo sách hướng dẫn sau: https://learning.oreilly.com/library/view/learning-langchain/9781098167271/ch05.html#ch05_summary_1736545670031127 
-# Tìm với từ khóa này: medical_records_store = InMemoryVectorStore.from_documents([], 
-# 
-#
-#
-# Ví dụ cách thêm ToolNode vào Graph: https://learning.oreilly.com/library/view/learning-langchain/9781098167271/ch06.html
-# Tìm với từ khóa này: builder.add_node("tools", ToolNode(tools))
-#
-
-
-
 class Prompts:
 	IMPLEMENTATION_VERIFICATION_PROMPT = """As the project manager, please carefully verify whether the given Python code and results satisfy the user's requirements.
 
@@ -28,7 +12,7 @@ class Prompts:
 - User's Requirements
 {user_requirements}
 
-Answer only `Pass` or `Fail`""" # Tham khảo tại: https://arxiv.org/pdf/2410.02958 - Trang 28
+Answer only `Pass` or `Fail`""" 
 
 
 
@@ -43,7 +27,7 @@ Modeling and Optimization: {model_agent_outcomes}
 {user_requirements}
 ```
 
-Answer only `Pass` or `Fail`""" # Tham khảo tại: https://arxiv.org/pdf/2410.02958 - Trang 27
+Answer only `Pass` or `Fail`"""
 
 
 
@@ -57,19 +41,17 @@ though it lacks detailed and specific information.
 ```
 
 Please answer with this format: `a `yes` or `no` answer; your reasons for the answer` by using `;` to separate between the answer and its reasons.
-If the answer is `no`, you must tell me the alternative solutions or examples for completing such missing information.""" # Tham khảo tại: https://arxiv.org/pdf/2410.02958 - Trang 27
+If the answer is `no`, you must tell me the alternative solutions or examples for completing such missing information.""" 
 
 
 
 	REQUEST_VERIFY_RELEVANCY = """{begin_of_text}{start_header_id}SYSTEM{end_header_id}
 Is the following statement relevant to a potential machine learning or a artificial intelligence project.{end_of_turn_id}
 
-{start_header_id}HUMAN{end_header_id}
-`{instruction}`.{end_of_turn_id}
+{start_header_id}THE_FOLLOWING_STATEMENT{end_header_id}
+```{instruction}```{end_of_turn_id}
 
-{start_header_id}AI{end_header_id}
-Remember, only answer Yes or No.{end_of_turn_id}
-""" # Tham khảo tại: https://arxiv.org/pdf/2410.02958 - Trang 27
+{start_header_id}AI{end_header_id}Remember, only answer Yes or No.{end_of_turn_id}""" 
 
 
 
@@ -90,7 +72,7 @@ Make sure that your explanation for finding the top-{k} high-performance models 
 the plan.
 Make sure to focus only on the modeling part as it is your expertise. Do not conduct or perform anything regarding data manipulation or analysis.
 After complete the explanations, explicitly specify the names and (expected) quantitative performance using relevant numerical performance and complexity metrics (e.g., number of parameters, FLOPs, model size, training time, inference speed, and so on) of the {num2words(k)} candidate models/algorithms potentially to be the optimal model below.
-Do not use any placeholder for the quantitative performance. If you do not know the exact values, please use the knowledge and expertise you have to estimate those performance and complexity values.""" # Tham khảo tại: https://arxiv.org/pdf/2410.02958 - Trang 26, 27
+Do not use any placeholder for the quantitative performance. If you do not know the exact values, please use the knowledge and expertise you have to estimate those performance and complexity values.""" 
 
 
 
@@ -112,7 +94,7 @@ preprocessing.
 - Include reasons why each step in your explanations is essential to effectively complete
 the plan.
 Note that you should not perform data visualization because you cannot see it. Make sure to focus only on the data part as it is your expertise. Do not conduct or perform anything regarding modeling or training. 
-After complete the explanations, explicitly specify the (expected) outcomes and results both quantitative and qualitative of your explanations.""" # Tham khảo tại: https://arxiv.org/pdf/2410.02958 - Trang 26
+After complete the explanations, explicitly specify the (expected) outcomes and results both quantitative and qualitative of your explanations."""
 
 
 
@@ -131,7 +113,7 @@ The summary of the plan should enable you to fulfill your responsibilities as th
 1. How to retrieve or find the high-performance model(s)?
 2. How to optimize the hyperparamters of the retrieved models?
 3. How to extract and understand the underlying characteristics of the dataset(s)?
-4. How to select the top-k models or algorithms based on the given plans?""" # Tham khảo tại: https://arxiv.org/pdf/2410.02958 - Trang 25, 26
+4. How to select the top-k models or algorithms based on the given plans?""" 
 
 
 
@@ -150,8 +132,7 @@ The summary of the plan should enable you to fulfill your responsibilities as th
 3. How to efficiently augment the dataset(s)?
 4. How to extract and understand the underlying characteristics of the dataset(s)?
 
-Note that you should not perform data visualization because you cannot see it. Make sure that another data scientist can exectly reproduce the results based on your summary.""" # Tham khảo tại: https://arxiv.org/pdf/2410.02958 - Trang 25
-
+Note that you should not perform data visualization because you cannot see it. Make sure that another data scientist can exectly reproduce the results based on your summary.""" 
 
 
 	PLAN_REVISION_PROMPT = """Now, you will be asked to revise and rethink num2words(n_plans) different end-to-end actionable plans according to the user's requirements described in the JSON object below.
@@ -171,8 +152,7 @@ JSON object.
 - Ensure that your plan is self-contained with sufficient instructions to be executed by the AI agents.
 - Ensure that your plan includes all the key points and instructions (from handling data to
 modeling) so that the AI agents can successfully implement them. Do NOT directly write the code.
-- Ensure that your plan completely include the end-to-end process of machine learning or artificial intelligence model development pipeline in detail (i.e., from data retrieval to model training and evaluation) when applicable based on the given requirements.""" # Tham khảo tại: https://arxiv.org/pdf/2410.02958 - Trang 24, 25
-
+- Ensure that your plan completely include the end-to-end process of machine learning or artificial intelligence model development pipeline in detail (i.e., from data retrieval to model training and evaluation) when applicable based on the given requirements.""" 
 
 
 	PLANNING_PROMPT = """Now, I want you to devise an end-to-end actionable plan according to the user's requirements described in the following JSON object.
@@ -192,8 +172,7 @@ are capable of conducting machine learning and artificial intelligence research.
 - Ensure that your plan is self-contained with sufficient instructions to be executed by the AI agents.
 - Ensure that your plan includes all the key points and instructions (from handling data to
 modeling) so that the AI agents can successfully implement them. Do NOT directly write the code.
-- Ensure that your plan completely include the end-to-end process of machine learning or artificial intelligence model development pipeline in detail (i.e., from data retrieval to model training and evaluation) when applicable based on the given requirements.""" # Tham khảo tại: https://arxiv.org/pdf/2410.02958 - Trang 24
-
+- Ensure that your plan completely include the end-to-end process of machine learning or artificial intelligence model development pipeline in detail (i.e., from data retrieval to model training and evaluation) when applicable based on the given requirements.""" 
 
 
 	KNOWLEDGE_RETRIEVAL_PROMPT = """ Kaggle Notebook
@@ -256,7 +235,7 @@ Please extract and summarize the following group of contents collected from diff
 {pwc_summary}
 =====================
 The user's requirements are summarized as follows.
-{user_requirement_summary}""" # Tham khảo tại: https://arxiv.org/pdf/2410.02958 - Trang 23, 24
+{user_requirement_summary}""" 
 
 
 
@@ -268,7 +247,7 @@ suggested hyperparameters.
 4. Write efficient Python codes to train/finetune the retrieved model.
 5. Write suitable Python codes to prepare the trained model for deployment. This step may include model compression and conversion according to the target inference platform.
 6. Write Python codes to build the web application demo using the Gradio library.
-7. Run the model evaluation using the given Python functions and summarize the results for validation againts the user's requirements.""" # Tham khảo tại: https://arxiv.org/pdf/2410.02958 - Trang 22, 23
+7. Run the model evaluation using the given Python functions and summarize the results for validation againts the user's requirements."""
 
 
 
@@ -276,7 +255,7 @@ suggested hyperparameters.
 1. Retrieve a list of well-performing candidate ML models and AI algorithms for the given dataset based on the user's requirement and instruction.
 2. Perform hyperparameter optimization for those candidate models or algorithms.
 3. Extract useful information and underlying characteristics of the candidate models or algorithms using metadata extraction and profiling techniques.
-4. Select the top-k (`k` will be given) well-performing models or algorithms based on the hyperparameter optimization and profiling results.""" # Tham khảo tại: https://arxiv.org/pdf/2410.02958 - Trang 22
+4. Select the top-k (`k` will be given) well-performing models or algorithms based on the hyperparameter optimization and profiling results.""" 
 
 
 
@@ -284,12 +263,14 @@ suggested hyperparameters.
 1. Retrieve a dataset from the user or search for the dataset based on the user instruction.
 2. Perform data preprocessing based on the user instruction or best practice based on the given tasks.
 3. Perform data augmentation as neccesary.
-4. Extract useful information and underlying characteristics of the dataset.""" # Tham khảo tại: https://arxiv.org/pdf/2410.02958 - Trang 22
+4. Extract useful information and underlying characteristics of the dataset.""" 
 
 
 
-	PROMPT_AGENT_PROMPT = """You are an assistant project manager in the AutoML development team.
-Your task is to parse the user's requirement into a valid JSON format using the JSON specification schema as your reference. Your response must exactly follow the given JSON schema and be based only on the user's instruction.
+	PROMPT_AGENT_PROMPT = """{BEGIN_OF_TEXT}{START_HEADER_ID}SYSTEM{END_HEADER_ID}
+You are an assistant project manager in the AutoML development team.
+Your task is to parse the user's requirement into a valid JSON format using the JSON specification schema as your reference. 
+Your response must exactly follow the given JSON schema and be based only on the user's instruction.
 Make sure that your answer contains only the JSON response without any comment or explanation because it can cause parsing errors.
 
 #JSON SPECIFICATION SCHEMA#
@@ -297,7 +278,7 @@ Make sure that your answer contains only the JSON response without any comment o
 {json_specification}
 ```
 
-Your response must begin with "```json" or "{{" and end with "```" or "}}", respectively.""" # Tham khảo tại: https://arxiv.org/pdf/2410.02958 - Trang 22
+Remember, your response must begin with "```json" or "{{" and end with "```" or "}}", respectively.""" 
 
 
 
@@ -309,56 +290,11 @@ Your response must begin with "```json" or "{{" and end with "```" or "}}", resp
 ```python
 {full-pipeline skeleton script}
 ```
-Start the python code with "```python". Please ensure the completeness of the code so that it can be run without additional modifications.""" # Tham khảo tại: https://arxiv.org/pdf/2410.02958 - Trang 20
+Start the python code with "```python". Please ensure the completeness of the code so that it can be run without additional modifications."""
 
 
 
 	AGENT_MANAGER_PROMPT = """{BEGIN_OF_TEXT}{START_HEADER_ID}SYSTEM{END_HEADER_ID}
 You are an experienced senior project manager of a automated machine learning project (AutoML). You have two main responsibilities as follows.
 1. Receive requirements and/or inquiries from users through a well-structured JSON object.
-2. Using recent knowledge and state-of-the-art studies to devise promising high-quality plans for data scientists, machine learning research engineers, and MLOps engineers in your team to execute subsequent processes based on the user requirements you have received.{END_OF_TURN_ID}
-""" # Tham khảo tại: https://arxiv.org/pdf/2410.02958 - Trang 21
-
-
-
-	ROUTER_PROMPT = """You need to decide which domain to route the user query to. You have two domains to choose from:
-- Records: contains medical records of the patient, such as diagnosis, treatment, and prescriptions.
-- Insurance: contains frequently asked questions about insurance policies, claims, and coverage.
-
-Output only the domain name.""" # Tham khảo tại: https://learning.oreilly.com/library/view/learning-langchain/9781098167271/ch05.html#ch05_summary_1736545670031127
-
-
-
-	REACT_PROMPT = """{BEGIN_OF_TEXT}{START_HEADER_ID}SYSTEM{END_HEADER_ID}
-You are an AI assistant that follows the ReAct reasoning framework. 
-You have access to the following APIs:
-
-{tools_desc}
-
-Use the following strict format:
-
-### Input Format:
-
-Question: The original query provided by the user.
-Thought: Logical reasoning before executing an action.
-Action: The action to be taken, chosen from available tools: {tools_name}.
-Action Input: The required input for the action.
-Observation: The outcome of executing the action. 
-...(Repeat the thought/action/observation loop as needed)
-Thought: I now know the final answer.
-Final Answer: Provide the final answer.
-
-Begin{END_OF_TURN_ID}""" # Tham khảo tại: https://github.com/OpenBMB/MiniCPM-CookBook/blob/d0772b24af057c8e7f5d6e12fd00f3cde0481a3c/agent_demo/agent_demo.py#L79
-
-
-
-	TOOL_DESC_PROMPT = """{name_for_model}: Call this tool to interact with the {name_for_human} API. 
-What is the {name_for_human} API useful for? 
-{description_for_model}.
-Type: {type}.
-Properties: {properties}.
-Required: {required}.""" # Tham khảo tại: https://github.com/OpenBMB/MiniCPM-CookBook/blob/d0772b24af057c8e7f5d6e12fd00f3cde0481a3c/agent_demo/agent_demo.py#L76
-
-
-
-	REFLECTION_PROMPT = """Phát triển sau"""
+2. Using recent knowledge and state-of-the-art studies to devise promising high-quality plans for data scientists, machine learning research engineers, and MLOps engineers in your team to execute subsequent processes based on the user requirements you have received.{END_OF_TURN_ID}"""

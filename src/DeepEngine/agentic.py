@@ -6,13 +6,14 @@ import requests
 import json
 import json5
 import fire 
+import streamlit as st 
 from PIL import Image
 from io import BytesIO
 
 
 
-from pydantic import BaseModel, Field
-from typing_extensions import (Annotated, TypedDict, Sequence, Union, Optional, Literal, List, Dict)
+from pydantic import BaseModel, Field, ValidationError
+from typing_extensions import (Annotated, TypedDict, Sequence, Union, Optional, Literal, List, Dict, Iterator, Any)
 
 
 
@@ -48,7 +49,6 @@ END_OF_TURN_ID		= 	"<|eot_id|>"
 
 
 
-TOOLS = [add, subtract, multiply, divide, power, square_root]
 MSG_TYPES = {SystemMessage: "SYSTEM", HumanMessage: "HUMAN", AIMessage: "AI"}
 
 
@@ -65,6 +65,72 @@ def add_unique_msgs(
 		msgs[agent_type][msg_type] = [msg]
 	elif msg.content not in {m.content for m in msgs[agent_type][msg_type]}:
 		msgs[agent_type][msg_type].append(msg)
+
+
+
+class PerformanceMetric(BaseModel):
+	name: str = Field(..., description="accuracy")
+	value: float = Field(..., description=0.98)
+
+class Problem(BaseModel):
+	area: str = Field(..., description="tabular data analysis")
+	downstream_task: str = Field(..., description="tabular classification")
+	application_domain: str = Field(..., description="agriculture")
+	description: str = Field(..., description="""Build a machine learning model, potentially XGBoost or LightGBM, to classify banana quality as Good or Bad based on their numerical information about bananas of different quality (size, weight, sweetness, softness, harvest time, ripeness, and acidity). The model must achieve at least 0.98 accuracy.""")
+	performance_metrics: List[PerformanceMetric]
+	complexity_metrics: List[str] = []
+
+class Dataset(BaseModel):
+	name: str = Field(..., description="banana_quality")
+	modality: List[str] = Field(..., description=["tabular"])
+	target_variables: List[str] = Field(..., description=["quality"])
+	specification: Optional[str] = None
+	description: str = Field(..., description="""A dataset containing numerical information about bananas of different quality, including size, weight, sweetness, softness, harvest time, ripeness, and acidity.""")
+	preprocessing: List[str] = []
+	augmentation: List[str] = []
+	visualization: List[str] = []
+	source: str = Field(..., description="user-upload")
+
+class Model(BaseModel):
+	name: str = Field(..., description="XGBoost")
+	family: str = Field(..., description="ensemble models")
+	type: str = Field(..., description="ensemble")
+	specification: Optional[str] = None
+	description: str = Field(..., description="""A potential model to classify banana quality as Good or Bad, potentially using XGBoost or LightGBM.""")
+
+class HardwareRequirements(BaseModel):
+	gpu: bool
+	cpu_cores: int
+	memory: str
+
+class Requirements(BaseModel):
+	framework: List[str] = Field(..., description="Action the user wants to perform")
+	accuracy_threshold: float = Field(..., description="Action the user wants to perform")
+	training_techniques: List[str] = Field(..., description="Action the user wants to perform")
+	hardware_requirements: HardwareRequirements = Field(..., description="Action the user wants to perform")
+
+class User(BaseModel):
+	intent: str = Field(..., description="Action the user wants to perform")
+	expertise: str = Field(..., description="User's expertise level")
+
+class HumanQueryParseJSON(BaseModel):
+	user: User
+	problem: Problem
+	dataset: List[Dataset]
+	model: List[Model]
+	requirements: Requirements
+
+
+
+def validate_json(data):
+	"""Validation parsed JSON output."""
+	try:
+		validated_data = HumanQueryParseJSON(**data)
+		print(">>> JSON hợp lệ!")
+		return validated_data
+	except ValidationError as e:
+		print(">>> JSON không hợp lệ:", e)
+		return None
 
 
 
@@ -191,9 +257,8 @@ def add_eotext_eoturn_to_ai_msg(
 	content = ai_msg.content.strip()
 	if not content.endswith(end_of_turn_id_token):
 		content += end_of_turn_id_token
-	if not content.endswith(end_of_text_token + end_of_turn_id_token):
-		content = content.replace(
-			end_of_turn_id_token, end_of_text_token + end_of_turn_id_token)
+	if not content.endswith(end_of_turn_id_token + end_of_text_token):
+			content = content.replace(end_of_turn_id_token, end_of_turn_id_token + end_of_text_token)
 	return AIMessage(content=content)
 
 
@@ -232,11 +297,6 @@ def build_react_sys_msg_prompt(tool_desc_prompt: str, react_prompt: str, tools: 
 
 
 
-REACT_SYS_MSG_PROMPT = build_react_sys_msg_prompt(
-	tool_desc_prompt=Prompts.TOOL_DESC_PROMPT, 
-	react_prompt=Prompts.REACT_PROMPT, 
-	tools=TOOLS
-)
 MGR_SYS_MSG_PROMPT = Prompts.AGENT_MANAGER_PROMPT
 REQ_VER_MSG_PROMPT = Prompts.REQUEST_VERIFY_RELEVANCY
 
@@ -248,9 +308,9 @@ STORE = InMemoryStore()
 
 
 
-HIGH_TEMP_MODEL = ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0.8, num_predict=128_000)
-LOW_TEMP_MODEL = ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0.1, num_predict=128_000)
-TOOLS_MODEL = LOW_TEMP_MODEL.bind_tools(tools=TOOLS)
+MODEL_HIGH_TEMP = ChatOllama(model="deepseek-r1:latest", temperature=0.8, num_predict=128_000)
+MODEL_LOW_TEMP = ChatOllama(model="deepseek-r1:latest", temperature=0.1, num_predict=128_000)
+MODEL_STRUCTURE_OUTPUT = MODEL_LOW_TEMP.with_structured_output(schema=HumanQueryParseJSON)
 
 
 
@@ -306,31 +366,6 @@ def op_agent(state: State) -> State:
 
 
 
-def react_agent(state: State) -> State:
-	"""ReAct Agent."""
-	sys_msg = SystemMessage(REACT_SYS_MSG_PROMPT)
-	human_msg = enhance_human_query(state=state)
-	ai_msg = LOW_TEMP_MODEL.invoke([sys_msg, human_msg])
-	if not isinstance(ai_msg, AIMessage):
-		ai_msg = AIMessage(
-			content=ai_msg.strip() 
-			if isinstance(ai_msg, str) 
-			else "At node-react-agent, I'm unable to generate a response."
-		)
-	ai_msg = add_eotext_eoturn_to_ai_msg(
-		ai_msg=ai_msg, 
-		end_of_turn_id_token=END_OF_TURN_ID, 
-		end_of_text_token=END_OF_TEXT,
-	)
-	return {"messages": {
-		"REACT_AGENT": {
-			"SYSTEM": [sys_msg], 
-			"HUMAN": [human_msg], 
-			"AI": [ai_msg]
-		}}}
-
-
-
 def manager_agent(state: State) -> State:
 	"""Manager Agent.
 
@@ -352,7 +387,8 @@ def manager_agent(state: State) -> State:
 	human_msg = HumanMessage(
 		content=enhance_human_query(state=state)
 	)
-	ai_msg = LOW_TEMP_MODEL.invoke([
+	human_msg_json = MODEL_STRUCTURE_OUTPUT.invoke([human_msg]) # TODO: biến input đầu vào của user thành chuỗi JSON
+	ai_msg = MODEL_LOW_TEMP.invoke([
 		sys_msg, 
 		human_msg
 	])
@@ -385,18 +421,15 @@ def check_contain_yes_or_no(ai_msg: str) -> str:
 
 def request_verify(state: State):
 	"""Request verification output of Agent Manager."""
-	human_msg = state.get_latest_msg(
-		agent_type="MANAGER_AGENT", 
-		msg_type="HUMAN"
-	)
+	human_msg = state.human_query[-1].content
 	sys_msg = SystemMessage(content=REQ_VER_MSG_PROMPT.format(
-		instruction=human_msg.content, 
+		instruction=human_msg, 
 		begin_of_text=BEGIN_OF_TEXT, 
 		start_header_id=START_HEADER_ID, 
 		end_header_id=END_HEADER_ID, 
 		end_of_turn_id=END_OF_TURN_ID
 	))
-	ai_msg = LOW_TEMP_MODEL.invoke([sys_msg])
+	ai_msg = MODEL_LOW_TEMP.invoke([sys_msg])
 	if not isinstance(ai_msg, AIMessage):
 		ai_msg = AIMessage(
 			content=ai_msg.strip() 
@@ -406,7 +439,7 @@ def request_verify(state: State):
 	ai_msg = add_eotext_eoturn_to_ai_msg(
 		ai_msg=ai_msg, 
 		end_of_turn_id_token=END_OF_TURN_ID, 
-		end_of_text_token=END_OF_TEXT,
+		end_of_text_token=END_OF_TEXT
 	)
 	ai_msg_yes_or_no = AIMessage(check_contain_yes_or_no(ai_msg=ai_msg.content))
 	return {"messages": {
@@ -436,7 +469,7 @@ def req_ver_yes_or_no(state: State):
 
 
 def prompt_agent(state: State) -> State:
-	"Prompt Agent."
+	"""Prompt Agent."""
 	human_msg = ""
 	ai_msg = ""
 	return {"messages": {
@@ -450,7 +483,6 @@ def prompt_agent(state: State) -> State:
 
 workflow = StateGraph(State)
 
-workflow.add_node("REACT_AGENT", react_agent)
 workflow.add_node("MANAGER_AGENT", manager_agent)
 workflow.add_node("REQUEST_VERIFY", request_verify)
 workflow.add_node("PROMPT_AGENT", prompt_agent)
@@ -462,442 +494,65 @@ workflow.add_edge(START, "MANAGER_AGENT")
 workflow.add_edge("MANAGER_AGENT", "REQUEST_VERIFY")
 workflow.add_conditional_edges("REQUEST_VERIFY", req_ver_yes_or_no)
 workflow.add_edge("PROMPT_AGENT", "REQUEST_VERIFY")
-workflow.add_edge("PROMPT_AGENT", END)
 
-app = workflow.compile(checkpointer=CHECKPOINTER, store=STORE, debug=True, name="FOXCONN-AI Research Tran Van Tuan...")
+app = workflow.compile(
+	checkpointer=CHECKPOINTER, 
+	store=STORE, debug=True, 
+	name="FOXCONN-AI Research"
+)
 
 
 
 def main() -> None:
 	"""Handles user queries and displays AI responses."""
-	queries = [
-		"""I need a very accurate model to classify images in the Butterfly Image Classification dataset into their respective categories. 
-The dataset has been uploaded with its label information in the labels.csv file.""",
-
-		"""Please provide a classification model that categorizes images into one of four clothing categories. 
-The image path, along with its label information, can be found in the files train_labels.csv and test_labels.csv.""",
-
-		"exit"
-	]
-	for user_query in queries:
+	for user_query in QUERIES:
 		user_query = user_query.strip().lower()
 		if user_query == "exit":
 			print(">>> [System Exit] Goodbye! Have a great day! 😊")
 			break
-		print_stream(
+		streamlit_user_interface(
 			app.stream(
-				input={
-					"human_query": [user_query], 
-
-				}, 
+				input={"human_query": [user_query]}, 
 				stream_mode="values", 
 				config=CONFIG
 			))
 
 
 
-def print_stream(stream) -> None:
-	"""Hiển thị kết quả hội thoại theo cách dễ đọc hơn."""
+def streamlit_user_interface(stream: Iterator[Dict[str, Dict[str, Dict[str, List[BaseMessage]]]] | Any]) -> None:
+	"""Hiển thị kết quả hội thoại trên Streamlit."""
+	st.title("FOXCONN-AI Research")
 	for s in stream:
-		if len(list(s.keys())) == 50:
-			messages = s["messages"]
-			if "SYSTEM" in messages and messages["SYSTEM"]:
-				print("\n ⚙️ **SYSTEM**:")
-				messages["SYSTEM"][-1].pretty_print()
+		if len(list(s.keys())) == 2:
+			msgs = s["messages"]
+			for agent, messages in msgs.items():
+				with st.expander(f"🔹 {agent}", expanded=False):
+					for msg_type, msg_list in messages.items():
+						if msg_list: 
+							st.subheader(f"{msg_type} Messages")
+							for msg in msg_list:
+								st.markdown(f"```{msg.content}```")
 
-			if "HUMAN" in messages and messages["HUMAN"]:
-				print("\n 👨 **ENHANCE HUMAN QUERY**:")
-				messages["HUMAN"][-1].pretty_print()
 
-			if "AI" in messages and messages["AI"]:
-				print("\n 🤖 **AI**:")
-				messages["AI"][-1].pretty_print()
-			print("🔹" * 30)
-	print("DEBUG")
+
+QUERIES = [
+	"""I need a highly accurate machine learning model developed to classify images within the Butterfly Image Classification dataset into their correct species categories. 
+The dataset has been uploaded with its label information in the labels.csv file. 
+Please use a convolutional neural network (CNN) architecture for this task, leveraging transfer learning from a pre-trained ResNet-50 model to improve accuracy. 
+Optimize the model using cross-validation on the training split to fine-tune hyperparameters, and aim for an accuracy of at least 0.95 on the test split. 
+Provide the final trained model, a detailed report of the training process, hyperparameter settings, accuracy metrics, and a confusion matrix to evaluate performance across different categories.""",
+	
+	"""Please provide a classification model that categorizes images into one of four clothing categories. 
+The image path, along with its label information, can be found in the files train labels.csv and test labels.csv. 
+The model should achieve at least 85% accuracy on the test set and be implemented using PyTorch. 
+Additionally, please include data augmentation techniques and a confusion matrix in the evaluation."""	
+	
+	"""Hello, What is heavier a kilo of feathers or a kilo of steel?""", 
+	
+	"""exit"""
+]
 
 
 
 if __name__ == "__main__":
 	fire.Fire(main)
-
-
-
-# def llm_with_tools(query, history, tools, idx):
-# 	chat_history = [(x["user"], x["bot"]) for x in history] + [(query, "")]
-# 	planning_prompt = build_input_text(chat_history=chat_history, tools=tools)
-# 	text = ""
-# 	while True:
-# 		resp = model_invoke(input_text=planning_prompt+text, idx=idx)
-# 		action, action_input, output = parse_latest_tool_call(resp=resp) 
-# 		if action:
-# 			res = tool_exe(
-# 				tool_name=action, tool_args=action_input, idx=idx
-# 			)
-# 			text += res
-# 			break
-# 		else:  
-# 			text += output
-# 			break
-# 	new_history = []
-# 	new_history.extend(history)
-# 	new_history.append(
-# 		{'user': query, 'bot': text}
-# 	)
-# 	idx += 1
-# 	return text, new_history
-
-
-
-# def build_input_text_archive(
-# 		chat_history, 
-# 		tools, 
-# 		im_start = "<|im_start|>", 
-# 		im_end = "<|im_end|>"
-# 	):
-# 	"""Tổng hợp lịch sử hội thoại và thông tin plugin thành một văn bản đầu vào (context history)."""
-# 	prompt = f"{im_start}system\nYou are a helpful assistant.{im_end}"
-# 	tools_text = []
-# 	for tool_info in tools:
-# 		tool = tool_desc.format(
-# 			name_for_model=tool_info["name_for_model"],
-# 			name_for_human=tool_info["name_for_human"],
-# 			description_for_model=tool_info["description_for_model"],
-# 			parameters=json.dumps(tool_info["parameters"], ensure_ascii=False)
-# 		)
-# 		if dict(tool_info).get("args_format", "json") == "json":
-# 			tool += ". Format the arguments as a JSON object."
-# 		elif dict(tool_info).get("args_format", "code") == "code":
-# 			tool += ". Enclose the code within triple backticks (`) at the beginning and end of the code."
-# 		else:
-# 			raise NotImplementedError
-# 		tools_text.append(tool)
-# 	tools_desc = "\n\n".join(tools_text)
-# 	tools_name = ", ".join([tool_info["name_for_model"] for tool_info in tools])
-# 	for i, (query, response) in enumerate(chat_history):
-# 		if tools:  # Nếu có gọi tool 
-# 			# Quyết định điền thông tin chi tiết của tool vào cuối hội thoại hoặc trước cuối hội thoại.
-# 			if (len(chat_history) == 1) or (i == len(chat_history) - 2):
-# 				query = react_prompt.format(
-# 					tools_desc=tools_desc, 
-# 					tools_name=tools_name, 
-# 					query=query
-# 				)
-# 		query = query.strip() # Quan trọng! Nếu không áp dụng strip, cấu trúc dữ liệu sẽ khác so với cách được xây dựng trong quá trình huấn luyện.
-# 		if isinstance(response, str):
-# 			response = response.strip()
-# 		elif not response:
-# 			raise ValueError(">>> Error: response is None or empty, expected a string.")  
-# 		else:
-# 			try:
-# 				response = str(response).strip() # Quan trọng! Nếu không áp dụng strip, cấu trúc dữ liệu sẽ khác so với cách được xây dựng trong quá trình huấn luyện.
-# 			except Exception as e:
-# 				raise e
-# 		# Trong text_completion, sử dụng định dạng sau để phân biệt giữa User và AI 
-# 		prompt += f"\n{im_start}user\n{query}{im_end}"
-# 		prompt += f"\n{im_start}assistant\n{response}{im_end}"
-# 	assert prompt.endswith(f"\n{im_start}assistant\n{im_end}")
-# 	prompt = prompt[: -len(f"{im_end}")]
-# 	return prompt
-
-
-
-# def llm_with_tools(query, history, tools, idx):
-# 	chat_history = [(x["user"], x["bot"]) for x in history] + [(query, "")]
-# 	planning_prompt = build_input_text(chat_history=chat_history, tools=tools)
-# 	text = ""
-# 	while True:
-# 		resp = model_invoke(input_text=planning_prompt+text, idx=idx)
-# 		action, action_input, output = parse_latest_tool_call(resp=resp) 
-# 		if action:
-# 			res = tool_exe(
-# 				tool_name=action, tool_args=action_input, idx=idx
-# 			)
-# 			text += res
-# 			break
-# 		else:  
-# 			text += output
-# 			break
-# 	new_history = []
-# 	new_history.extend(history)
-# 	new_history.append(
-# 		{'user': query, 'bot': text}
-# 	)
-# 	idx += 1
-# 	return text, new_history
-
-
-
-# def parse_latest_tool_call(resp):
-# 	"""Xử lý kết quả inference LLM, phân tích chuỗi để thực thi công cụ."""
-# 	tool_name, tool_args = "", ""
-# 	action = str(resp).rfind("Action:")
-# 	action_input = str(resp).rfind("Action Input:")
-# 	observation = str(resp).rfind("Observation:")
-# 	if 0 <= action < action_input < observation:
-# 		tool_name = str(resp[action + len("Action:") : action_input]).strip()
-# 		tool_args = str(resp[action_input + len("Action Input:") : observation]).strip()
-# 		resp = resp[:observation]
-# 	return tool_name, tool_args, resp
-
-
-
-# def ai_vision(tool_args, idx):
-# 	import numpy as np 
-# 	import cv2 
-# 	from paddleocr import PaddleOCR, draw_ocr
-# 	from PIL import Image 
-# 	vid_path = json5.loads(tool_args)["video_path"]
-# 	ocr = PaddleOCR(use_angle_cls=False, lang='en') 
-# 	cap = cv2.VideoCapture(vid_path)
-# 	if not cap.isOpened():
-# 		print(">>> Can not open camera")
-# 		exit()
-# 	print(">>> Starting real-time OCR. Press 'q' to exit.")
-# 	while True:
-# 		ret, frame = cap.read()
-# 		if not ret:
-# 			print(">>> Can't receive frame (stream end?). Exiting...")
-# 			break 
-# 		# Perform OCR on the current frame
-# 		result = ocr.ocr(frame, cls=False)
-# 		# Draw detected text on the frame
-# 		for res in result:
-# 			if res is not None:
-# 				for line in res:
-# 					box, (text, score) = line 
-# 					box = np.array(box, dtype=np.int32)
-# 					# Draw bounding box
-# 					cv2.polylines(frame, [box], isClosed=True, color=(0, 255, 0), thickness=2)
-# 					# Display text near the bounding box
-# 					x, y = box[0]
-# 					cv2.putText(frame, f"{text} ({score:.2f})", (x, y - 10), 
-# 					cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-
-# 		cv2.imshow("Research Demo LLM+Vision", frame)
-# 		if cv2.waitKey(1) & 0xFF == ord('q'):
-# 			break 
-# 	cap.release()
-# 	cv2.destroyAllWindows()
-# 	print(">>> OCR session ended.")
-
-
-
-# def tool_exe(tool_name: str, tool_args: str, idx: int) -> str:
-# 	"""Thực thi công cụ (tool execution) được LLM gọi."""
-# 	if tool_name == "image_to_text":
-# 		resp = image_to_text(
-# 			tool_args=tool_args, idx=idx
-# 		)
-# 		return resp
-# 	elif tool_name == "text_to_image":
-# 		resp = text_to_image(tool_args=tool_args)
-# 		return resp
-# 	elif tool_name == "ai_vision":
-# 		resp = ai_vision(
-# 			tool_args=tool_args, 
-# 			idx=idx
-# 		)
-# 		return "Finish AI-Vision, released all VRAM and Windows."
-# 	else:
-# 		raise NotImplementedError
-
-
-
-# def request_image_from_web(tool_args, img_save_path="./"):
-# 	try:
-# 		img_path = json5.loads(tool_args)["image_path"]
-# 		if str(img_path).startswith("http"):
-# 			headers = {
-# 				"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3",
-# 				"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-# 				"Accept-Language": "en-US,en;q=0.5",
-# 				"Accept-Encoding": "gzip, deflate, br",
-# 				"Connection": "keep-alive",
-# 				"Upgrade-Insecure-Requests": "1"
-# 			}
-# 			yzmdata = requests.get(url=img_path, headers=headers)
-# 			tmp_img = BytesIO(yzmdata.content)
-# 			img = Image.open(tmp_img).convert('RGB')
-# 			img.save(img_save_path)
-# 			img = Image.open(img_save_path).convert('RGB')
-# 			return img
-# 		else:
-# 			img = Image.open(img_path).convert('RGB')
-# 			return img 
-# 	except:
-# 		img_path = input(">>> Vui lòng nhập địa chỉ hình ảnh hoặc URL: ")
-# 		if img_path.startswith('http'):
-# 			headers = {
-# 				"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3",
-# 				"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-# 				"Accept-Language": "en-US,en;q=0.5",
-# 				"Accept-Encoding": "gzip, deflate, br",
-# 				"Connection": "keep-alive",
-# 				"Upgrade-Insecure-Requests": "1"
-# 			}
-# 			yzmdata = requests.get(img_path,headers=headers)
-# 			tmp_img = BytesIO(yzmdata.content)
-# 			img = Image.open(tmp_img).convert('RGB')
-# 			img.save(img_save_path)
-# 			img = Image.open(img_save_path).convert('RGB')
-# 			return img
-# 		else:
-# 			img = Image.open(img_path).convert('RGB')
-# 			return img 
-
-
-
-# def main():
-# 	history = []
-# 	for idx, query in tqdm.tqdm(enumerate([
-# 		"Hello, Good afternoon!", # -- id 0 
-# 		"Who is Jay Chou?", # -- id 1
-# 		"Who is his wife?", # -- id 2
-# 		"Describe what is in this image, this is URL of the image: https://www.night_city_img.com", # -- id 3
-# 		"Draw me a cute kitten, preferably a black cat", # -- id 4
-# 		"Modify this description: 'A blue Honda car parked on the street' to 'A red Mazda car parked on the street'", # --id 5
-# 		"I need to check the text on this product in real-time to see if it is accurate and complete. Here is the link of video product: /home/chwenjun225/projects/DeepEngine/nexus_mind/images/fuzetea_vid2.mp4", # -- id 6
-# 		"exit" 
-# 	])):
-# 		print("\n")
-# 		print(f">>> 🧑 query:\n\t{query}\n")
-# 		if query.lower() == "exit":
-# 			print(f">>> 🤖 response:\nGoodbye! Have a great day! 😊\n")
-# 			break 
-# 		response, history = llm_with_tools(
-# 			query=query, 
-# 			history=history, 
-# 			tools=tools, 
-# 			idx=idx
-# 		)
-# 		print(f">>> 🤖 response:\n{response}\n")
-
-
-
-# if __name__ == "__main__":
-# 	fire.Fire(main) 
-
-
-
-# tools = [
-# 	{
-# 		"name_for_human": "image_to_text", 
-# 		"name_for_model": "image_to_text", 
-# 		"description_for_model": "image_to_text is a service that generates textual descriptions from images. By providing the URL of an image, it returns a detailed and realistic description of the image.",
-# 		"parameters": [
-# 			{
-# 				"name": "image_path",
-# 				"description": "the URL of the image to be described",
-# 				"required": True,
-# 				"schema": {"type": "string"},
-# 			}
-# 		],
-# 	},
-# 	{
-# 		"name_for_human": "text_to_image",
-# 		"name_for_model": "text_to_image",
-# 		"description_for_model": "text_to_image is an AI image generation service. It takes a text description as input and returns a URL of the generated image.",
-# 		"parameters": [
-# 			{
-# 				"name": "text",
-# 				"description": "english keywords or a text prompt describing what you want in the image.",
-# 				"required": True,
-# 				"schema": {"type": "string"}
-# 			}
-# 		]
-# 	},
-# 	{
-# 		"name_for_human": "modify_text",
-# 		"name_for_model": "modify_text",
-# 		"description_for_model": "modify_text changes the original prompt based on the input request to make it more suitable.",
-# 		"parameters": [
-# 			{
-# 				"name": "describe_before",
-# 				"description": "the prompt or image description before modification.",
-# 				"required": True,
-# 				"schema": {"type": "string"}
-# 			},
-# 			{
-# 				"name": "modification_request",
-# 				"description": "the request to modify the prompt or image description, e.g., change 'cat' to 'dog' in the text.",
-# 				"required": True,
-# 				"schema": {"type": "string"}
-# 			}
-# 		]
-# 	}, 
-# 	{ 
-# 		"name_for_human": "ai_vision", 
-# 		"name_for_model": "ai_vision", 
-# 		"description_for_model": "ai_vision is a service that use ai-vision to detects and extracts characters from a product image. It processes the image and returns the recognized text to the AI agent for further analysis.",
-# 		"parameters": [
-# 			{
-# 				"name": "video_path",
-# 				"description": "The file path of a video or the IP address of a camera for real-time character detection.",
-# 				"required": True,
-# 				"schema": {"type": "string"}
-# 			}
-# 		],
-# 	},
-# ]
-
-
-
-# fake_response = [
-# # "Hello, Good afternoon!", -- Fake resp id 0 -- No tool
-# 	"""
-# 	Thought: The input is a greeting. No tools are needed.
-# 	Final Answer: Hello! Good afternoon! How can I assist you today?
-# 	""", 
-# # "Who is Jay Chou?", -- Fake resp id 1 -- No tool 
-# 	"""
-# 	Thought: The user is asking for information about Jay Chou. I should retrieve general knowledge.
-# 	Final Answer: Jay Chou is a Taiwanese singer, songwriter, and actor, widely known for his influence in Mandopop music. He has released numerous albums and is recognized for his unique blend of classical and contemporary music.
-# 	""", 
-# # "Who is his wife?", -- Fake resp id 2 -- No tool 
-# 	"""
-# 	Thought: The previous question was about Jay Chou. "His wife" likely refers to Jay Chou's spouse.
-# 	Final Answer: Jay Chou's wife is Hannah Quinlivan, an actress and model from Taiwan.
-# 	""", 
-# # "Describe what is in this image, this is URL of the image: https://www.night_city_img.com", --> Fake resp id 3 -- Tool-use: image_to_text
-# 	"""
-# 	Thought: The user wants a description of an image. I should use the image_to_text API.
-# 	Action: image_to_text
-# 	Action Input: {"image_path": "https://www.tushengwen.com"}
-# 	Observation: "The image depicts a vibrant cityscape at night, illuminated by neon lights and tall skyscrapers."
-# 	Thought: I now know the final answer.
-# 	Final Answer: The image depicts a vibrant cityscape at night, illuminated by neon lights and tall skyscrapers.
-# 	""",
-# # "Draw me a cute kitten, preferably a black cat", -- Fake resp id 4 -- Tool-use: text_to_image
-# 	"""
-# 	Thought: The user is requesting an image generation. I should use the text_to_image API.
-# 	Action: text_to_image
-# 	Action Input: {"text": "A cute black kitten with big eyes, fluffy fur, and a playful expression"}
-# 	Observation: Here is the generated image URL: [https://www.wenshengtu.com]
-# 	Thought: I now know the final answer.
-# 	Final Answer: Here is an image of a cute black kitten: [https://www.wenshengtu.com]
-# 	""", 
-# # "Modify this description: 'A blue Honda car parked on the street' to 'A red Mazda car parked on the street'", -- Fake resp id 5 -- Tool-use: modify_text
-# 	"""
-# 	Thought: The user wants to modify a text description. They want change from `A blue honda car parked on the street` to `A red Mazda car parked on the street`.
-# 	Final Answer: "A red Mazda car parked on the street."
-# 	""", 
-# # "I need to check the text on this product in real-time to see if it is accurate and complete. Here is the link of video product: /home/chwenjun225/projects/DeepEngine/nexus_mind/images/fuzetea_vid1.mp4", # -- id 6
-# 	"""
-# 	Thought: I need to analyze the text on the product in real-time to verify its accuracy and completeness. I should process the video file to extract frames and apply OCR. 
-# 	Action: ai_vision
-# 	Action Input: {"video_path": "/home/chwenjun225/projects/DeepEngine/nexus_mind/images/fuzetea_vid1.mp4"}
-# 	Observation: The OCR result has been extracted from the product video. The detected text is: ["fuzetea", "Passion fruit tea and chia seeds"]
-# 	Thought: I will now compare the extracted text with the expected information to check if it is accurate and complete.
-# 	Final Answer: The text on the product has been successfully extracted. The accuracy and completeness can now be verified based on the expected product information.
-# 	"""
-# # "exit",
-# 	"""Goodbye! Have a great day! 😊"""
-# ]
-
-
-
-# dict_fake_responses = {idx: fresp for idx, fresp in enumerate(fake_response)}
-
-
-
-# STOP_WORDS = ["Observation:", "Observation:\n"]

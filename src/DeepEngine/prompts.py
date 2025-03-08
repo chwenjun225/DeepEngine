@@ -45,13 +45,14 @@ If the answer is `no`, you must tell me the alternative solutions or examples fo
 
 
 
-	REQUEST_VERIFY_RELEVANCY = """{begin_of_text}{start_header_id}SYSTEM{end_header_id}
-Is the following statement relevant to a potential machine learning or a artificial intelligence project.{end_of_turn_id}
+	REQUEST_VERIFY_RELEVANCY = """{BEGIN_OF_TEXT}{START_HEADER_ID}SYSTEM{END_HEADER_ID}
+Is the following statement relevant to a potential machine learning or a artificial intelligence project.{END_OF_TURN_ID}
 
-{start_header_id}THE_FOLLOWING_STATEMENT{end_header_id}
-```{instruction}```{end_of_turn_id}
+{START_HEADER_ID}THE_FOLLOWING_STATEMENT{END_HEADER_ID}
+```{instruction}```{END_OF_TURN_ID}
 
-{start_header_id}AI{end_header_id}Remember, only answer Yes or No.{end_of_turn_id}""" 
+{START_HEADER_ID}AI{END_HEADER_ID}
+Remember, only answer Yes or No.{END_OF_TURN_ID}""" 
 
 
 
@@ -266,19 +267,19 @@ suggested hyperparameters.
 4. Extract useful information and underlying characteristics of the dataset.""" 
 
 
-
-	PROMPT_AGENT_PROMPT = """{BEGIN_OF_TEXT}{START_HEADER_ID}SYSTEM{END_HEADER_ID}
-You are an assistant project manager in the AutoML development team.
-Your task is to parse the user's requirement into a valid JSON format using the JSON specification schema as your reference. 
-Your response must exactly follow the given JSON schema and be based only on the user's instruction.
-Make sure that your answer contains only the JSON response without any comment or explanation because it can cause parsing errors.
-
-#JSON SPECIFICATION SCHEMA#
+# TODO: TỐi ưu hóa lại prompt sao cho ngắn gọn, triển khai nhanh nhất fewshot-prompt parse JSON, và tối ưu lại pydantic model json output parse
+	PROMPT_PARSE_JSON_AGENT_PROMPT = """{BEGIN_OF_TEXT}""" + \
+"""{START_HEADER_ID}SYSTEM{END_HEADER_ID}
+You are an assistant project manager in the AutoML development team. 
+Your task is to parse the user's requirement into a valid JSON format, strictly following the given JSON specification schema as your reference. 
+Your response must exactly follow the given JSON schema and be based only on the user's instructions. 
+Make sure that your answer only contains the JSON response.{END_OF_TURN_ID}""" + \
+"""{START_HEADER_ID}JSON SCHEMA{END_HEADER_ID}
 ```json
-{json_specification}
-```
-
-Remember, your response must begin with "```json" or "{{" and end with "```" or "}}", respectively.""" 
+{json_schema}```{END_OF_TURN_ID}""" + \
+"""{START_HEADER_ID}HUMAN{END_HEADER_ID}""" + """Here are some examples:""" + \
+"""{START_HEADER_ID}AI{END_HEADER_ID}
+Remember, your response must begin with "```json" or "{{" and end with "```" or "}}".{END_OF_TURN_ID}""" 
 
 
 
@@ -298,3 +299,94 @@ Start the python code with "```python". Please ensure the completeness of the co
 You are an experienced senior project manager of a automated machine learning project (AutoML). You have two main responsibilities as follows.
 1. Receive requirements and/or inquiries from users through a well-structured JSON object.
 2. Using recent knowledge and state-of-the-art studies to devise promising high-quality plans for data scientists, machine learning research engineers, and MLOps engineers in your team to execute subsequent processes based on the user requirements you have received.{END_OF_TURN_ID}"""
+
+
+
+class Fewshots:
+    PARSE_JSON = """Here are some examples:
+{START_HEADER_ID}HUMAN{END_HEADER_ID}
+Build a machine learning model, potentially XGBoost or LightGBM, to classify banana quality as Good or Bad based on their numerical information about bananas of different quality (size, weight, sweetness, softness, harvest time, ripeness, and acidity). We have uploaded the entire dataset for you here in the banana quality.csv file. The model must achieve at least 0.98 accuracy.{END_OF_TURN_ID}
+{START_HEADER_ID}AI{END_HEADER_ID}
+
+```
+
+{END_OF_TURN_ID}
+"""
+
+FEWSHOT_PROMPT_PARSE_JSON_EXAMPLE_1 = """
+```json
+{
+	"user": {"intent": "build", "expertise": "medium"},
+	"problem": {
+		"area": "tabular data analysis",
+		"downstream_task": "tabular classification",
+		"application_domain": "agriculture",
+		"description": "Build a machine learning model, potentially XGBoost or LightGBM, to classify banana quality as Good or Bad based on their numerical information about bananas of different quality (size, weight, sweetness, softness, harvest time, ripeness, and acidity). The model must achieve at least 0.98 accuracy.",
+		"performance_metrics": [
+			{"name": "accuracy", "value": 0.98}
+		], 
+		"complexity_metrics": []
+	},
+	"dataset": [
+		{
+			"name": "banana_quality",
+			"modality": ["tabular"],
+			"target_variables": ["quality"],
+			"specification": None,
+			"description": "A dataset containing numerical information about bananas of different quality, including size, weight, sweetness, softness, harvest time, ripeness, and acidity.",
+			"preprocessing": [],
+			"augmentation": [],
+			"visualization": [],
+			"source": "user-upload"
+		}
+	],
+	"model": [
+		{
+			"name": "XGBoost",
+			"family": "ensemble models",
+			"type": "ensemble",
+			"specification": None,
+			"description": "A potential model to classify banana quality as Good or Bad, potentially using XGBoost or LightGBM."
+		}
+	]
+}
+"""
+
+FEWSHOT_PROMPT_PARSE_JSON_EXAMPLE_2 = """
+```json
+{
+	"user": {"intent": "build", "expertise": "medium"},
+	"problem": {
+		"area": "tabular data analysis",
+		"downstream_task": "tabular classification",
+		"application_domain": "agriculture",
+		"description": "Build a machine learning model, potentially XGBoost or LightGBM, to classify banana quality as Good or Bad based on their numerical information about bananas of different quality (size, weight, sweetness, softness, harvest time, ripeness, and acidity). The model must achieve at least 0.98 accuracy.",
+		"performance_metrics": [
+			{"name": "accuracy", "value": 0.98}
+		], 
+		"complexity_metrics": []
+	},
+	"dataset": [
+		{
+			"name": "banana_quality",
+			"modality": ["tabular"],
+			"target_variables": ["quality"],
+			"specification": None,
+			"description": "A dataset containing numerical information about bananas of different quality, including size, weight, sweetness, softness, harvest time, ripeness, and acidity.",
+			"preprocessing": [],
+			"augmentation": [],
+			"visualization": [],
+			"source": "user-upload"
+		}
+	],
+	"model": [
+		{
+			"name": "XGBoost",
+			"family": "ensemble models",
+			"type": "ensemble",
+			"specification": None,
+			"description": "A potential model to classify banana quality as Good or Bad, potentially using XGBoost or LightGBM."
+		}
+	]
+}
+"""

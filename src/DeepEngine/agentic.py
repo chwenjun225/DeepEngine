@@ -13,10 +13,11 @@ from io import BytesIO
 
 
 from pydantic import BaseModel, Field, ValidationError
-from typing_extensions import (Annotated, TypedDict, Sequence, Union, Optional, Literal, List, Dict, Iterator, Any)
+from typing_extensions import (Annotated, TypedDict, Sequence, Union, Optional, Literal, List, Dict, Iterator, Any, Type)
 
 
 
+from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.tools import InjectedToolCallId, BaseTool
 from langchain.tools import tool
 from langchain_ollama import ChatOllama
@@ -36,7 +37,11 @@ from langgraph.prebuilt import (create_react_agent, ToolNode, tools_condition)
 
 
 from tools import (add, subtract, multiply, divide, power, square_root)
-from prompts_lib import Prompts 
+from DeepEngine.prompts import Prompts 
+
+
+
+DEBUG = True
 
 
 
@@ -65,8 +70,6 @@ def add_unique_msgs(
 		msgs[agent_type][msg_type] = [msg]
 	elif msg.content not in {m.content for m in msgs[agent_type][msg_type]}:
 		msgs[agent_type][msg_type].append(msg)
-
-
 
 class State(BaseModel):
 	"""Manages structured conversation state in a multi-agent system.
@@ -133,65 +136,68 @@ class State(BaseModel):
 		return self.messages[agent_type][msgs_type]
 
 
+# TODO: Sử dụng Fewshot-Prompting để khiến model generate JSOn
 class PerformanceMetric(BaseModel):
-	name: str = Field(..., description="accuracy")
-	value: float = Field(..., description=0.98)
+	name: str = Field(..., description="Name of the evaluation metric (e.g., accuracy, F1-score).")
+	value: float = Field(..., description="Value of the metric (e.g., 0.98).")
 
 class Problem(BaseModel):
-	area: str = Field(..., description="tabular data analysis")
-	downstream_task: str = Field(..., description="tabular classification")
-	application_domain: str = Field(..., description="agriculture")
-	description: str = Field(..., description="""E.g,. Build a machine learning model, potentially XGBoost 
-			or LightGBM, to classify banana quality as Good or Bad based on their numerical 
-			information about bananas of different quality (size, weight, sweetness, softness, 
-			harvest time, ripeness, and acidity). The model must achieve at least 0.98 accuracy.""")
-	performance_metrics: List[PerformanceMetric]
-	complexity_metrics: List[str] = []
+	area: str = Field(..., description="Problem domain (e.g., tabular data analysis).")
+	downstream_task: str = Field(..., description="Type of ML task (e.g., tabular classification).")
+	application_domain: str = Field(..., description="Application field (e.g., agriculture).")
+	description: str = Field(..., description="Detailed problem description.")
+	performance_metrics: List[PerformanceMetric] = Field(..., description="List of evaluation metrics.")
+	complexity_metrics: List[str] = Field(default=[], description="List of complexity metrics for the problem.")
 
 class Dataset(BaseModel):
-	name: str = Field(..., description="banana_quality")
-	modality: List[str] = Field(..., description=["tabular"])
-	target_variables: List[str] = Field(..., description=["quality"])
-	specification: Optional[str] = None
-	description: str = Field(..., description="""A dataset containing numerical information about bananas of different quality, including size, weight, sweetness, softness, harvest time, ripeness, and acidity.""")
-	preprocessing: List[str] = []
-	augmentation: List[str] = []
-	visualization: List[str] = []
-	source: str 
+	name: str = Field(..., description="Dataset name (e.g., banana_quality).")
+	modality: List[str] = Field(..., description="Data modality (e.g., ['tabular']).")
+	target_variables: List[str] = Field(..., description="Target variables to predict.")
+	specification: Optional[str] = Field(None, description="Dataset specifications (if applicable).")
+	description: str = Field(..., description="Dataset description.")
+	preprocessing: List[str] = Field(default=[], description="List of data preprocessing steps.")
+	augmentation: List[str] = Field(default=[], description="List of data augmentation techniques.")
+	visualization: List[str] = Field(default=[], description="List of data visualization methods.")
+	source: str = Field(..., description="Data source (e.g., 'user-upload').")
 
 class Model(BaseModel):
-	name: str 
-	family: str 
-	type: str 
-	specification: Optional[str] = None
-	description: str 
+	name: str = Field(..., description="Model name (e.g., XGBoost, LightGBM, etc.).")
+	family: str = Field(..., description="Model family (e.g., ensemble models).")
+	model_type: str = Field(..., description="Model type (e.g., ensemble, neural network).")
+	specification: Optional[str] = Field(None, description="Model specifications (if applicable).")
+	description: str = Field(..., description="Model description.")
 
-class HardwareRequirements(BaseModel):
-	cuda: bool 
-	cpu_cores: int 
-	memory: str 
+class Hardware(BaseModel):
+	cuda: bool = Field(..., description="Requires CUDA? (True/False).")
+	cpu_cores: int = Field(..., description="Required number of CPU cores.")
+	memory: str = Field(..., description="Required RAM (e.g., '32GB').")
 
 class User(BaseModel):
-	intent: str 
-	expertise: str 
+	intent: str = Field(..., description="User intent (e.g., 'build', 'train').")
+	expertise: str = Field(..., description="User expertise level (e.g., 'beginner', 'expert', 'medium').")
 
-class PromptParsingJSON(BaseModel):
+class ParseJSON(BaseModel):
 	user: User
 	problem: Problem
-	dataset: List[Dataset]
+	datasets: List[Dataset]
 	model: List[Model]
 
 
 
-def validate_json(data):
-	"""Validation parsed JSON output."""
-	try:
-		validated_data = PromptParsingJSON(**data)
-		print(">>> JSON hợp lệ!")
-		return validated_data
-	except ValidationError as e:
-		print(">>> JSON không hợp lệ:", e)
-		return None
+MGR_SYS_MSG_PROMPT = Prompts.AGENT_MANAGER_PROMPT
+REQ_VER_MSG_PROMPT = Prompts.REQUEST_VERIFY_RELEVANCY
+PAR_JSON_MSG_PROMPT = Prompts.PROMPT_PARSE_JSON_AGENT_PROMPT
+
+
+
+CONFIG = {"configurable": {"thread_id": str(uuid.uuid4())}}
+CHECKPOINTER = MemorySaver()
+STORE = InMemoryStore()
+
+
+
+MODEL_HIGH_TEMP = ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0.8, num_predict=100_000)
+MODEL_LOW_TEMP = ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0, num_predict=100_000)
 
 
 
@@ -217,8 +223,7 @@ def enhance_human_query(state: State) -> str:
 	human_query = state.human_query[-1].content if state.human_query else ""
 	formatted_query = (
 		f"{START_HEADER_ID}HUMAN{END_HEADER_ID}"
-		f"{human_query}"
-		f"{END_OF_TURN_ID}"
+		f"{human_query}{END_OF_TURN_ID}"
 		f"{START_HEADER_ID}AI{END_HEADER_ID}"
 	)
 	return formatted_query
@@ -230,8 +235,7 @@ def add_eotext_eoturn_to_ai_msg(
 	end_of_turn_id_token: str = END_OF_TURN_ID,
 	end_of_text_token: str = END_OF_TEXT
 ) -> AIMessage:
-	"""
-	Ensures AIMessage content ends with required special tokens.
+	"""Ensures AIMessage content ends with required special tokens.
 
 	This function appends `<|end_of_text|>` and `<|eot_id|>` at the end of 
 	the message content if they are not already present.
@@ -292,72 +296,46 @@ def build_react_sys_msg_prompt(tool_desc_prompt: str, react_prompt: str, tools: 
 
 
 
-MGR_SYS_MSG_PROMPT = Prompts.AGENT_MANAGER_PROMPT
-REQ_VER_MSG_PROMPT = Prompts.REQUEST_VERIFY_RELEVANCY
+def model_parse_json(human_msg: HumanMessage, schema: ParseJSON) -> json:
+	"""LLM tạo JSON đúng theo định dạng Pydantic.
 
+	Args:
+		human_msg (HumanMessage): Tin nhắn đầu vào của người dùng.
+		schema (Type[BaseModel]): Pydantic model dùng để kiểm tra JSON.
 
-
-CONFIG = {"configurable": {"thread_id": str(uuid.uuid4())}}
-CHECKPOINTER = MemorySaver()
-STORE = InMemoryStore()
-
-
-
-MODEL_HIGH_TEMP = ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0.8, num_predict=128_000)
-MODEL_LOW_TEMP = ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0.1, num_predict=128_000)
-MODEL_STRUCTURE_OUTPUT = MODEL_LOW_TEMP.with_structured_output(schema=HumanQueryParseJSON)
-
-
-
-def data_agent(state: State) -> State:
-	"""Data Agent."""
-	human_msg = ""
-	ai_msg = add_eotext_eoturn_to_ai_msg(
-		ai_msg=ai_msg, 
-		end_of_turn_id_token=END_OF_TURN_ID, 
-		end_of_text_token=END_OF_TEXT 
-	)
-	return {"messages": {
-		"DATA_AGENT": {
-			"SYSTEM": [MGR_SYS_MSG_PROMPT], 
-			"HUMAN": [human_msg], 
-			"AI": [ai_msg]
-		}}}
-
-
-
-def model_agent(state: State) -> State:
-	"""Model Agent."""
-	sys_msg = ""
-	human_msg = ""
-	ai_msg = add_eotext_eoturn_to_ai_msg(
-		ai_msg=ai_msg, 
-		end_of_turn_id_token=END_OF_TURN_ID, 
-		end_of_text_token=END_OF_TEXT,
-	)
-	return {"messages": {
-		"MODEL_AGENT": {
-			"SYSTEM": [sys_msg], 
-			"HUMAN": [human_msg], 
-			"AI": [ai_msg]
-		}}}
-
-
-
-def op_agent(state: State) -> State:
-	"""Operation Agent."""
-	human_msg = ""
-	ai_msg = add_eotext_eoturn_to_ai_msg(
-		ai_msg=ai_msg, 
-		end_of_turn_id_token=END_OF_TURN_ID, 
-		end_of_text_token=END_OF_TEXT,
-	)
-	return {"messages": {
-		"OP_AGENT": {
-			"SYSTEM": [MGR_SYS_MSG_PROMPT], 
-			"HUMAN": [human_msg], 
-			"AI": [ai_msg]
-		}}}
+	Returns:
+		dict: JSON đã được kiểm tra và xác nhận hợp lệ.
+	"""
+	sys_msg = SystemMessage(content=PAR_JSON_MSG_PROMPT.format(
+		BEGIN_OF_TEXT=BEGIN_OF_TEXT, 
+		START_HEADER_ID=START_HEADER_ID, 
+		END_HEADER_ID=END_HEADER_ID, 
+		json_specification=schema.model_json_schema(), 
+		END_OF_TURN_ID=END_OF_TURN_ID
+	))
+	ai_msg_contain_json = MODEL_LOW_TEMP.invoke([sys_msg, human_msg])
+	if not isinstance(ai_msg_contain_json, AIMessage):
+		ai_msg_contain_json = AIMessage(
+			content=ai_msg_contain_json.strip()
+			if isinstance(ai_msg_contain_json, str)
+			else "At model_parse_json, I'm unable to generate a response."
+		)
+	pattern = r"```json\n(.*?)\n```"
+	match = re.search(pattern=pattern, string=ai_msg_contain_json.content, flags=re.DOTALL)
+	if not match:
+		raise ValueError(">>> Không tìm thấy JSON hợp lệ trong phản hồi của mô hình.")
+	json_string = match.group(1).strip()
+	try:
+		json_data = json.loads(json_string)
+		validated_json = schema.model_validate(json_data)
+		if DEBUG: 
+			print(">>> JSON hợp lệ:")
+			print(json.dumps(validated_json.model_dump(), indent=2, ensure_ascii=False))
+		return validated_json.model_dump("json")
+	except json.JSONDecodeError as e:
+		raise ValueError(f">>> JSON không hợp lệ (DecodeError): {e}")
+	except ValidationError as e:
+		raise ValueError(f">>> JSON không khớp với schema Pydantic:\n{e.json()}")
 
 
 
@@ -382,7 +360,10 @@ def manager_agent(state: State) -> State:
 	human_msg = HumanMessage(
 		content=enhance_human_query(state=state)
 	)
-	human_msg_json = MODEL_STRUCTURE_OUTPUT.invoke([human_msg]) # TODO: biến input đầu vào của user thành chuỗi JSON
+	json_human_msg = model_parse_json(
+		human_msg=human_msg, 
+		schema=ParseJSON
+	)
 	ai_msg = MODEL_LOW_TEMP.invoke([
 		sys_msg, 
 		human_msg
@@ -481,9 +462,6 @@ workflow = StateGraph(State)
 workflow.add_node("MANAGER_AGENT", manager_agent)
 workflow.add_node("REQUEST_VERIFY", request_verify)
 workflow.add_node("PROMPT_AGENT", prompt_agent)
-workflow.add_node("DATA_AGENT", data_agent)
-workflow.add_node("MODEL_AGENT", model_agent)
-workflow.add_node("OP_AGENT", op_agent)
 
 workflow.add_edge(START, "MANAGER_AGENT")
 workflow.add_edge("MANAGER_AGENT", "REQUEST_VERIFY")
@@ -534,12 +512,12 @@ QUERIES = [
 	"""I need a highly accurate machine learning model developed to classify images within the Butterfly Image Classification dataset into their correct species categories. 
 The dataset has been uploaded with its label information in the labels.csv file. 
 Please use a convolutional neural network (CNN) architecture for this task, leveraging transfer learning from a pre-trained ResNet-50 model to improve accuracy. 
-Optimize the model using cross-validation on the training split to fine-tune hyperparameters, and aim for an accuracy of at least 0.95 on the test split. 
+Optimize the model using cross-validation on the training split to fine-tune hyperparameters, and aim for an accuracy of at least 0.95 (95%) on the test split. 
 Provide the final trained model, a detailed report of the training process, hyperparameter settings, accuracy metrics, and a confusion matrix to evaluate performance across different categories.""",
-	
+
 	"""Please provide a classification model that categorizes images into one of four clothing categories. 
 The image path, along with its label information, can be found in the files train labels.csv and test labels.csv. 
-The model should achieve at least 85% accuracy on the test set and be implemented using PyTorch. 
+The model should achieve at least 0.95 (95%) accuracy on the test set and be implemented using PyTorch. 
 Additionally, please include data augmentation techniques and a confusion matrix in the evaluation."""	
 	
 	"""Hello, What is heavier a kilo of feathers or a kilo of steel?""", 

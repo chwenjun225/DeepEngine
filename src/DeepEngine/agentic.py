@@ -68,65 +68,6 @@ def add_unique_msgs(
 
 
 
-class PerformanceMetric(BaseModel):
-	name: str = Field(..., description="accuracy")
-	value: float = Field(..., description=0.98)
-
-class Problem(BaseModel):
-	area: str = Field(..., description="tabular data analysis")
-	downstream_task: str = Field(..., description="tabular classification")
-	application_domain: str = Field(..., description="agriculture")
-	description: str = Field(..., description="""Build a machine learning model, potentially XGBoost or LightGBM, to classify banana quality as Good or Bad based on their numerical information about bananas of different quality (size, weight, sweetness, softness, harvest time, ripeness, and acidity). The model must achieve at least 0.98 accuracy.""")
-	performance_metrics: List[PerformanceMetric]
-	complexity_metrics: List[str] = []
-
-class Dataset(BaseModel):
-	name: str = Field(..., description="banana_quality")
-	modality: List[str] = Field(..., description=["tabular"])
-	target_variables: List[str] = Field(..., description=["quality"])
-	specification: Optional[str] = None
-	description: str = Field(..., description="""A dataset containing numerical information about bananas of different quality, including size, weight, sweetness, softness, harvest time, ripeness, and acidity.""")
-	preprocessing: List[str] = []
-	augmentation: List[str] = []
-	visualization: List[str] = []
-	source: str = Field(..., description="user-upload")
-
-class Model(BaseModel):
-	name: str = Field(..., description="XGBoost")
-	family: str = Field(..., description="ensemble models")
-	type: str = Field(..., description="ensemble")
-	specification: Optional[str] = None
-	description: str = Field(..., description="""A potential model to classify banana quality as Good or Bad, potentially using XGBoost or LightGBM.""")
-
-class HardwareRequirements(BaseModel):
-	gpu: bool
-	cpu_cores: int
-	memory: str
-
-class User(BaseModel):
-	intent: str = Field(..., description="Action the user wants to perform")
-	expertise: str = Field(..., description="User's expertise level")
-
-class HumanQueryParseJSON(BaseModel):
-	user: User
-	problem: Problem
-	dataset: List[Dataset]
-	model: List[Model]
-
-
-
-def validate_json(data):
-	"""Validation parsed JSON output."""
-	try:
-		validated_data = HumanQueryParseJSON(**data)
-		print(">>> JSON hợp lệ!")
-		return validated_data
-	except ValidationError as e:
-		print(">>> JSON không hợp lệ:", e)
-		return None
-
-
-
 class State(BaseModel):
 	"""Manages structured conversation state in a multi-agent system.
 
@@ -190,6 +131,64 @@ class State(BaseModel):
 				f"[ERROR]: Invalid message type '{msgs_type}'. Must be 'SYSTEM', 'HUMAN', or 'AI'."
 			)
 		return self.messages[agent_type][msgs_type]
+
+
+class PerformanceMetric(BaseModel):
+	name: str = Field(..., description="accuracy")
+	value: float = Field(..., description=0.98)
+
+class Problem(BaseModel):
+	area: str = Field(..., description="tabular data analysis")
+	downstream_task: str = Field(..., description="tabular classification")
+	application_domain: str = Field(..., description="agriculture")
+	description: str = Field(..., description="""Build a machine learning model, potentially XGBoost or LightGBM, to classify banana quality as Good or Bad based on their numerical information about bananas of different quality (size, weight, sweetness, softness, harvest time, ripeness, and acidity). The model must achieve at least 0.98 accuracy.""")
+	performance_metrics: List[PerformanceMetric]
+	complexity_metrics: List[str] = []
+
+class Dataset(BaseModel):
+	name: str = Field(..., description="banana_quality")
+	modality: List[str] = Field(..., description=["tabular"])
+	target_variables: List[str] = Field(..., description=["quality"])
+	specification: Optional[str] = None
+	description: str = Field(..., description="""A dataset containing numerical information about bananas of different quality, including size, weight, sweetness, softness, harvest time, ripeness, and acidity.""")
+	preprocessing: List[str] = []
+	augmentation: List[str] = []
+	visualization: List[str] = []
+	source: str = Field(..., description="user-upload")
+
+class Model(BaseModel):
+	name: str = Field(..., description="XGBoost")
+	family: str = Field(..., description="ensemble models")
+	type: str = Field(..., description="ensemble")
+	specification: Optional[str] = None
+	description: str = Field(..., description="""A potential model to classify banana quality as Good or Bad, potentially using XGBoost or LightGBM.""")
+
+class HardwareRequirements(BaseModel):
+	gpu: bool
+	cpu_cores: int
+	memory: str
+
+class User(BaseModel):
+	intent: str = Field(..., description="Action the user wants to perform")
+	expertise: str = Field(..., description="User's expertise level")
+
+class HumanQueryParseJSON(BaseModel):
+	user: User
+	problem: Problem
+	dataset: List[Dataset]
+	model: List[Model]
+
+
+
+def validate_json(data):
+	"""Validation parsed JSON output."""
+	try:
+		validated_data = HumanQueryParseJSON(**data)
+		print(">>> JSON hợp lệ!")
+		return validated_data
+	except ValidationError as e:
+		print(">>> JSON không hợp lệ:", e)
+		return None
 
 
 
@@ -301,8 +300,8 @@ STORE = InMemoryStore()
 
 
 
-MODEL_HIGH_TEMP = ChatOllama(model="llama3.2:3b", temperature=0.8, num_predict=128_000)
-MODEL_LOW_TEMP = ChatOllama(model="llama3.2:3b", temperature=0.1, num_predict=128_000)
+MODEL_HIGH_TEMP = ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0.8, num_predict=128_000)
+MODEL_LOW_TEMP = ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0.1, num_predict=128_000)
 MODEL_STRUCTURE_OUTPUT = MODEL_LOW_TEMP.with_structured_output(schema=HumanQueryParseJSON)
 
 
@@ -375,7 +374,7 @@ def manager_agent(state: State) -> State:
 		BEGIN_OF_TEXT=BEGIN_OF_TEXT, 
 		START_HEADER_ID=START_HEADER_ID, 
 		END_HEADER_ID=END_HEADER_ID, 
-		END_OF_TURN_ID=END_OF_TURN_ID, 
+		END_OF_TURN_ID=END_OF_TURN_ID 
 	))
 	human_msg = HumanMessage(
 		content=enhance_human_query(state=state)

@@ -141,7 +141,10 @@ class Problem(BaseModel):
 	area: str = Field(..., description="tabular data analysis")
 	downstream_task: str = Field(..., description="tabular classification")
 	application_domain: str = Field(..., description="agriculture")
-	description: str = Field(..., description="""Build a machine learning model, potentially XGBoost or LightGBM, to classify banana quality as Good or Bad based on their numerical information about bananas of different quality (size, weight, sweetness, softness, harvest time, ripeness, and acidity). The model must achieve at least 0.98 accuracy.""")
+	description: str = Field(..., description="""E.g,. Build a machine learning model, potentially XGBoost 
+			or LightGBM, to classify banana quality as Good or Bad based on their numerical 
+			information about bananas of different quality (size, weight, sweetness, softness, 
+			harvest time, ripeness, and acidity). The model must achieve at least 0.98 accuracy.""")
 	performance_metrics: List[PerformanceMetric]
 	complexity_metrics: List[str] = []
 
@@ -154,25 +157,25 @@ class Dataset(BaseModel):
 	preprocessing: List[str] = []
 	augmentation: List[str] = []
 	visualization: List[str] = []
-	source: str = Field(..., description="user-upload")
+	source: str 
 
 class Model(BaseModel):
-	name: str = Field(..., description="XGBoost")
-	family: str = Field(..., description="ensemble models")
-	type: str = Field(..., description="ensemble")
+	name: str 
+	family: str 
+	type: str 
 	specification: Optional[str] = None
-	description: str = Field(..., description="""A potential model to classify banana quality as Good or Bad, potentially using XGBoost or LightGBM.""")
+	description: str 
 
 class HardwareRequirements(BaseModel):
-	gpu: bool
-	cpu_cores: int
-	memory: str
+	cuda: bool 
+	cpu_cores: int 
+	memory: str 
 
 class User(BaseModel):
-	intent: str = Field(..., description="Action the user wants to perform")
-	expertise: str = Field(..., description="User's expertise level")
+	intent: str 
+	expertise: str 
 
-class HumanQueryParseJSON(BaseModel):
+class PromptParsingJSON(BaseModel):
 	user: User
 	problem: Problem
 	dataset: List[Dataset]
@@ -183,7 +186,7 @@ class HumanQueryParseJSON(BaseModel):
 def validate_json(data):
 	"""Validation parsed JSON output."""
 	try:
-		validated_data = HumanQueryParseJSON(**data)
+		validated_data = PromptParsingJSON(**data)
 		print(">>> JSON hợp lệ!")
 		return validated_data
 	except ValidationError as e:

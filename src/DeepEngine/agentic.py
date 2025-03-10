@@ -12,7 +12,7 @@ from io import BytesIO
 
 
 
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, TypeAdapter
 from typing_extensions import (Annotated, TypedDict, Sequence, Union, Optional, Literal, List, Dict, Iterator, Any, Type)
 
 
@@ -37,7 +37,7 @@ from langgraph.prebuilt import (create_react_agent, ToolNode, tools_condition)
 
 
 from tools import (add, subtract, multiply, divide, power, square_root)
-from DeepEngine.prompts import Prompts 
+from prompts import Prompts 
 
 
 
@@ -65,7 +65,8 @@ def add_unique_msgs(
 	) -> None:
 	"""Adds a message to the appropriate agent category if it does not already exist."""
 	msg_type = MSG_TYPES.get(type(msg))
-	if not msg_type or agent_type not in msgs: return
+	if not msg_type or agent_type not in msgs: 
+		return
 	if agent_type == "REQUEST_VERIFY":
 		msgs[agent_type][msg_type] = [msg]
 	elif msg.content not in {m.content for m in msgs[agent_type][msg_type]}:
@@ -114,78 +115,51 @@ class State(BaseModel):
 	def get_latest_msg(self, agent_type: str, msg_type: str) -> BaseMessage:
 		"""Returns the latest message from a given agent category and message type."""
 		if agent_type not in self.messages:
-			raise ValueError(
-				f"[ERROR]: Invalid agent category '{agent_type}'. Must be one of {list(self.messages.keys())}."
-			)
+			raise ValueError(f"[ERROR]: Invalid agent category '{agent_type}'. Must be one of {list(self.messages.keys())}.")
 		if msg_type not in self.messages[agent_type]:
-			raise ValueError(
-				f"[ERROR]: Invalid message type '{msg_type}'. Must be 'SYSTEM', 'HUMAN', or 'AI'."
-			)
+			raise ValueError(f"[ERROR]: Invalid message type '{msg_type}'. Must be 'SYSTEM', 'HUMAN', or 'AI'.")
 		return self.messages[agent_type][msg_type][-1] if self.messages[agent_type][msg_type] else None
 
 	def get_msgs_by_agent_type_and_msg_type(self, agent_type: str, msgs_type: str) -> List[BaseMessage]:
 		"""Returns all messages from a specific agent and type."""
 		if agent_type not in self.messages:
-			raise ValueError(
-				f"[ERROR]: Invalid agent category '{agent_type}'. Must be one of {list(self.messages.keys())}."
-			)
+			raise ValueError(f"[ERROR]: Invalid agent category '{agent_type}'. Must be one of {list(self.messages.keys())}.")
 		if msgs_type not in self.messages[agent_type]:
-			raise ValueError(
-				f"[ERROR]: Invalid message type '{msgs_type}'. Must be 'SYSTEM', 'HUMAN', or 'AI'."
-			)
+			raise ValueError(f"[ERROR]: Invalid message type '{msgs_type}'. Must be 'SYSTEM', 'HUMAN', or 'AI'.")
 		return self.messages[agent_type][msgs_type]
 
 
-# TODO: Sử dụng Fewshot-Prompting để khiến model generate JSOn
-class PerformanceMetric(BaseModel):
-	name: str = Field(..., description="Name of the evaluation metric (e.g., accuracy, F1-score).")
-	value: float = Field(..., description="Value of the metric (e.g., 0.98).")
 
-class Problem(BaseModel):
-	area: str = Field(..., description="Problem domain (e.g., tabular data analysis).")
-	downstream_task: str = Field(..., description="Type of ML task (e.g., tabular classification).")
-	application_domain: str = Field(..., description="Application field (e.g., agriculture).")
-	description: str = Field(..., description="Detailed problem description.")
-	performance_metrics: List[PerformanceMetric] = Field(..., description="List of evaluation metrics.")
-	complexity_metrics: List[str] = Field(default=[], description="List of complexity metrics for the problem.")
+class ConversationalResponse(TypedDict):
+	"""Respond in a conversational manner. Be kind and helpful."""
+	response: str = Field(description="A conversational response to the user's query")
 
-class Dataset(BaseModel):
-	name: str = Field(..., description="Dataset name (e.g., banana_quality).")
-	modality: List[str] = Field(..., description="Data modality (e.g., ['tabular']).")
-	target_variables: List[str] = Field(..., description="Target variables to predict.")
-	specification: Optional[str] = Field(None, description="Dataset specifications (if applicable).")
-	description: str = Field(..., description="Dataset description.")
-	preprocessing: List[str] = Field(default=[], description="List of data preprocessing steps.")
-	augmentation: List[str] = Field(default=[], description="List of data augmentation techniques.")
-	visualization: List[str] = Field(default=[], description="List of data visualization methods.")
-	source: str = Field(..., description="Data source (e.g., 'user-upload').")
 
-class Model(BaseModel):
-	name: str = Field(..., description="Model name (e.g., XGBoost, LightGBM, etc.).")
-	family: str = Field(..., description="Model family (e.g., ensemble models).")
-	model_type: str = Field(..., description="Model type (e.g., ensemble, neural network).")
-	specification: Optional[str] = Field(None, description="Model specifications (if applicable).")
-	description: str = Field(..., description="Model description.")
 
-class Hardware(BaseModel):
-	cuda: bool = Field(..., description="Requires CUDA? (True/False).")
-	cpu_cores: int = Field(..., description="Required number of CPU cores.")
-	memory: str = Field(..., description="Required RAM (e.g., '32GB').")
+class UserRequirementsToJSON(TypedDict):
+	"""Parses user requirements related to AI project potential into structured JSON."""
+	problem_area: Annotated[str, ..., "Problem domain (e.g., tabular data analysis)."]
+	task: Annotated[str, ..., "Type of ML task (e.g., classification, regression)."]
+	application: Annotated[str, ..., "Application field (e.g., agriculture, healthcare)."]
+	dataset_name: Annotated[str, ..., "Dataset name (e.g., banana_quality)."]
+	data_modality: Annotated[List[str], ..., "Data modality (e.g., ['tabular', 'image'])."]
+	model_name: Annotated[str, ..., "Model name (e.g., XGBoost, ResNet)."]
+	model_type: Annotated[str, ..., "Model type (e.g., vision, text, tabular)."]
+	hardware_cuda: Annotated[bool, ..., "Requires CUDA? (True/False)."]
+	hardware_cpu_cores: Annotated[int, ..., "Number of CPU cores required."]
+	hardware_memory: Annotated[str, ..., "RAM required (e.g., '32GB')."]
 
-class User(BaseModel):
-	intent: str = Field(..., description="User intent (e.g., 'build', 'train').")
-	expertise: str = Field(..., description="User expertise level (e.g., 'beginner', 'expert', 'medium').")
 
-class ParseJSON(BaseModel):
-	user: User
-	problem: Problem
-	datasets: List[Dataset]
-	model: List[Model]
+
+class TheFinalAnswer(TypedDict):
+	"""Final answer of LLM response to user."""
+	final_output: Union[UserRequirementsToJSON, ConversationalResponse]
 
 
 
 MGR_SYS_MSG_PROMPT = Prompts.AGENT_MANAGER_PROMPT
-REQ_VER_MSG_PROMPT = Prompts.REQUEST_VERIFY_RELEVANCY
+REQ_VER_RELEVANCY_MSG_PROMPT = Prompts.REQUEST_VERIFY_RELEVANCY
+REQ_VER_ADEQUACY_MSG_PROMPT = Prompts.REQUEST_VERIFY_ADEQUACY
 PAR_JSON_MSG_PROMPT = Prompts.PROMPT_PARSE_JSON_AGENT_PROMPT
 
 
@@ -198,10 +172,11 @@ STORE = InMemoryStore()
 
 MODEL_HIGH_TEMP = ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0.8, num_predict=100_000)
 MODEL_LOW_TEMP = ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0, num_predict=100_000)
+MODEL_STRUCTURE_OUTPUT = MODEL_LOW_TEMP.with_structured_output(UserRequirementsToJSON, method="json_schema")
 
 
 
-def enhance_human_query(state: State) -> str:
+def enhance_human_query(human_msg: str) -> str:
 	"""Enhances the human query by formatting it with special tokens of LLama 3 series models.
 
 	This function constructs a structured prompt including:
@@ -210,20 +185,19 @@ def enhance_human_query(state: State) -> str:
 	- `ai_msg (space for AI response)
 
 	Args:
-		state (State): The current conversation state.
+		human_msg (str): User's query.
 
 	Returns:
-		HumanMessage: A formatted human query wrapped with special tokens.
+		formatted_query: A formatted human query wrapped with special tokens.
 
 	Example:
 		>>> state.user_query = [HumanMessage(content="What is AI?")]
 		>>> enhance_human_query(state)
-		HumanMessage(content='<|start_header_id|>HUMAN<|end_header_id|>What is AI?<|end_of_turn_id|><|start_header_id|>AI<|end_header_id|>')
+		formatted_query="<|start_header_id|>HUMAN<|end_header_id|>What is AI?<|end_of_turn_id|><|start_header_id|>AI<|end_header_id|>"
 	"""
-	human_query = state.human_query[-1].content if state.human_query else ""
 	formatted_query = (
 		f"{START_HEADER_ID}HUMAN{END_HEADER_ID}"
-		f"{human_query}{END_OF_TURN_ID}"
+		f"{human_msg}{END_OF_TURN_ID}"
 		f"{START_HEADER_ID}AI{END_HEADER_ID}"
 	)
 	return formatted_query
@@ -296,7 +270,7 @@ def build_react_sys_msg_prompt(tool_desc_prompt: str, react_prompt: str, tools: 
 
 
 
-def model_parse_json(human_msg: HumanMessage, schema: ParseJSON) -> json:
+def model_parse_json(human_msg: HumanMessage, schema: UserRequirementsToJSON) -> json:
 	"""LLM tạo JSON đúng theo định dạng Pydantic.
 
 	Args:
@@ -306,36 +280,31 @@ def model_parse_json(human_msg: HumanMessage, schema: ParseJSON) -> json:
 	Returns:
 		dict: JSON đã được kiểm tra và xác nhận hợp lệ.
 	"""
-	sys_msg = SystemMessage(content=PAR_JSON_MSG_PROMPT.format(
-		BEGIN_OF_TEXT=BEGIN_OF_TEXT, 
-		START_HEADER_ID=START_HEADER_ID, 
-		END_HEADER_ID=END_HEADER_ID, 
-		json_specification=schema.model_json_schema(), 
-		END_OF_TURN_ID=END_OF_TURN_ID
-	))
-	ai_msg_contain_json = MODEL_LOW_TEMP.invoke([sys_msg, human_msg])
-	if not isinstance(ai_msg_contain_json, AIMessage):
-		ai_msg_contain_json = AIMessage(
-			content=ai_msg_contain_json.strip()
-			if isinstance(ai_msg_contain_json, str)
-			else "At model_parse_json, I'm unable to generate a response."
-		)
-	pattern = r"```json\n(.*?)\n```"
-	match = re.search(pattern=pattern, string=ai_msg_contain_json.content, flags=re.DOTALL)
-	if not match:
-		raise ValueError(">>> Không tìm thấy JSON hợp lệ trong phản hồi của mô hình.")
-	json_string = match.group(1).strip()
-	try:
-		json_data = json.loads(json_string)
-		validated_json = schema.model_validate(json_data)
-		if DEBUG: 
-			print(">>> JSON hợp lệ:")
-			print(json.dumps(validated_json.model_dump(), indent=2, ensure_ascii=False))
-		return validated_json.model_dump("json")
-	except json.JSONDecodeError as e:
-		raise ValueError(f">>> JSON không hợp lệ (DecodeError): {e}")
-	except ValidationError as e:
-		raise ValueError(f">>> JSON không khớp với schema Pydantic:\n{e.json()}")
+	json_data = MODEL_STRUCTURE_OUTPUT.invoke([human_msg])
+	if not json_data:
+		json_schema = str(TypeAdapter(UserRequirementsToJSON).json_schema()["properties"])
+		sys_msg = SystemMessage(content=PAR_JSON_MSG_PROMPT.format(
+			BEGIN_OF_TEXT=BEGIN_OF_TEXT, 
+			START_HEADER_ID=START_HEADER_ID, 
+			END_HEADER_ID=END_HEADER_ID, 
+			json_specification=json_schema, 
+			human_msg=human_msg.content, 
+			END_OF_TURN_ID=END_OF_TURN_ID
+		))
+		ai_msg_json = MODEL_LOW_TEMP.invoke([sys_msg])
+		pattern = r"```json\n(.*?)\n```"
+		match = re.search(pattern=pattern, string=ai_msg_json.content, flags=re.DOTALL)
+		if not match:
+			raise ValueError(">>> Không tìm thấy JSON hợp lệ trong phản hồi của mô hình.")
+		json_string = match.group(1).strip()
+		try:
+			json_data = json.loads(json_string)
+			if DEBUG: 
+				print(">>> JSON hợp lệ:")
+				print(json.dumps(json_data, indent=2, ensure_ascii=False))
+		except json.JSONDecodeError as e:
+			raise ValueError(f">>> JSON không hợp lệ (DecodeError): {e}")
+	return json_data 
 
 
 
@@ -343,11 +312,9 @@ def manager_agent(state: State) -> State:
 	"""Manager Agent.
 
 	Example:
-		>>> Human query: I need a very accurate model 
-				to classify images in the Butterfly Image 
-				Classification dataset into their respective 
-				categories. 
-				The dataset has been uploaded with its label 
+		>>> Human query: I need a very accurate model to classify images in the 
+				Butterfly Image Classification dataset into their respective 
+				categories. The dataset has been uploaded with its label 
 				information in the labels.csv file.
 		>>> AI response: ...
 	"""
@@ -357,17 +324,11 @@ def manager_agent(state: State) -> State:
 		END_HEADER_ID=END_HEADER_ID, 
 		END_OF_TURN_ID=END_OF_TURN_ID 
 	))
-	human_msg = HumanMessage(
-		content=enhance_human_query(state=state)
-	)
-	json_human_msg = model_parse_json(
-		human_msg=human_msg, 
-		schema=ParseJSON
-	)
-	ai_msg = MODEL_LOW_TEMP.invoke([
-		sys_msg, 
-		human_msg
-	])
+	human_msg = HumanMessage(content=enhance_human_query(
+			human_msg=state.human_query[-1].content if state.human_query else ""
+		))
+	ai_msg_json = HumanMessage(str(model_parse_json(human_msg=human_msg, schema=UserRequirementsToJSON)))
+	ai_msg = MODEL_LOW_TEMP.invoke([sys_msg, human_msg, ai_msg_json])
 	if not isinstance(ai_msg, AIMessage):
 		ai_msg = AIMessage(
 			content=ai_msg.strip() 
@@ -383,51 +344,84 @@ def manager_agent(state: State) -> State:
 		"MANAGER_AGENT": {
 			"SYSTEM": [sys_msg], 
 			"HUMAN": [human_msg], 
-			"AI": [ai_msg]
+			"AI": [AIMessage("<|parse_json|>" + ai_msg_json.content + "<|end_parse_json|>" + ai_msg.content)]
 		}}}
 
 
 
 def check_contain_yes_or_no(ai_msg: str) -> str:
 	"""Checks if the AI response contains 'Yes' or 'No'."""
-	match = re.search(r"<\|end_header_id\|>\s*(Yes|No)\s*<\|eot_id\|>", ai_msg, re.IGNORECASE)
-	return match.group(1) if match else f"[ERROR]: Can't found ('Yes' or 'No') in this {ai_msg}"
+	pattern = r"<\|start_header_id\|>assistant<\|end_header_id\|>\s*\n\s*(yes|no)\b"
+	match = re.search(pattern=pattern, string=ai_msg, flags=re.IGNORECASE)
+	if match:
+		return match.group(1).upper()
+	else:
+		return "[ERROR]: Không tìm thấy 'Yes' hoặc 'No' trong phản hồi AI!"
 
 
 
-def request_verify(state: State):
-	"""Request verification output of Agent Manager."""
-	human_msg = state.human_query[-1].content
-	sys_msg = SystemMessage(content=REQ_VER_MSG_PROMPT.format(
-		instruction=human_msg, 
-		begin_of_text=BEGIN_OF_TEXT, 
-		start_header_id=START_HEADER_ID, 
-		end_header_id=END_HEADER_ID, 
-		end_of_turn_id=END_OF_TURN_ID
+def req_ver_relevancy(state: State) -> List[BaseMessage]:
+	"""Check request verification of human_query."""
+	human_msg = state.human_query[-1]
+	sys_msg = SystemMessage(content=REQ_VER_RELEVANCY_MSG_PROMPT.format(
+		instruction=human_msg.content, 
+		BEGIN_OF_TEXT=BEGIN_OF_TEXT, 
+		START_HEADER_ID=START_HEADER_ID, 
+		END_HEADER_ID=END_HEADER_ID, 
+		END_OF_TURN_ID=END_OF_TURN_ID
 	))
 	ai_msg = MODEL_LOW_TEMP.invoke([sys_msg])
 	if not isinstance(ai_msg, AIMessage):
-		ai_msg = AIMessage(
-			content=ai_msg.strip() 
-			if isinstance(ai_msg, str) 
-			else "At node_request_verify, I'm unable to generate a response."
-		)
+		ai_msg = AIMessage(content=ai_msg.strip() if isinstance(ai_msg, str) else "At node_request_verify-REQUEST_VERIFY_RELEVANCY, I'm unable to generate a response.")
 	ai_msg = add_eotext_eoturn_to_ai_msg(
 		ai_msg=ai_msg, 
 		end_of_turn_id_token=END_OF_TURN_ID, 
 		end_of_text_token=END_OF_TEXT
 	)
-	ai_msg_yes_or_no = AIMessage(check_contain_yes_or_no(ai_msg=ai_msg.content))
+	return [sys_msg, human_msg, ai_msg]
+
+
+
+def req_ver_adequacy(state: State) -> List[BaseMessage]:
+	"""Check request verification of AIMessage response with JSON object."""
+	pattern = r"<\|parse_json\|>(.*?)<\|end_parse_json\|>"
+	human_msg = state.messages['MANAGER_AGENT']['HUMAN'][-1]
+	ai_msg = state.messages['MANAGER_AGENT']['AI'][-1]
+	json_obj_from_ai_msg = re.findall(pattern=pattern, string=ai_msg.content, flags=re.DOTALL)[-1]
+	sys_msg = SystemMessage(content=REQ_VER_ADEQUACY_MSG_PROMPT.format(
+		BEGIN_OF_TEXT=BEGIN_OF_TEXT, 
+		START_HEADER_ID=START_HEADER_ID, 
+		END_HEADER_ID=END_HEADER_ID, 
+		parsed_user_requirements=json_obj_from_ai_msg, 
+		END_OF_TURN_ID=END_OF_TURN_ID
+	))
+	ai_msg = MODEL_LOW_TEMP.invoke([sys_msg])
+	if not isinstance(ai_msg, AIMessage):
+		ai_msg = AIMessage(content=ai_msg.strip() if isinstance(ai_msg, str) else "At node_request_verify-REQUEST_VERIFY_ADEQUACY, I'm unable to generate a response.")
+	ai_msg = add_eotext_eoturn_to_ai_msg(
+		ai_msg=ai_msg, 
+		end_of_turn_id_token=END_OF_TURN_ID, 
+		end_of_text_token=END_OF_TEXT
+	)
+	return [sys_msg, human_msg, ai_msg]
+
+
+
+def request_verify(state: State) -> State:
+	"""Request verification output of Agent Manager."""
+	ai_msg_relevancy = req_ver_relevancy(state=state)[2]
+	ai_msg_adequacy = req_ver_adequacy(state=state)[2]
+	yes_no_relevancy = check_contain_yes_or_no(ai_msg=ai_msg_relevancy.content)
+	yes_no_adequacy  = check_contain_yes_or_no(ai_msg=ai_msg_adequacy.content )
+	ai_msg_yes_no = "YES" if "YES" in (yes_no_relevancy, yes_no_adequacy) else "NO"
 	return {"messages": {
 		"REQUEST_VERIFY": {
-			"SYSTEM": [sys_msg], 
-			"HUMAN": [human_msg], 
-			"AI": [ai_msg_yes_or_no] 
+			"AI": [AIMessage(content=ai_msg_yes_no)] 
 		}}}
 
 
 
-def req_ver_yes_or_no(state: State):
+def req_ver_determine_yes_or_no(state: State) -> State:
 	"""Determines the next step based on the AI response from REQUEST_VERIFY."""
 	resp_map = {
 		"YES": "PROMPT_AGENT", 
@@ -440,13 +434,13 @@ def req_ver_yes_or_no(state: State):
 	if not ai_msg or not hasattr(ai_msg, "content"):
 		raise ValueError("[ERROR]: No valid AI message found in REQUEST_VERIFY.")
 	resp = ai_msg.content.strip().upper()
-	return resp_map.get(resp, ValueError(f"[ERROR]: Unexpected response '{resp}'"))
+	return resp_map.get(resp, ValueError(f">>> [ERROR]: Unexpected response '{resp}'"))
 
 
 
 def prompt_agent(state: State) -> State:
 	"""Prompt Agent."""
-	human_msg = ""
+	human_msg = "" # Tiến đến pipeline prompt-agent 
 	ai_msg = ""
 	return {"messages": {
 		"PROMPT_AGENT": {
@@ -465,7 +459,7 @@ workflow.add_node("PROMPT_AGENT", prompt_agent)
 
 workflow.add_edge(START, "MANAGER_AGENT")
 workflow.add_edge("MANAGER_AGENT", "REQUEST_VERIFY")
-workflow.add_conditional_edges("REQUEST_VERIFY", req_ver_yes_or_no)
+workflow.add_conditional_edges("REQUEST_VERIFY", req_ver_determine_yes_or_no)
 workflow.add_edge("PROMPT_AGENT", "REQUEST_VERIFY")
 
 app = workflow.compile(

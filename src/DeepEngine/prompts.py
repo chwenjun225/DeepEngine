@@ -31,24 +31,24 @@ Answer only `Pass` or `Fail`"""
 
 
 
-	REQUEST_VERIFY_ADEQUACY = """Given the following JSON object representing the user's requirement for a potential ML or AI project, please tell me whether we have essential information (e.g., problem and dataset) to be used for a AutoML project?
+	REQUEST_VERIFY_ADEQUACY = """{BEGIN_OF_TEXT}{START_HEADER_ID}SYSTEM{END_HEADER_ID}
+Given the following JSON object representing the user's requirement for a potential ML or AI project, please tell me whether we have essential information (e.g., problem and dataset) to be used for a AutoML project?
 Please note that our users are not AI experts, you must focus only on the essential requirements, e.g., problem and brief dataset descriptions.
-You do not need to check every details of the requirements. You must also answer `yes` even
-though it lacks detailed and specific information.
+You do not need to check every details of the requirements. You must also answer `yes` even though it lacks detailed and specific information.
 
 ```json
 {parsed_user_requirements}
 ```
 
 Please answer with this format: `a `yes` or `no` answer; your reasons for the answer` by using `;` to separate between the answer and its reasons.
-If the answer is `no`, you must tell me the alternative solutions or examples for completing such missing information.""" 
+If the answer is `no`, you must tell me the alternative solutions or examples for completing such missing information.{END_OF_TURN_ID}""" 
 
 
 
 	REQUEST_VERIFY_RELEVANCY = """{BEGIN_OF_TEXT}{START_HEADER_ID}SYSTEM{END_HEADER_ID}
 Is the following statement relevant to a potential machine learning or a artificial intelligence project.{END_OF_TURN_ID}
 
-{START_HEADER_ID}THE_FOLLOWING_STATEMENT{END_HEADER_ID}
+{START_HEADER_ID}HUMAN{END_HEADER_ID}
 ```{instruction}```{END_OF_TURN_ID}
 
 {START_HEADER_ID}AI{END_HEADER_ID}
@@ -267,19 +267,34 @@ suggested hyperparameters.
 4. Extract useful information and underlying characteristics of the dataset.""" 
 
 
-# TODO: TỐi ưu hóa lại prompt sao cho ngắn gọn, triển khai nhanh nhất fewshot-prompt parse JSON, và tối ưu lại pydantic model json output parse
-	PROMPT_PARSE_JSON_AGENT_PROMPT = """{BEGIN_OF_TEXT}""" + \
-"""{START_HEADER_ID}SYSTEM{END_HEADER_ID}
-You are an assistant project manager in the AutoML development team. 
-Your task is to parse the user's requirement into a valid JSON format, strictly following the given JSON specification schema as your reference. 
-Your response must exactly follow the given JSON schema and be based only on the user's instructions. 
-Make sure that your answer only contains the JSON response.{END_OF_TURN_ID}""" + \
-"""{START_HEADER_ID}JSON SCHEMA{END_HEADER_ID}
+
+	PROMPT_PARSE_JSON_AGENT_PROMPT = """{BEGIN_OF_TEXT}
+{START_HEADER_ID}SYSTEM{END_HEADER_ID}
+You are an AI project assistant. Your task is to extract and structure user requirements into a valid JSON format based strictly on the following schema:
 ```json
-{json_schema}```{END_OF_TURN_ID}""" + \
-"""{START_HEADER_ID}HUMAN{END_HEADER_ID}""" + """Here are some examples:""" + \
-"""{START_HEADER_ID}AI{END_HEADER_ID}
-Remember, your response must begin with "```json" or "{{" and end with "```" or "}}".{END_OF_TURN_ID}""" 
+{json_schema}
+```
+Your response must follow the JSON schema exactly and be based only on the user's input. Ensure that your response only contains the JSON output with no extra text.
+### Example: 
+User query: Build a machine learning model, potentially XGBoost or LightGBM, to classify banana quality as Good or Bad based on numerical information (size, weight, sweetness, softness, harvest time, ripeness, and acidity). We have uploaded the dataset as 'banana_quality.csv'. The model must achieve at least 0.98 accuracy.
+AI response:
+```json
+{
+	"problem_area": "tabular data analysis",
+	"task": "classification",
+	"application": "agriculture",
+	"dataset_name": "banana_quality",
+	"data_modality": ["tabular"],
+	"model_name": "XGBoost",
+	"model_type": "ensemble",
+	"hardware_cuda": False,
+	"hardware_cpu_cores": 8,
+	"hardware_memory": "32GB"
+}```{END_OF_TURN_ID}
+{START_HEADER_ID}HUMAN{END_HEADER_ID}
+{human_msg}{END_OF_TURN_ID}
+{START_HEADER_ID}AI{END_HEADER_ID}
+Let's begin. Your response must only contain valid JSON that strictly follows the schema. {END_OF_TURN_ID}"""
 
 
 
@@ -302,18 +317,19 @@ You are an experienced senior project manager of a automated machine learning pr
 
 
 
-class Fewshots:
-    PARSE_JSON = """Here are some examples:
-{START_HEADER_ID}HUMAN{END_HEADER_ID}
-Build a machine learning model, potentially XGBoost or LightGBM, to classify banana quality as Good or Bad based on their numerical information about bananas of different quality (size, weight, sweetness, softness, harvest time, ripeness, and acidity). We have uploaded the entire dataset for you here in the banana quality.csv file. The model must achieve at least 0.98 accuracy.{END_OF_TURN_ID}
+	PROMPT_PARSE_JSON_AGENT_PROMPT_ARCHIVE = """{BEGIN_OF_TEXT}
+{START_HEADER_ID}SYSTEM{END_HEADER_ID}
+You are an assistant project manager in the AutoML development team. 
+Your task is to parse the user's requirement into a valid JSON format, strictly following the given JSON specification schema as your reference. 
+Your response must exactly follow the given JSON schema and be based only on the user's instructions. 
+Make sure that your answer only contains the JSON response.{END_OF_TURN_ID}""" + """{START_HEADER_ID}JSON SCHEMA{END_HEADER_ID}
+```json
+{json_schema}
+```{END_OF_TURN_ID}""" + """Here are some example:
+### EXAMPLE 1:
+{START_HEADER_ID}HUMAN{END_HEADER_ID}Build a model to classify banana quality as Good or Bad based on their numerical information about bananas of different quality (size, weight, sweetness, softness, harvest time, ripeness, and acidity). 
+We have uploaded the entire dataset for you here in the banana quality.csv file.{END_OF_TURN_ID}
 {START_HEADER_ID}AI{END_HEADER_ID}
-
-```
-
-{END_OF_TURN_ID}
-"""
-
-FEWSHOT_PROMPT_PARSE_JSON_EXAMPLE_1 = """
 ```json
 {
 	"user": {"intent": "build", "expertise": "medium"},
@@ -321,10 +337,8 @@ FEWSHOT_PROMPT_PARSE_JSON_EXAMPLE_1 = """
 		"area": "tabular data analysis",
 		"downstream_task": "tabular classification",
 		"application_domain": "agriculture",
-		"description": "Build a machine learning model, potentially XGBoost or LightGBM, to classify banana quality as Good or Bad based on their numerical information about bananas of different quality (size, weight, sweetness, softness, harvest time, ripeness, and acidity). The model must achieve at least 0.98 accuracy.",
-		"performance_metrics": [
-			{"name": "accuracy", "value": 0.98}
-		], 
+		"description": "Build a machine learning model, potentially XGBoost or LightGBM, to classify banana quality as Good or Bad based on their numerical information about bananas of different quality (size, weight, sweetness, softness, harvest time, ripeness, and acidity).",
+		"performance_metrics": [{"name": "accuracy", "value": 0.98}], 
 		"complexity_metrics": []
 	},
 	"dataset": [
@@ -342,28 +356,25 @@ FEWSHOT_PROMPT_PARSE_JSON_EXAMPLE_1 = """
 	],
 	"model": [
 		{
-			"name": "XGBoost",
-			"family": "ensemble models",
-			"type": "ensemble",
+			"name": "",
+			"family": "",
+			"type": "classical machine learning",
 			"specification": None,
-			"description": "A potential model to classify banana quality as Good or Bad, potentially using XGBoost or LightGBM."
+			"description": "A model to classify banana quality as Good or Bad based on their numerical information."
 		}
 	]
 }
-"""
-
-FEWSHOT_PROMPT_PARSE_JSON_EXAMPLE_2 = """
-```json
+```""" + """{END_OF_TURN_ID}""" + """### EXAMPLE 2:
+{START_HEADER_ID}HUMAN{END_HEADER_ID}Build a machine learning model, potentially XGBoost or LightGBM, to classify banana quality as Good or Bad based on their numerical information about bananas of different quality (size, weight, sweetness, softness, harvest time, ripeness, and acidity). 
+We have uploaded the entire dataset for you here in the banana quality.csv file. The model must achieve at least 0.98 accuracy.{END_OF_TURN_ID}
+{START_HEADER_ID}AI{END_HEADER_ID}```json
 {
-	"user": {"intent": "build", "expertise": "medium"},
 	"problem": {
 		"area": "tabular data analysis",
 		"downstream_task": "tabular classification",
 		"application_domain": "agriculture",
-		"description": "Build a machine learning model, potentially XGBoost or LightGBM, to classify banana quality as Good or Bad based on their numerical information about bananas of different quality (size, weight, sweetness, softness, harvest time, ripeness, and acidity). The model must achieve at least 0.98 accuracy.",
-		"performance_metrics": [
-			{"name": "accuracy", "value": 0.98}
-		], 
+		"description": "Build a machine learning model, potentially XGBoost or LightGBM, to classify banana quality as Good or Bad based on their numerical information about bananas of different quality (size, weight, sweetness, softness, harvest time, ripeness, and acidity).",
+		"performance_metrics": [{"name": "accuracy", "value": 0.98}], 
 		"complexity_metrics": []
 	},
 	"dataset": [
@@ -381,12 +392,12 @@ FEWSHOT_PROMPT_PARSE_JSON_EXAMPLE_2 = """
 	],
 	"model": [
 		{
-			"name": "XGBoost",
-			"family": "ensemble models",
-			"type": "ensemble",
+			"name": "",
+			"family": "",
+			"type": "classical machine learning",
 			"specification": None,
-			"description": "A potential model to classify banana quality as Good or Bad, potentially using XGBoost or LightGBM."
+			"description": "A model to classify banana quality as Good or Bad based on their numerical information."
 		}
 	]
 }
-"""
+```""" + """{END_OF_TURN_ID}""" + """{START_HEADER_ID}AI{END_HEADER_ID}Let's begin. Remember, your response must begin with "```json" or "{{" and end with "```" or "}}".{END_OF_TURN_ID}""" 

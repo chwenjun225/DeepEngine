@@ -54,23 +54,9 @@ END_OF_TURN_ID		= 	"<|eot_id|>"
 
 
 
-MSG_TYPES = {SystemMessage: "SYSTEM", HumanMessage: "HUMAN", AIMessage: "AI"}
+MSG_TYPES = {SystemMessage: "SYS", HumanMessage: "HUMAN", AIMessage: "AI"}
 
 
-
-def add_unique_msgs(
-		msgs: Dict[str, Dict[str, List[BaseMessage]]],
-		agent_type: str, 
-		msg: BaseMessage
-	) -> None:
-	"""Adds a message to the appropriate agent category if it does not already exist."""
-	msg_type = MSG_TYPES.get(type(msg))
-	if not msg_type or agent_type not in msgs: 
-		return
-	if agent_type == "REQUEST_VERIFY":
-		msgs[agent_type][msg_type] = [msg]
-	elif msg.content not in {m.content for m in msgs[agent_type][msg_type]}:
-		msgs[agent_type][msg_type].append(msg)
 
 class State(BaseModel):
 	"""Manages structured conversation state in a multi-agent system.
@@ -90,14 +76,14 @@ class State(BaseModel):
 		get_msgs_by_agent_type_and_msg_type(agent_type, msgs_type): Retrieves all messages from a specific agent and type.
 	"""
 	human_query: Annotated[List[HumanMessage], add_messages] = Field(default_factory=list)
-	messages: Dict[str, Dict[str, Annotated[List[BaseMessage], add_unique_msgs]]] = Field(
+	messages: Dict[str, Dict[str, List[BaseMessage]]] = Field(
 		default_factory = lambda: {
-			"MANAGER_AGENT"		: 	{	"SYSTEM": [], "HUMAN": [], "AI": []		}, 
-			"REQUEST_VERIFY"	: 	{	"SYSTEM": [], "HUMAN": [], "AI": []		}, 
-			"PROMPT_AGENT"		: 	{	"SYSTEM": [], "HUMAN": [], "AI": []		}, 
-			"DATA_AGENT"		: 	{	"SYSTEM": [], "HUMAN": [], "AI": []		}, 
-			"MODEL_AGENT"		: 	{	"SYSTEM": [], "HUMAN": [], "AI": []		}, 
-			"OP_AGENT"			: 	{	"SYSTEM": [], "HUMAN": [], "AI": []		}
+			"MANAGER_AGENT"		: 	{	"SYS": [], "HUMAN": [], "AI": []		}, 
+			"REQUEST_VERIFY"	: 	{	"SYS": [], "HUMAN": [], "AI": []		}, 
+			"PROMPT_AGENT"		: 	{	"SYS": [], "HUMAN": [], "AI": []		}, 
+			"DATA_AGENT"		: 	{	"SYS": [], "HUMAN": [], "AI": []		}, 
+			"MODEL_AGENT"		: 	{	"SYS": [], "HUMAN": [], "AI": []		}, 
+			"OP_AGENT"			: 	{	"SYS": [], "HUMAN": [], "AI": []		}
 		}, 
 		description="Categorized Multi-Agent messages: MANAGER_AGENT, REQUEST_VERIFY, PROMPT_AGENT, DATA_AGENT, MODEL_AGENT, OP_AGENT."
 	)
@@ -114,19 +100,42 @@ class State(BaseModel):
 
 	def get_latest_msg(self, agent_type: str, msg_type: str) -> BaseMessage:
 		"""Returns the latest message from a given agent category and message type."""
-		if agent_type not in self.messages:
-			raise ValueError(f"[ERROR]: Invalid agent category '{agent_type}'. Must be one of {list(self.messages.keys())}.")
-		if msg_type not in self.messages[agent_type]:
-			raise ValueError(f"[ERROR]: Invalid message type '{msg_type}'. Must be 'SYSTEM', 'HUMAN', or 'AI'.")
+		if agent_type not in self.messages:raise ValueError(f"[ERROR]: Invalid agent category '{agent_type}'. Must be one of {list(self.messages.keys())}.")
+		if msg_type not in self.messages[agent_type]:raise ValueError(f"[ERROR]: Invalid message type '{msg_type}'. Must be 'SYSTEM', 'HUMAN', or 'AI'.")
 		return self.messages[agent_type][msg_type][-1] if self.messages[agent_type][msg_type] else None
 
 	def get_msgs_by_agent_type_and_msg_type(self, agent_type: str, msgs_type: str) -> List[BaseMessage]:
 		"""Returns all messages from a specific agent and type."""
-		if agent_type not in self.messages:
-			raise ValueError(f"[ERROR]: Invalid agent category '{agent_type}'. Must be one of {list(self.messages.keys())}.")
-		if msgs_type not in self.messages[agent_type]:
-			raise ValueError(f"[ERROR]: Invalid message type '{msgs_type}'. Must be 'SYSTEM', 'HUMAN', or 'AI'.")
+		if agent_type not in self.messages:raise ValueError(f"[ERROR]: Invalid agent category '{agent_type}'. Must be one of {list(self.messages.keys())}.")
+		if msgs_type not in self.messages[agent_type]:raise ValueError(f"[ERROR]: Invalid message type '{msgs_type}'. Must be 'SYSTEM', 'HUMAN', or 'AI'.")
 		return self.messages[agent_type][msgs_type]
+
+	def add_unique_msgs(
+			self, 
+			node: str, # AGENT_MANAGER
+			msgs_type: str, # "AI", "HUMAN", "SYS"
+			msg: BaseMessage # 1 tin nhắn muốn lưu 
+		) -> None:
+		# TODO: Hàm này nhận đầu vào cần phải là một NODE: str, msgs_type: str ("AI", "HUMAN", "SYS"), msg: tin nhắn . Kiểm tra xem NODE đã tồn tại trong State chưa, thì tạo một node mới
+		# Kiểm tra xem node đã tồn tại chưa 
+		"""Adds a message to a specific node in the State.
+
+		Args:
+			node (str): The agent node, e.g., "MANAGER_AGENT", "REQUEST_VERIFY", etc.
+			msgs_type (str): The message type, one of "AI", "HUMAN", "SYS".
+			msg (BaseMessage): The message object to be stored.
+
+		Returns:
+			None
+		""" 
+		if node not in self.messages:
+			self.messages[node] = {"SYS": [], "HUMAN": [], "AI": []}
+		# kiểm tra tin nhắn đã tồn tại trong lịch sử chưa 
+		if node == "REQUEST_VERIFY":
+			self.messages[node][msgs_type] = [msg]
+		else:
+			if msg.content not in {m.content for m in self.messages[node][msgs_type]}:
+				self.messages[node][msgs_type].append(msg)
 
 
 
@@ -160,7 +169,7 @@ class TheFinalAnswer(TypedDict):
 MGR_SYS_MSG_PROMPT = Prompts.AGENT_MANAGER_PROMPT
 REQ_VER_RELEVANCY_MSG_PROMPT = Prompts.REQUEST_VERIFY_RELEVANCY
 REQ_VER_ADEQUACY_MSG_PROMPT = Prompts.REQUEST_VERIFY_ADEQUACY
-PAR_JSON_MSG_PROMPT = Prompts.PROMPT_PARSE_JSON_AGENT_PROMPT
+PAR_JSON_MSG_PROMPT = Prompts.PARSE_JSON_PROMPT
 
 
 
@@ -324,9 +333,9 @@ def manager_agent(state: State) -> State:
 		END_HEADER_ID=END_HEADER_ID, 
 		END_OF_TURN_ID=END_OF_TURN_ID 
 	))
-	human_msg = HumanMessage(content=enhance_human_query(
-			human_msg=state.human_query[-1].content if state.human_query else ""
-		))
+	human_msg = HumanMessage(
+		content=enhance_human_query(human_msg=state.human_query[-1].content if state.human_query else "")
+	)
 	ai_msg_json = HumanMessage(str(model_parse_json(human_msg=human_msg, schema=UserRequirementsToJSON)))
 	ai_msg = MODEL_LOW_TEMP.invoke([sys_msg, human_msg, ai_msg_json])
 	if not isinstance(ai_msg, AIMessage):
@@ -335,17 +344,24 @@ def manager_agent(state: State) -> State:
 			if isinstance(ai_msg, str) 
 			else "At node_manager_agent, I'm unable to generate a response."
 		)
-	ai_msg = add_eotext_eoturn_to_ai_msg(
-		ai_msg=ai_msg, 
-		end_of_turn_id_token=END_OF_TURN_ID, 
-		end_of_text_token=END_OF_TEXT,
-	)
-	return {"messages": {
-		"MANAGER_AGENT": {
-			"SYSTEM": [sys_msg], 
-			"HUMAN": [human_msg], 
-			"AI": [AIMessage("<|parse_json|>" + ai_msg_json.content + "<|end_parse_json|>" + ai_msg.content)]
-		}}}
+	ai_msg = add_eotext_eoturn_to_ai_msg(ai_msg=ai_msg, end_of_turn_id_token=END_OF_TURN_ID, end_of_text_token=END_OF_TEXT)
+
+	# TODO: Sửa lại phần cập nhật tin nhắn state cho node MANAGER_AGENT
+	# if "MANAGER_AGENT" not in state.messages:
+	# 	state.messages["MANAGER_AGENT"] = {"SYSTEM": [], "HUMAN": [], "AI": []}
+
+	
+	# state.add_unique_msgs(agent_type="MANAGER_AGENT")
+
+
+	# add_unique_msgs(state, msgs="MANAGER_AGENT", agent_type="AI", msg=ai_msg)
+
+	# return {"messages": {
+	# 	"MANAGER_AGENT":  {
+	# 		"SYSTEM":  [sys_msg], 
+	# 		"HUMAN": [human_msg], 
+	# 		"AI": [AIMessage("<|parse_json|>" + ai_msg_json.content + "<|end_parse_json|>" + ai_msg.content)]
+	# 	}}}
 
 
 
@@ -372,7 +388,11 @@ def req_ver_relevancy(state: State) -> List[BaseMessage]:
 	))
 	ai_msg = MODEL_LOW_TEMP.invoke([sys_msg])
 	if not isinstance(ai_msg, AIMessage):
-		ai_msg = AIMessage(content=ai_msg.strip() if isinstance(ai_msg, str) else "At node_request_verify-REQUEST_VERIFY_RELEVANCY, I'm unable to generate a response.")
+		ai_msg = AIMessage(
+			content=ai_msg.strip() 
+			if isinstance(ai_msg, str) 
+			else "At node_request_verify-REQUEST_VERIFY_RELEVANCY, I'm unable to generate a response."
+		)
 	ai_msg = add_eotext_eoturn_to_ai_msg(
 		ai_msg=ai_msg, 
 		end_of_turn_id_token=END_OF_TURN_ID, 
@@ -397,7 +417,11 @@ def req_ver_adequacy(state: State) -> List[BaseMessage]:
 	))
 	ai_msg = MODEL_LOW_TEMP.invoke([sys_msg])
 	if not isinstance(ai_msg, AIMessage):
-		ai_msg = AIMessage(content=ai_msg.strip() if isinstance(ai_msg, str) else "At node_request_verify-REQUEST_VERIFY_ADEQUACY, I'm unable to generate a response.")
+		ai_msg = AIMessage(
+			content=ai_msg.strip()
+			if isinstance(ai_msg, str) 
+			else "At node_request_verify-REQUEST_VERIFY_ADEQUACY, I'm unable to generate a response."
+		)
 	ai_msg = add_eotext_eoturn_to_ai_msg(
 		ai_msg=ai_msg, 
 		end_of_turn_id_token=END_OF_TURN_ID, 
@@ -413,11 +437,12 @@ def request_verify(state: State) -> State:
 	ai_msg_adequacy = req_ver_adequacy(state=state)[2]
 	yes_no_relevancy = check_contain_yes_or_no(ai_msg=ai_msg_relevancy.content)
 	yes_no_adequacy  = check_contain_yes_or_no(ai_msg=ai_msg_adequacy.content )
-	ai_msg_yes_no = "YES" if "YES" in (yes_no_relevancy, yes_no_adequacy) else "NO"
-	return {"messages": {
-		"REQUEST_VERIFY": {
-			"AI": [AIMessage(content=ai_msg_yes_no)] 
-		}}}
+	yes_no = "YES" if "YES" in (yes_no_relevancy, yes_no_adequacy) else "NO"
+	ai_msg = AIMessage(content=yes_no)
+	if "REQUEST_VERIFY" not in state.messages:
+		state.messages["REQUEST_VERIFY"] = {"SYSTEM": [], "HUMAN": [], "AI": []}
+	add_unique_msgs(msgs=state.messages["REQUEST_VERIFY"], agent_type="AI", msg=ai_msg)
+	return state
 
 
 
@@ -440,7 +465,9 @@ def req_ver_determine_yes_or_no(state: State) -> State:
 
 def prompt_agent(state: State) -> State:
 	"""Prompt Agent."""
-	human_msg = "" # Tiến đến pipeline prompt-agent 
+	sys_msg = ""
+	human_msg = state.human_query[-1].content
+
 	ai_msg = ""
 	return {"messages": {
 		"PROMPT_AGENT": {
@@ -464,7 +491,7 @@ workflow.add_edge("PROMPT_AGENT", "REQUEST_VERIFY")
 
 app = workflow.compile(
 	checkpointer=CHECKPOINTER, 
-	store=STORE, debug=True, 
+	store=STORE, debug=DEBUG, 
 	name="FOXCONN-AI Research"
 )
 

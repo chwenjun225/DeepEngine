@@ -176,7 +176,7 @@ modeling) so that the AI agents can successfully implement them. Do NOT directly
 - Ensure that your plan completely include the end-to-end process of machine learning or artificial intelligence model development pipeline in detail (i.e., from data retrieval to model training and evaluation) when applicable based on the given requirements.""" 
 
 
-	KNOWLEDGE_RETRIEVAL_PROMPT = """ Kaggle Notebook
+	KNOWLEDGE_RETRIEVAL_PROMPT = """Kaggle Notebook
 I searched the Kaggle Notebooks to find state-of-the-art solutions using the keywords: {user_task} {user_domain}. Here is the result:
 =====================
 {context}
@@ -268,7 +268,96 @@ suggested hyperparameters.
 
 
 
-	PROMPT_PARSE_JSON_AGENT_PROMPT = """{BEGIN_OF_TEXT}
+	PROMPT_AGENT_PROMPT = """{BEGIN_OF_TEXT}{START_HEADER_ID}SYSTEM{END_HEADER_ID}
+You are an assistant project manager in the AutoML development team. 
+Your task is to parse the user's requirement into a valid JSON format, strictly following the given JSON specification schema as your reference. 
+Your response must exactly follow the given JSON schema and be based only on the user's instructions. 
+Make sure that your answer only contains the JSON response.""" + """
+```json
+{json_schema}
+```""" + """
+### EXAMPLE 1:
+User query: Build a model to classify banana quality as Good or Bad based on their numerical information about bananas of different quality (size, weight, sweetness, softness, harvest time, ripeness, and acidity). We have uploaded the entire dataset for you here in the banana quality.csv file.
+AI response:
+```json
+{
+	"user": {"intent": "build", "expertise": "medium"},
+	"problem": {
+		"area": "tabular data analysis",
+		"downstream_task": "tabular classification",
+		"application_domain": "agriculture",
+		"description": "Build a machine learning model, potentially XGBoost or LightGBM, to classify banana quality as Good or Bad based on their numerical information about bananas of different quality (size, weight, sweetness, softness, harvest time, ripeness, and acidity).",
+		"performance_metrics": [{"name": "accuracy", "value": 0.98}], 
+		"complexity_metrics": []
+	},
+	"dataset": [
+		{
+			"name": "banana_quality",
+			"modality": ["tabular"],
+			"target_variables": ["quality"],
+			"specification": None,
+			"description": "A dataset containing numerical information about bananas of different quality, including size, weight, sweetness, softness, harvest time, ripeness, and acidity.",
+			"preprocessing": [],
+			"augmentation": [],
+			"visualization": [],
+			"source": "user-upload"
+		}
+	],
+	"model": [
+		{
+			"name": "",
+			"family": "",
+			"type": "classical machine learning",
+			"specification": None,
+			"description": "A model to classify banana quality as Good or Bad based on their numerical information."
+		}
+	]
+}
+```""" + """
+### EXAMPLE 2:
+User query: Build a machine learning model, potentially XGBoost or LightGBM, to classify banana quality as Good or Bad based on their numerical information about bananas of different quality (size, weight, sweetness, softness, harvest time, ripeness, and acidity). We have uploaded the entire dataset for you here in the banana quality.csv file. The model must achieve at least 0.98 accuracy.
+AI response:
+```json
+{
+	"problem": {
+		"area": "tabular data analysis",
+		"downstream_task": "tabular classification",
+		"application_domain": "agriculture",
+		"description": "Build a machine learning model, potentially XGBoost or LightGBM, to classify banana quality as Good or Bad based on their numerical information about bananas of different quality (size, weight, sweetness, softness, harvest time, ripeness, and acidity).",
+		"performance_metrics": [{"name": "accuracy", "value": 0.98}], 
+		"complexity_metrics": []
+	},
+	"dataset": [
+		{
+			"name": "banana_quality",
+			"modality": ["tabular"],
+			"target_variables": ["quality"],
+			"specification": None,
+			"description": "A dataset containing numerical information about bananas of different quality, including size, weight, sweetness, softness, harvest time, ripeness, and acidity.",
+			"preprocessing": [],
+			"augmentation": [],
+			"visualization": [],
+			"source": "user-upload"
+		}
+	],
+	"model": [
+		{
+			"name": "",
+			"family": "",
+			"type": "classical machine learning",
+			"specification": None,
+			"description": "A model to classify banana quality as Good or Bad based on their numerical information."
+		}
+	]
+}
+```""" + """{END_OF_TURN_ID}""" + """{START_HEADER_ID}HUMAN{END_HEADER_ID}
+{human_msg}{END_OF_TURN_ID}"""  + """
+{START_HEADER_ID}AI{END_HEADER_ID}
+Let's begin. Remember, your response must begin with "```json" or "{{" and end with "```" or "}}".{END_OF_TURN_ID}""" 
+
+
+
+	PARSE_JSON_PROMPT = """{BEGIN_OF_TEXT}
 {START_HEADER_ID}SYSTEM{END_HEADER_ID}
 You are an AI project assistant. Your task is to extract and structure user requirements into a valid JSON format based strictly on the following schema:
 ```json
@@ -314,90 +403,3 @@ Start the python code with "```python". Please ensure the completeness of the co
 You are an experienced senior project manager of a automated machine learning project (AutoML). You have two main responsibilities as follows.
 1. Receive requirements and/or inquiries from users through a well-structured JSON object.
 2. Using recent knowledge and state-of-the-art studies to devise promising high-quality plans for data scientists, machine learning research engineers, and MLOps engineers in your team to execute subsequent processes based on the user requirements you have received.{END_OF_TURN_ID}"""
-
-
-
-	PROMPT_PARSE_JSON_AGENT_PROMPT_ARCHIVE = """{BEGIN_OF_TEXT}
-{START_HEADER_ID}SYSTEM{END_HEADER_ID}
-You are an assistant project manager in the AutoML development team. 
-Your task is to parse the user's requirement into a valid JSON format, strictly following the given JSON specification schema as your reference. 
-Your response must exactly follow the given JSON schema and be based only on the user's instructions. 
-Make sure that your answer only contains the JSON response.{END_OF_TURN_ID}""" + """{START_HEADER_ID}JSON SCHEMA{END_HEADER_ID}
-```json
-{json_schema}
-```{END_OF_TURN_ID}""" + """Here are some example:
-### EXAMPLE 1:
-{START_HEADER_ID}HUMAN{END_HEADER_ID}Build a model to classify banana quality as Good or Bad based on their numerical information about bananas of different quality (size, weight, sweetness, softness, harvest time, ripeness, and acidity). 
-We have uploaded the entire dataset for you here in the banana quality.csv file.{END_OF_TURN_ID}
-{START_HEADER_ID}AI{END_HEADER_ID}
-```json
-{
-	"user": {"intent": "build", "expertise": "medium"},
-	"problem": {
-		"area": "tabular data analysis",
-		"downstream_task": "tabular classification",
-		"application_domain": "agriculture",
-		"description": "Build a machine learning model, potentially XGBoost or LightGBM, to classify banana quality as Good or Bad based on their numerical information about bananas of different quality (size, weight, sweetness, softness, harvest time, ripeness, and acidity).",
-		"performance_metrics": [{"name": "accuracy", "value": 0.98}], 
-		"complexity_metrics": []
-	},
-	"dataset": [
-		{
-			"name": "banana_quality",
-			"modality": ["tabular"],
-			"target_variables": ["quality"],
-			"specification": None,
-			"description": "A dataset containing numerical information about bananas of different quality, including size, weight, sweetness, softness, harvest time, ripeness, and acidity.",
-			"preprocessing": [],
-			"augmentation": [],
-			"visualization": [],
-			"source": "user-upload"
-		}
-	],
-	"model": [
-		{
-			"name": "",
-			"family": "",
-			"type": "classical machine learning",
-			"specification": None,
-			"description": "A model to classify banana quality as Good or Bad based on their numerical information."
-		}
-	]
-}
-```""" + """{END_OF_TURN_ID}""" + """### EXAMPLE 2:
-{START_HEADER_ID}HUMAN{END_HEADER_ID}Build a machine learning model, potentially XGBoost or LightGBM, to classify banana quality as Good or Bad based on their numerical information about bananas of different quality (size, weight, sweetness, softness, harvest time, ripeness, and acidity). 
-We have uploaded the entire dataset for you here in the banana quality.csv file. The model must achieve at least 0.98 accuracy.{END_OF_TURN_ID}
-{START_HEADER_ID}AI{END_HEADER_ID}```json
-{
-	"problem": {
-		"area": "tabular data analysis",
-		"downstream_task": "tabular classification",
-		"application_domain": "agriculture",
-		"description": "Build a machine learning model, potentially XGBoost or LightGBM, to classify banana quality as Good or Bad based on their numerical information about bananas of different quality (size, weight, sweetness, softness, harvest time, ripeness, and acidity).",
-		"performance_metrics": [{"name": "accuracy", "value": 0.98}], 
-		"complexity_metrics": []
-	},
-	"dataset": [
-		{
-			"name": "banana_quality",
-			"modality": ["tabular"],
-			"target_variables": ["quality"],
-			"specification": None,
-			"description": "A dataset containing numerical information about bananas of different quality, including size, weight, sweetness, softness, harvest time, ripeness, and acidity.",
-			"preprocessing": [],
-			"augmentation": [],
-			"visualization": [],
-			"source": "user-upload"
-		}
-	],
-	"model": [
-		{
-			"name": "",
-			"family": "",
-			"type": "classical machine learning",
-			"specification": None,
-			"description": "A model to classify banana quality as Good or Bad based on their numerical information."
-		}
-	]
-}
-```""" + """{END_OF_TURN_ID}""" + """{START_HEADER_ID}AI{END_HEADER_ID}Let's begin. Remember, your response must begin with "```json" or "{{" and end with "```" or "}}".{END_OF_TURN_ID}""" 

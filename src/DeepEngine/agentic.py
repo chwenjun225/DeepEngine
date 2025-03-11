@@ -252,7 +252,7 @@ def add_eotext_eoturn_to_ai_msg(ai_msg: AIMessage, end_of_turn_id_token: str = E
 	return AIMessage(content=content)
 
 
-
+# TODO: Tối ưu hàm này, cần loại bỏ `.get()` tránh tạo đối tượng không cần thiết.
 def build_react_sys_msg_prompt(tool_desc_prompt: str, react_prompt: str, tools: List[BaseTool]) -> str:
 	"""Builds a formatted system prompt with tool descriptions.
 
@@ -419,23 +419,57 @@ def request_verify(state: State) -> State:
 
 
 def req_ver_yes_or_no_control_flow(state: State) -> State:
-	"""Determines the next step based on the AI response from REQUEST_VERIFY."""
-	resp_map = {"YES": "PROMPT_AGENT", "NO": END}
-	ai_msg = state.get_latest_msg(agent_type="REQUEST_VERIFY", msg_type="AI")
-	if not ai_msg or not hasattr(ai_msg, "content"): raise ValueError("[ERROR]: No valid AI message found in REQUEST_VERIFY.")
+	"""Determines the next step based on the AI response from REQUEST_VERIFY.
+
+	Args:
+		state (State): The current conversation state.
+
+	Returns:
+		str: The next agent ("PROMPT_AGENT" or END).
+
+	Raises:
+		ValueError: If there is no valid AI response or an unexpected response.
+	"""
+	if "REQUEST_VERIFY" not in state.messages or "AI" not in state.messages["REQUEST_VERIFY"]:
+		raise ValueError("[ERROR]: No AI message found in REQUEST_VERIFY.")
+	ai_msgs = state.messages["REQUEST_VERIFY"]["AI"]
+	if not ai_msgs:
+		raise ValueError("[ERROR]: AI message list is empty in REQUEST_VERIFY.")
+	ai_msg = ai_msgs[-1]
+	if not hasattr(ai_msg, "content"):
+		raise ValueError("[ERROR]: AI message has no content.")
 	resp = ai_msg.content.strip().upper()
-	return resp_map.get(resp, ValueError(f">>> [ERROR]: Unexpected response '{resp}'"))
+	next_step_map = {"YES": "PROMPT_AGENT", "NO": END}
+	if resp in next_step_map:
+		return next_step_map[resp]
+	raise ValueError(f">>> [ERROR]: Unexpected response '{resp}'")
 
 
-# TODO: Xem lại hàm này từ human_msg
+
 def prompt_agent(state: State) -> State:
-	"""Prompt Agent parse user's requirements thành JSON theo định dạng Pydantic."""
-	human_msg = HumanMessage(content=add_special_token_to_human_query(human_msg=state.human_query[-1].content if state.human_query else ""))
-	ai_msg_json = AIMessage(str(conversation2json(msg_prompt=PROMPT_2_JSON_SYS_MSG_PROMPT, llm_structure_output=LLM_STRUC_OUT_AUTOML, human_msg=human_msg, schema=Prompt2JSON)))
-	if not isinstance(ai_msg_json, AIMessage): 
-		ai_msg_json = AIMessage(content=ai_msg_json.strip() 
-					if isinstance(ai_msg_json, str) 
-					else "At node_prompt_agent, I'm unable to generate a response.")
+	"""Prompt Agent parses user's requirements into JSON following a TypedDict schema.
+	
+	Args:
+		state (State): The current state of the conversation.
+
+	Returns:
+		State: Updated state with the parsed JSON response.
+	"""
+	if "MANAGER_AGENT" not in state.messages or "HUMAN" not in state.messages["MANAGER_AGENT"]:
+		raise ValueError("[ERROR]: No HUMAN messages found in MANAGER_AGENT.")
+	human_msg = state.messages["MANAGER_AGENT"]["HUMAN"][-1]
+	parsed_json = conversation2json(
+		msg_prompt=PROMPT_2_JSON_SYS_MSG_PROMPT, 
+		llm_structure_output=LLM_STRUC_OUT_AUTOML,
+		human_msg=human_msg,
+		schema=Prompt2JSON
+	)
+	expected_keys, received_keys = set(Prompt2JSON.__annotations__), set(parsed_json)
+	if missing_keys := expected_keys - received_keys: 
+		raise ValueError(f"[ERROR]: JSON thiếu các trường bắt buộc: {missing_keys}")
+	if extra_keys := received_keys - expected_keys: 
+		raise ValueError(f"[ERROR]: JSON có các trường không hợp lệ: {extra_keys}")
+	ai_msg_json = AIMessage(content=json.dumps(parsed_json, indent=2))
 	ai_msg_json = add_eotext_eoturn_to_ai_msg(ai_msg=ai_msg_json, end_of_turn_id_token=END_OF_TURN_ID, end_of_text_token=END_OF_TEXT)
 	state.add_unique_msgs(node="PROMPT_AGENT", msgs_type="AI", msg=ai_msg_json)
 	return state
@@ -452,6 +486,7 @@ workflow.add_edge(START, "MANAGER_AGENT")
 workflow.add_edge("MANAGER_AGENT", "REQUEST_VERIFY")
 workflow.add_conditional_edges("REQUEST_VERIFY", req_ver_yes_or_no_control_flow)
 workflow.add_edge("PROMPT_AGENT", "REQUEST_VERIFY")
+workflow.add_edge("PROMPT_AGENT", END)
 
 app = workflow.compile(checkpointer=CHECKPOINTER, store=STORE, debug=DEBUG, name=NAME)
 
@@ -464,7 +499,7 @@ def main() -> None:
 		if user_query == "exit":
 			print(">>> [System Exit] Goodbye! Have a great day! 😊")
 			break
-		streamlit_user_interface(
+		stream_conversation(
 			app.stream(
 				input={"human_query": [user_query]}, 
 				stream_mode="values", 
@@ -473,12 +508,16 @@ def main() -> None:
 
 
 
-def streamlit_user_interface(stream: Iterator[Dict[str, Dict[str, Dict[str, List[BaseMessage]]]] | Any]) -> None:
+def stream_conversation(stream: Iterator[Dict[str, Dict[str, Dict[str, List[BaseMessage]]]] | Any]) -> None:
 	"""Hiển thị kết quả hội thoại trên Streamlit."""
 	for s in stream:
-		if len(list(s.keys())) == 2:
-			msgs = s["messages"]
-	print("DEBUG")
+		# if "messages" in s:
+		# 	messages = s["messages"]
+		# 	for node, msgs_type in messages.items():
+		# 		print(f">>> NODE: {node}\t---\tMSGS_TYPE: {msgs_type}")
+		print(f">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>{s}")
+
+	print(">>> DEBUG")
 
 
 

@@ -1,8 +1,0 @@
-*__pycache__*
-*.pyc
-finetune/output/*
-wip.*
-.idea
-venv
-.venv
-.env

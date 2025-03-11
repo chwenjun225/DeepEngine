@@ -267,119 +267,96 @@ suggested hyperparameters.
 4. Extract useful information and underlying characteristics of the dataset.""" 
 
 
-
+# TODO: prompt này dùng để parse yêu cầu người dùng thành json object theo schema json liên quan đến machine learning 
 	PROMPT_AGENT_PROMPT = """{BEGIN_OF_TEXT}{START_HEADER_ID}SYSTEM{END_HEADER_ID}
 You are an assistant project manager in the AutoML development team. 
 Your task is to parse the user's requirement into a valid JSON format, strictly following the given JSON specification schema as your reference. 
 Your response must exactly follow the given JSON schema and be based only on the user's instructions. 
-Make sure that your answer only contains the JSON response.""" + """
+Make sure that your answer only contains the JSON response.
 ```json
 {json_schema}
-```""" + """
+```
+
 ### EXAMPLE 1:
-User query: Build a model to classify banana quality as Good or Bad based on their numerical information about bananas of different quality (size, weight, sweetness, softness, harvest time, ripeness, and acidity). We have uploaded the entire dataset for you here in the banana quality.csv file.
+User query: Build a deep learning model, potentially using CNNs or Vision Transformers, to detect defects in PCB (Printed Circuit Board) images. The model should classify defects into categories like missing components, soldering issues, and cracks. We have uploaded the dataset as 'pcb_defects_dataset'. The model must achieve at least 0.95 accuracy.
 AI response:
 ```json
-{
-	"user": {"intent": "build", "expertise": "medium"},
-	"problem": {
-		"area": "tabular data analysis",
-		"downstream_task": "tabular classification",
-		"application_domain": "agriculture",
-		"description": "Build a machine learning model, potentially XGBoost or LightGBM, to classify banana quality as Good or Bad based on their numerical information about bananas of different quality (size, weight, sweetness, softness, harvest time, ripeness, and acidity).",
-		"performance_metrics": [{"name": "accuracy", "value": 0.98}], 
-		"complexity_metrics": []
-	},
-	"dataset": [
-		{
-			"name": "banana_quality",
-			"modality": ["tabular"],
-			"target_variables": ["quality"],
-			"specification": None,
-			"description": "A dataset containing numerical information about bananas of different quality, including size, weight, sweetness, softness, harvest time, ripeness, and acidity.",
-			"preprocessing": [],
-			"augmentation": [],
-			"visualization": [],
-			"source": "user-upload"
-		}
-	],
-	"model": [
-		{
-			"name": "",
-			"family": "",
-			"type": "classical machine learning",
-			"specification": None,
-			"description": "A model to classify banana quality as Good or Bad based on their numerical information."
-		}
-	]
-}
-```""" + """
+{{
+"problem_area": "computer vision", 
+"task": "defect detection", 
+"application": "electronics manufacturing", 
+"dataset_name": "pcb_defects_dataset", 
+"data_modality": ["image"], 
+"model_name": "Vision Transformer", 
+"model_type": "deep learning", 
+"cuda": true, 
+"vram": "6GB",
+"cpu_cores": 16, 
+"ram": "16GB"
+}}
+```
+
 ### EXAMPLE 2:
-User query: Build a machine learning model, potentially XGBoost or LightGBM, to classify banana quality as Good or Bad based on their numerical information about bananas of different quality (size, weight, sweetness, softness, harvest time, ripeness, and acidity). We have uploaded the entire dataset for you here in the banana quality.csv file. The model must achieve at least 0.98 accuracy.
+User query: Develop a machine learning model, potentially using ResNet or EfficientNet, to inspect industrial products for surface defects (scratches, dents, discoloration). The dataset is provided as 'industrial_defects_images'. The model should achieve at least 0.97 accuracy.
 AI response:
 ```json
-{
-	"problem": {
-		"area": "tabular data analysis",
-		"downstream_task": "tabular classification",
-		"application_domain": "agriculture",
-		"description": "Build a machine learning model, potentially XGBoost or LightGBM, to classify banana quality as Good or Bad based on their numerical information about bananas of different quality (size, weight, sweetness, softness, harvest time, ripeness, and acidity).",
-		"performance_metrics": [{"name": "accuracy", "value": 0.98}], 
-		"complexity_metrics": []
-	},
-	"dataset": [
-		{
-			"name": "banana_quality",
-			"modality": ["tabular"],
-			"target_variables": ["quality"],
-			"specification": None,
-			"description": "A dataset containing numerical information about bananas of different quality, including size, weight, sweetness, softness, harvest time, ripeness, and acidity.",
-			"preprocessing": [],
-			"augmentation": [],
-			"visualization": [],
-			"source": "user-upload"
-		}
-	],
-	"model": [
-		{
-			"name": "",
-			"family": "",
-			"type": "classical machine learning",
-			"specification": None,
-			"description": "A model to classify banana quality as Good or Bad based on their numerical information."
-		}
-	]
-}
-```""" + """{END_OF_TURN_ID}""" + """{START_HEADER_ID}HUMAN{END_HEADER_ID}
-{human_msg}{END_OF_TURN_ID}"""  + """
-{START_HEADER_ID}AI{END_HEADER_ID}
+{{
+"problem_area": "computer vision", 
+"task": "surface defect detection", 
+"application": "industrial manufacturing", 
+"dataset_name": "industrial_defects_images", 
+"data_modality": ["image"], 
+"model_name": "EfficientNet", 
+"model_type": "deep learning", 
+"cuda": true, 
+"vram": "16GB",
+"cpu_cores": 8, 
+"ram": "32GB"
+}}
+```
+{END_OF_TURN_ID}{START_HEADER_ID}HUMAN{END_HEADER_ID}
+{human_msg}{END_OF_TURN_ID}{START_HEADER_ID}AI{END_HEADER_ID}
 Let's begin. Remember, your response must begin with "```json" or "{{" and end with "```" or "}}".{END_OF_TURN_ID}""" 
 
 
 
-	PARSE_JSON_PROMPT = """{BEGIN_OF_TEXT}
-{START_HEADER_ID}SYSTEM{END_HEADER_ID}
-You are an AI project assistant. Your task is to extract and structure user requirements into a valid JSON format based strictly on the following schema:
+	CONVERSATION_TO_JSON_PROMPT = """{BEGIN_OF_TEXT}{START_HEADER_ID}SYSTEM{END_HEADER_ID}
+You are an AI assistant. Your task is to generate a structured JSON response in a conversational manner. 
+Be kind, helpful, and ensure the response adheres strictly to the following schema:
 ```json
 {json_schema}
 ```
-Your response must follow the JSON schema exactly and be based only on the user's input. Ensure that your response only contains the JSON output with no extra text.
-### Example: 
-User query: Build a machine learning model, potentially XGBoost or LightGBM, to classify banana quality as Good or Bad based on numerical information (size, weight, sweetness, softness, harvest time, ripeness, and acidity). We have uploaded the dataset as 'banana_quality.csv'. The model must achieve at least 0.98 accuracy.
+Your response must be valid JSON and based only on the user's input. Do not include any extra text.
+
+### Example 1: 
+User query: Hello! AI response:
 AI response:
 ```json
-{
-	"problem_area": "tabular data analysis",
-	"task": "classification",
-	"application": "agriculture",
-	"dataset_name": "banana_quality",
-	"data_modality": ["tabular"],
-	"model_name": "XGBoost",
-	"model_type": "ensemble",
-	"hardware_cuda": False,
-	"hardware_cpu_cores": 8,
-	"hardware_memory": "32GB"
-}```{END_OF_TURN_ID}
+{{
+"response": "Hello! How can I assist you today?",
+"justification": "A friendly greeting to acknowledge the user and encourage further conversation."
+}}
+```
+
+### Example 2: 
+User query: How does XGBoost compare to LightGBM for classification tasks?
+AI response:
+```json
+{{
+"response": "Both XGBoost and LightGBM are powerful gradient boosting algorithms. XGBoost tends to be more accurate but slower, while LightGBM is faster with larger datasets.",
+"justification": "XGBoost uses pre-sorted data and histogram-based methods, making it slower but precise. LightGBM, on the other hand, grows trees leaf-wise, leading to speed improvements."
+}}
+```
+
+### Example 3: 
+User query: What is the capital of France?
+AI response:
+```json
+{{
+"response": "The capital of France is Paris.",
+"justification": "Paris is the officially recognized capital of France and a major cultural and economic center."
+}}
+```{END_OF_TURN_ID}
 {START_HEADER_ID}HUMAN{END_HEADER_ID}
 {human_msg}{END_OF_TURN_ID}
 {START_HEADER_ID}AI{END_HEADER_ID}

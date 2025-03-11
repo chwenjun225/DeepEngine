@@ -43,8 +43,9 @@ from tools import (add, subtract, multiply, divide, power, square_root)
 from prompts import Prompts 
 
 
+
 NAME = "FOXCONN-AI Research"
-DEBUG = True
+DEBUG = False
 
 
 
@@ -151,9 +152,12 @@ class State(BaseModel):
 		Raises:
 			ValueError: If the message type is invalid.
 		"""
-		if node not in self.messages: self.messages[node] = {"SYS": [], "HUMAN": [], "AI": []}
-		if msgs_type not in {"SYS", "HUMAN", "AI"}: raise ValueError(f"[ERROR]: Invalid message type '{msgs_type}'. Must be 'SYS', 'HUMAN', or 'AI'.")
-		if node == "REQUEST_VERIFY": self.messages[node][msgs_type] = [msg]
+		if node not in self.messages: 
+			self.messages[node] = {"SYS": [], "HUMAN": [], "AI": []}
+		if msgs_type not in {"SYS", "HUMAN", "AI"}: 
+			raise ValueError(f"[ERROR]: Invalid message type '{msgs_type}'. Must be 'SYS', 'HUMAN', or 'AI'.")
+		if node == "REQUEST_VERIFY": 
+			self.messages[node][msgs_type] = [msg]
 		else:
 			if msg.content not in {m.content for m in self.messages[node][msgs_type]}:
 				self.messages[node][msgs_type].append(msg)
@@ -191,7 +195,7 @@ PROMPT_2_JSON_SYS_MSG_PROMPT 	= 	Prompts.PROMPT_AGENT_PROMPT
 
 
 
-CONFIG = {"configurable": {"thread_id": str(uuid.uuid4())}}
+CONFIG = {"configurable": {"thread_id": str(uuid.uuid4()), "recursion_limit": 100}}
 CHECKPOINTER = MemorySaver()
 STORE = InMemoryStore()
 
@@ -346,15 +350,30 @@ def manager_agent(state: State) -> State:
 				information in the labels.csv file.
 		>>> AI response: Here is a sample code that uses the Keras library to develop and train a convolutional neural network (CNN) model for ...
 	"""
-	sys_msg = SystemMessage(content=MGR_SYS_MSG_PROMPT.format(BEGIN_OF_TEXT=BEGIN_OF_TEXT, START_HEADER_ID=START_HEADER_ID, END_HEADER_ID=END_HEADER_ID, END_OF_TURN_ID=END_OF_TURN_ID))
+	sys_msg = SystemMessage(content=MGR_SYS_MSG_PROMPT.format(
+			BEGIN_OF_TEXT=BEGIN_OF_TEXT, 
+			START_HEADER_ID=START_HEADER_ID, 
+			END_HEADER_ID=END_HEADER_ID, 
+			END_OF_TURN_ID=END_OF_TURN_ID
+		))
 	human_msg = HumanMessage(content=add_special_token_to_human_query(human_msg=state.human_query[-1].content if state.human_query else ""))
-	ai_msg_json = HumanMessage(str(conversation2json(msg_prompt=CONVERSATION_2_JSON_MSG_PROMPT, llm_structure_output=LLM_STRUC_OUT_CONVERSATION, human_msg=human_msg, schema=Conversation)))
-	ai_msg = LLM_LTEMP.invoke([sys_msg, human_msg, ai_msg_json])
-	if not isinstance(ai_msg, AIMessage): ai_msg = AIMessage(content=ai_msg.strip() if isinstance(ai_msg, str) else "At node_manager_agent, I'm unable to generate a response.")
+	human_msg_json = HumanMessage(json.dumps((conversation2json(
+			msg_prompt=CONVERSATION_2_JSON_MSG_PROMPT, 
+			llm_structure_output=LLM_STRUC_OUT_CONVERSATION, 
+			human_msg=human_msg, schema=Conversation
+		)), indent=2
+	))
+	ai_msg = LLM_LTEMP.invoke([sys_msg, human_msg, human_msg_json])
+	if not isinstance(ai_msg, AIMessage): 
+		ai_msg = AIMessage(
+			content=ai_msg.strip() 
+			if isinstance(ai_msg, str) 
+			else "At node_manager_agent, I'm unable to generate a response."
+		)
 	ai_msg = add_eotext_eoturn_to_ai_msg(ai_msg=ai_msg, end_of_turn_id_token=END_OF_TURN_ID, end_of_text_token=END_OF_TEXT)
 	state.add_unique_msgs(node="MANAGER_AGENT", msgs_type="SYS", msg=sys_msg)
 	state.add_unique_msgs(node="MANAGER_AGENT", msgs_type="HUMAN", msg=human_msg)
-	state.add_unique_msgs(node="MANAGER_AGENT", msgs_type="AI", msg=AIMessage("<|parse_json|>" + ai_msg_json.content + "<|end_parse_json|>" + ai_msg.content))
+	state.add_unique_msgs(node="MANAGER_AGENT", msgs_type="AI", msg=AIMessage("<|parse_json|>" + human_msg_json.content + "<|end_parse_json|>" + ai_msg.content))
 	return state
 
 
@@ -484,8 +503,7 @@ workflow.add_node("PROMPT_AGENT", prompt_agent)
 
 workflow.add_edge(START, "MANAGER_AGENT")
 workflow.add_edge("MANAGER_AGENT", "REQUEST_VERIFY")
-workflow.add_conditional_edges("REQUEST_VERIFY", req_ver_yes_or_no_control_flow)
-workflow.add_edge("PROMPT_AGENT", "REQUEST_VERIFY")
+workflow.add_conditional_edges("REQUEST_VERIFY", req_ver_yes_or_no_control_flow, ["PROMPT_AGENT", END])
 workflow.add_edge("PROMPT_AGENT", END)
 
 app = workflow.compile(checkpointer=CHECKPOINTER, store=STORE, debug=DEBUG, name=NAME)
@@ -495,29 +513,43 @@ app = workflow.compile(checkpointer=CHECKPOINTER, store=STORE, debug=DEBUG, name
 def main() -> None:
 	"""Handles user queries and displays AI responses."""
 	for user_query in QUERIES:
-		user_query = user_query.strip().lower()
-		if user_query == "exit":
-			print(">>> [System Exit] Goodbye! Have a great day! 😊")
+		user_query = user_query.strip()
+		if user_query.lower() == "exit":
+			print("\n>>> [System Exit] Goodbye! Have a great day! 😊\n")
 			break
-		stream_conversation(
-			app.stream(
-				input={"human_query": [user_query]}, 
-				stream_mode="values", 
-				config=CONFIG
-			))
+		state_data = app.invoke(
+			input={
+				"human_query": [user_query], 
+				"messages": default_messages()
+			}, 
+			config=CONFIG
+		)
+		if not isinstance(state_data, dict):
+			raise ValueError("[ERROR]: app.invoke() không trả về dictionary.")
+		messages = state_data.get("messages")
+		if messages is None:
+			raise ValueError("[ERROR]: Key 'messages' không có trong kết quả.")
+		display_conversation_results(messages)
 
 
 
-def stream_conversation(stream: Iterator[Dict[str, Dict[str, Dict[str, List[BaseMessage]]]] | Any]) -> None:
-	"""Hiển thị kết quả hội thoại trên Streamlit."""
-	for s in stream:
-		# if "messages" in s:
-		# 	messages = s["messages"]
-		# 	for node, msgs_type in messages.items():
-		# 		print(f">>> NODE: {node}\t---\tMSGS_TYPE: {msgs_type}")
-		print(f">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>{s}")
+def display_conversation_results(messages: dict) -> None:
+	"""Hiển thị kết quả hội thoại từ tất cả các agent trong hệ thống."""
+	print("\n===== CONVERSATION RESULTS =====\n")
+	if not messages:
+		print("[INFO]: Không có tin nhắn nào trong hội thoại.")
+		return
+	for node, msg_types in messages.items():
+		print(f"\n[{node}]")
+		for msg_type, msg_list in msg_types.items():
+			if msg_list:
+				print(f"  {msg_type}:")
+				for msg in msg_list:
+					content = getattr(msg, "content", "[No content]")
+					print(f"\t- {content}")
 
-	print(">>> DEBUG")
+	print("\n===== END OF CONVERSATION =====\n")
+
 
 
 
@@ -528,13 +560,6 @@ Please use a convolutional neural network (CNN) architecture for this task, leve
 Optimize the model using cross-validation on the training split to fine-tune hyperparameters, and aim for an accuracy of at least 0.95 (95%) on the test split. 
 Provide the final trained model, a detailed report of the training process, hyperparameter settings, accuracy metrics, and a confusion matrix to evaluate performance across different categories.""",
 
-	"""Please provide a classification model that categorizes images into one of four clothing categories. 
-The image path, along with its label information, can be found in the files train labels.csv and test labels.csv. 
-The model should achieve at least 0.95 (95%) accuracy on the test set and be implemented using PyTorch. 
-Additionally, please include data augmentation techniques and a confusion matrix in the evaluation."""	
-	
-	"""Hello, What is heavier a kilo of feathers or a kilo of steel?""", 
-	
 	"""exit"""
 ]
 

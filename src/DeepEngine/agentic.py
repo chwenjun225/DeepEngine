@@ -560,6 +560,13 @@ Please use a convolutional neural network (CNN) architecture for this task, leve
 Optimize the model using cross-validation on the training split to fine-tune hyperparameters, and aim for an accuracy of at least 0.95 (95%) on the test split. 
 Provide the final trained model, a detailed report of the training process, hyperparameter settings, accuracy metrics, and a confusion matrix to evaluate performance across different categories.""",
 
+	"""Please provide a classification model that categorizes images into one of four clothing categories. 
+The image path, along with its label information, can be found in the files train labels.csv and test labels.csv. 
+The model should achieve at least 0.95 (95%) accuracy on the test set and be implemented using PyTorch. 
+Additionally, please include data augmentation techniques and a confusion matrix in the evaluation."""	
+	
+	"""Hello, What is heavier a kilo of feathers or a kilo of steel?""", 
+	
 	"""exit"""
 ]
 

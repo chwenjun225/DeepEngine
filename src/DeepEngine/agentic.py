@@ -167,7 +167,7 @@ class Conversation(TypedDict):
 
 
 
-class UserRequirementsToJSON(TypedDict):
+class Prompt2JSON(TypedDict):
 	"""Parses user requirements related to AI project potential into structured JSON."""
 	problem_area: 	Annotated[str, ..., "Problem domain (e.g., tabular data analysis)."			]
 	task: 			Annotated[str, ..., "Type of ML task (e.g., classification, regression)."	]
@@ -201,7 +201,7 @@ LLM_HTEMP	=	ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0.8, num_p
 LLM_LTEMP 	= 	ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0, num_predict=128_000)
 
 LLM_STRUC_OUT_CONVERSATION 	= LLM_HTEMP.with_structured_output(schema=Conversation, method="json_schema")
-LLM_STRUC_OUT_AUTOML 		= LLM_HTEMP.with_structured_output(schema=UserRequirementsToJSON, method="json_schema")
+LLM_STRUC_OUT_AUTOML 		= LLM_HTEMP.with_structured_output(schema=Prompt2JSON, method="json_schema")
 
 
 
@@ -287,7 +287,7 @@ def build_react_sys_msg_prompt(tool_desc_prompt: str, react_prompt: str, tools: 
 
 
 
-def conversation2json(llm_structure_output: Runnable[LanguageModelInput, Dict | BaseModel], human_msg: HumanMessage, schema: Type[Dict]) -> json:
+def conversation2json(msg_prompt: str, llm_structure_output: Runnable[LanguageModelInput, Dict | BaseModel], human_msg: HumanMessage, schema: Type[Dict]) -> json:
 	"""Parses user's query into structured JSON for manager_agent.
 
 	Args:
@@ -308,7 +308,7 @@ def conversation2json(llm_structure_output: Runnable[LanguageModelInput, Dict | 
 	json_data = llm_structure_output.invoke([human_msg])
 	if not json_data:
 		json_schema = json.dumps(TypeAdapter(schema).json_schema()["properties"], indent=2).strip()
-		sys_msg = SystemMessage(content=CONVERSATION_2_JSON_MSG_PROMPT.format(
+		sys_msg = SystemMessage(content=msg_prompt.format(
 			BEGIN_OF_TEXT=BEGIN_OF_TEXT, 
 			START_HEADER_ID=START_HEADER_ID, 
 			END_HEADER_ID=END_HEADER_ID, 
@@ -346,14 +346,9 @@ def manager_agent(state: State) -> State:
 				information in the labels.csv file.
 		>>> AI response: Here is a sample code that uses the Keras library to develop and train a convolutional neural network (CNN) model for ...
 	"""
-	sys_msg = SystemMessage(content=MGR_SYS_MSG_PROMPT.format(
-		BEGIN_OF_TEXT=BEGIN_OF_TEXT, 
-		START_HEADER_ID=START_HEADER_ID, 
-		END_HEADER_ID=END_HEADER_ID, 
-		END_OF_TURN_ID=END_OF_TURN_ID 
-	))
+	sys_msg = SystemMessage(content=MGR_SYS_MSG_PROMPT.format(BEGIN_OF_TEXT=BEGIN_OF_TEXT, START_HEADER_ID=START_HEADER_ID, END_HEADER_ID=END_HEADER_ID, END_OF_TURN_ID=END_OF_TURN_ID))
 	human_msg = HumanMessage(content=add_special_token_to_human_query(human_msg=state.human_query[-1].content if state.human_query else ""))
-	ai_msg_json = HumanMessage(str(conversation2json(llm_structure_output=LLM_STRUC_OUT_CONVERSATION, human_msg=human_msg, schema=Conversation)))
+	ai_msg_json = HumanMessage(str(conversation2json(msg_prompt=CONVERSATION_2_JSON_MSG_PROMPT, llm_structure_output=LLM_STRUC_OUT_CONVERSATION, human_msg=human_msg, schema=Conversation)))
 	ai_msg = LLM_LTEMP.invoke([sys_msg, human_msg, ai_msg_json])
 	if not isinstance(ai_msg, AIMessage): ai_msg = AIMessage(content=ai_msg.strip() if isinstance(ai_msg, str) else "At node_manager_agent, I'm unable to generate a response.")
 	ai_msg = add_eotext_eoturn_to_ai_msg(ai_msg=ai_msg, end_of_turn_id_token=END_OF_TURN_ID, end_of_text_token=END_OF_TEXT)
@@ -432,25 +427,18 @@ def req_ver_yes_or_no_control_flow(state: State) -> State:
 	return resp_map.get(resp, ValueError(f">>> [ERROR]: Unexpected response '{resp}'"))
 
 
-
+# TODO: Xem lại hàm này từ human_msg
 def prompt_agent(state: State) -> State:
 	"""Prompt Agent parse user's requirements thành JSON theo định dạng Pydantic."""
-	human_msg = state.human_query[-1]
-	sys_msg = SystemMessage(PROMPT_2_JSON_SYS_MSG_PROMPT.format(
-		BEGIN_OF_TEXT=BEGIN_OF_TEXT, 
-		START_HEADER_ID=START_HEADER_ID, 
-		END_HEADER_ID=END_HEADER_ID, 
-		json_schema=json.dumps(TypeAdapter(UserRequirementsToJSON).json_schema()["properties"], indent=2), 
-		human_msg=human_msg, 
-		END_OF_TURN_ID=END_OF_TURN_ID
-	))
-	ai_msg = PROMPT_2_JSON_SYS_MSG_PROMPT.format()
-	return {"messages": {
-		"PROMPT_AGENT": {
-			"SYSTEM": [MGR_SYS_MSG_PROMPT], 
-			"HUMAN": [human_msg], 
-			"AI": [ai_msg]
-		}}}
+	human_msg = HumanMessage(content=add_special_token_to_human_query(human_msg=state.human_query[-1].content if state.human_query else ""))
+	ai_msg_json = AIMessage(str(conversation2json(msg_prompt=PROMPT_2_JSON_SYS_MSG_PROMPT, llm_structure_output=LLM_STRUC_OUT_AUTOML, human_msg=human_msg, schema=Prompt2JSON)))
+	if not isinstance(ai_msg_json, AIMessage): 
+		ai_msg_json = AIMessage(content=ai_msg_json.strip() 
+					if isinstance(ai_msg_json, str) 
+					else "At node_prompt_agent, I'm unable to generate a response.")
+	ai_msg_json = add_eotext_eoturn_to_ai_msg(ai_msg=ai_msg_json, end_of_turn_id_token=END_OF_TURN_ID, end_of_text_token=END_OF_TEXT)
+	state.add_unique_msgs(node="PROMPT_AGENT", msgs_type="AI", msg=ai_msg_json)
+	return state
 
 
 

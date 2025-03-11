@@ -201,11 +201,11 @@ STORE = InMemoryStore()
 
 
 
-LLM_HTEMP	=	ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0.8, num_predict=128_000)
-LLM_LTEMP 	= 	ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0, num_predict=128_000)
+LLM_HTEMP	=	ChatOllama(model="llama3.2:3b-instruct-fp16", temperature=0.8, num_predict=128_000)
+LLM_LTEMP 	= 	ChatOllama(model="llama3.2:3b-instruct-fp16", temperature=0, num_predict=128_000)
 
-LLM_STRUC_OUT_CONVERSATION 	= LLM_HTEMP.with_structured_output(schema=Conversation, method="json_schema")
-LLM_STRUC_OUT_AUTOML 		= LLM_HTEMP.with_structured_output(schema=Prompt2JSON, method="json_schema")
+LLM_STRUC_OUT_CONVERSATION 	=	LLM_HTEMP.with_structured_output(schema=Conversation, method="json_schema")
+LLM_STRUC_OUT_AUTOML 		= 	LLM_HTEMP.with_structured_output(schema=Prompt2JSON, method="json_schema")
 
 
 
@@ -495,16 +495,41 @@ def prompt_agent(state: State) -> State:
 
 
 
+def rap_agent(state: State) -> State:
+	"Retrieval-Augmented Planning Agent."
+	return state
+
+
+
+def data_agent(state: State) -> State:
+	"Data Agent."
+	return state
+
+
+
+def model_agent(state: State) -> State:
+	"Model Agent."
+	return state
+
+
+
 workflow = StateGraph(State)
 
 workflow.add_node("MANAGER_AGENT", manager_agent)
 workflow.add_node("REQUEST_VERIFY", request_verify)
 workflow.add_node("PROMPT_AGENT", prompt_agent)
+workflow.add_node("RETRIEVAL_AUGMENTED_PLANNING", rap_agent)
+workflow.add_node("DATA_AGENT", data_agent)
+workflow.add_node("MODEL_AGENT", model_agent)
 
 workflow.add_edge(START, "MANAGER_AGENT")
 workflow.add_edge("MANAGER_AGENT", "REQUEST_VERIFY")
 workflow.add_conditional_edges("REQUEST_VERIFY", req_ver_yes_or_no_control_flow, ["PROMPT_AGENT", END])
-workflow.add_edge("PROMPT_AGENT", END)
+workflow.add_edge("PROMPT_AGENT", "RETRIEVAL_AUGMENTED_PLANNING")
+workflow.add_edge("RETRIEVAL_AUGMENTED_PLANNING", "DATA_AGENT")
+workflow.add_edge("RETRIEVAL_AUGMENTED_PLANNING", "MODEL_AGENT")
+workflow.add_edge("DATA_AGENT", "MODEL_AGENT")
+workflow.add_edge("MODEL_AGENT", END)
 
 app = workflow.compile(checkpointer=CHECKPOINTER, store=STORE, debug=DEBUG, name=NAME)
 
@@ -519,11 +544,8 @@ def main() -> None:
 			break
 		state_data = app.invoke(
 			input={
-				"human_query": [user_query], 
-				"messages": default_messages()
-			}, 
-			config=CONFIG
-		)
+				"human_query": [user_query], "messages": default_messages()
+			}, config=CONFIG)
 		if not isinstance(state_data, dict):
 			raise ValueError("[ERROR]: app.invoke() không trả về dictionary.")
 		messages = state_data.get("messages")

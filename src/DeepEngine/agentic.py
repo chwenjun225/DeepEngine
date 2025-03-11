@@ -1,3 +1,4 @@
+import re
 import uuid
 import random
 import tqdm
@@ -5,16 +6,19 @@ import requests
 import json
 import json5
 import fire 
+import streamlit as st 
 from PIL import Image
 from io import BytesIO
+from collections import defaultdict
 
 
 
-from pydantic import BaseModel, Field
-from typing_extensions import (Annotated, TypedDict, Sequence, Union, Optional, Literal, List, Dict)
+from pydantic import BaseModel, Field, ValidationError, TypeAdapter
+from typing_extensions import (Annotated, TypedDict, Sequence, Union, Optional, Literal, List, Dict, Iterator, Any, Type)
 
 
 
+from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.tools import InjectedToolCallId, BaseTool
 from langchain.tools import tool
 from langchain_ollama import ChatOllama
@@ -33,75 +37,234 @@ from langgraph.prebuilt import (create_react_agent, ToolNode, tools_condition)
 
 
 
-from prompts import (TOOL_DESC_PROMPT, REACT_PROMPT, begin_of_text, end_of_text, start_header_id, end_header_id, end_of_message_id, end_of_turn_id)
 from tools import (add, subtract, multiply, divide, power, square_root)
+from prompts import Prompts 
 
 
 
-TOOLS = [add, subtract, multiply, divide, power, square_root]
+DEBUG = True
 
 
 
-MESSAGE_TYPES = {SystemMessage: "SYSTEM", HumanMessage: "HUMAN", AIMessage: "AI"}
+BEGIN_OF_TEXT		=	"<|begin_of_text|>"
+END_OF_TEXT			= 	"<|end_of_text|>"
+START_HEADER_ID		= 	"<|start_header_id|>"
+END_HEADER_ID		= 	"<|end_header_id|>"
+END_OF_MESSAGE_ID	= 	"<|eom_id|>"
+END_OF_TURN_ID		= 	"<|eot_id|>"
 
 
 
-def add_unique_messages(
-		messages: Dict[str, List[BaseMessage]], 
-		message: BaseMessage
-	) -> None:
-	"""Custom reducer, adds a message to the appropriate category if it does not already exist."""
+MSG_TYPES = {SystemMessage: "SYS", HumanMessage: "HUMAN", AIMessage: "AI"}
 
-	category = MESSAGE_TYPES.get(type(message))
-	if category and all(message.content != msg.content for msg in messages[category]):
-		messages[category].append(message)
+
+
+DEFAULT_AGENTS: Dict[str, Dict[str, List[BaseMessage]]] = {
+	"MANAGER_AGENT": {"SYS": [], "HUMAN": [], "AI": []},
+	"REQUEST_VERIFY": {"SYS": [], "HUMAN": [], "AI": []},
+	"PROMPT_AGENT": {"SYS": [], "HUMAN": [], "AI": []},
+	"DATA_AGENT": {"SYS": [], "HUMAN": [], "AI": []},
+	"MODEL_AGENT": {"SYS": [], "HUMAN": [], "AI": []},
+	"OP_AGENT": {"SYS": [], "HUMAN": [], "AI": []},
+}
+
+
+
+def default_messages() -> Dict[str, Dict[str, List[BaseMessage]]]:
+	"""
+	Tạo dictionary mặc định cho `messages`, giữ nguyên danh sách các Agent.
+
+	- Sử dụng `defaultdict` để tránh lỗi KeyError nếu truy cập Agent chưa tồn tại.
+	- `lambda: {"SYS": [], "HUMAN": [], "AI": []}` đảm bảo mỗi Agent có đủ 3 loại tin nhắn.
+	- `DEFAULT_AGENTS.copy()` giúp giữ nguyên cấu trúc ban đầu mà không bị ghi đè.
+
+	Returns:
+		Dict[str, Dict[str, List[BaseMessage]]]: Cấu trúc lưu trữ tin nhắn theo Agent và loại tin nhắn.
+	"""
+	return defaultdict(lambda: {"SYS": [], "HUMAN": [], "AI": []}, DEFAULT_AGENTS.copy())
 
 
 
 class State(BaseModel):
-	"""Represents the structured conversation state with categorized messages."""
-	user_query: Annotated[List, add_messages] = Field(default_factory=list)
-	messages: Dict[str, Annotated[List[BaseMessage], add_unique_messages]] = Field(
-		default_factory=lambda: {
-			"SYSTEM": [], 
-			"HUMAN": [], 
-			"AI": []
-		}, description="Categorized messages: SYSTEM, HUMAN, AI."
+	"""Manages structured conversation state in a multi-agent system.
+
+	Attributes:
+		human_query (List[HumanMessage]): List of user queries.
+		messages (Dict[str, Dict[str, List[BaseMessage]]]): 
+			Stores categorized messages by agent type and message type:
+				- Agents types: MANAGER_AGENT, REQUEST_VERIFY, PROMPT_AGENT, DATA_AGENT, MODEL_AGENT, OP_AGENT.
+				- Message types: SYSTEM, HUMAN, AI.
+		is_last_step (bool): Indicates if this is the final step.
+		remaining_steps (int): Number of steps left.
+
+	Methods:
+		get_all_msgs(): Returns all messages in chronological order.
+		get_latest_msg(agent_type, msg_type): Gets the latest message of a given agent and type.
+		get_msgs_by_agent_type_and_msg_type(agent_type, msgs_type): Retrieves all messages from a specific agent and type.
+	"""
+	human_query: Annotated[List[HumanMessage], add_messages] = Field(default_factory=list)
+	messages: Dict[str, Dict[str, List[BaseMessage]]] = Field(
+		default_factory=default_messages, 
+		description="Categorized Multi-Agent messages: MANAGER_AGENT, REQUEST_VERIFY, PROMPT_AGENT, DATA_AGENT, MODEL_AGENT, OP_AGENT."
 	)
 	is_last_step: bool = False
 	remaining_steps: int = 3
 
-	def get_all_messages(self) -> List[BaseMessage]:
-		"""Returns all messages in chronological order."""
-		return sum(self.messages.values(), [])
+	def get_all_msgs(self) -> List[BaseMessage]:
+		"""Returns all messages across all agents in chronological order."""
+		all_messages = []
+		for agent_messages in self.messages.values():
+			for msg_list in agent_messages.values():
+				all_messages.extend(msg_list)
+		return all_messages
 
-	def get_latest_message(self, category: str) -> BaseMessage:
-		"""Returns the latest message from a given category, if available."""
-		if category not in self.messages:
-			raise ValueError(f"[ERROR]: Invalid category '{category}'. Must be 'SYSTEM', 'HUMAN', or 'AI'.")
-		return self.messages[category][-1] if self.messages[category] else None 
+	def get_latest_msg(self, agent_type: str, msg_type: str) -> BaseMessage:
+		"""Returns the latest message from a given agent category and message type."""
+		if agent_type not in self.messages:raise ValueError(f"[ERROR]: Invalid agent category '{agent_type}'. Must be one of {list(self.messages.keys())}.")
+		if msg_type not in self.messages[agent_type]:raise ValueError(f"[ERROR]: Invalid message type '{msg_type}'. Must be 'SYSTEM', 'HUMAN', or 'AI'.")
+		return self.messages[agent_type][msg_type][-1] if self.messages[agent_type][msg_type] else None
 
-	def get_messages_by_category(self, category: str) -> List[BaseMessage]:
-		"""Returns all messages from a specific category."""
-		if category not in self.messages:
-			raise ValueError(f"[ERROR]: Invalid category '{category}'. Must be 'SYSTEM', 'HUMAN', or 'AI'.")
-		return self.messages[category]
+	def get_msgs_by_agent_type_and_msg_type(self, agent_type: str, msgs_type: str) -> List[BaseMessage]:
+		"""Returns all messages from a specific agent and type."""
+		if agent_type not in self.messages:raise ValueError(f"[ERROR]: Invalid agent category '{agent_type}'. Must be one of {list(self.messages.keys())}.")
+		if msgs_type not in self.messages[agent_type]:raise ValueError(f"[ERROR]: Invalid message type '{msgs_type}'. Must be 'SYSTEM', 'HUMAN', or 'AI'.")
+		return self.messages[agent_type][msgs_type]
+
+	def add_unique_msgs(self, node: str, msgs_type: str, msg: BaseMessage) -> None:
+		"""Adds a message to a specific node in the State.
+
+		Args:
+			node (str): The agent node, e.g., "MANAGER_AGENT", "REQUEST_VERIFY", etc.
+			msgs_type (str): The message type, one of "AI", "HUMAN", "SYS".
+			msg (BaseMessage): The message object to be stored.
+
+		Returns:
+			None
+		""" 
+		if node not in self.messages:
+			self.messages[node] = {"SYS": [], "HUMAN": [], "AI": []}
+		if node == "REQUEST_VERIFY":
+			self.messages[node][msgs_type] = [msg]
+		else:
+			if msg.content not in {m.content for m in self.messages[node][msgs_type]}:
+				self.messages[node][msgs_type].append(msg)
 
 
 
-class React(TypedDict):
-	"""ReAct structured response format."""
-	final_answer: str
+class ConversationalResponse(TypedDict):
+	"""Respond in a conversational manner. Be kind and helpful."""
+	response: str = Field(description="A conversational response to the user's query")
 
 
 
-def build_system_prompt(tool_desc_prompt: str, react_prompt: str, tools: List[BaseTool]) -> SystemMessage:
+class UserRequirementsToJSON(TypedDict):
+	"""Parses user requirements related to AI project potential into structured JSON."""
+	problem_area: Annotated[str, ..., "Problem domain (e.g., tabular data analysis)."]
+	task: Annotated[str, ..., "Type of ML task (e.g., classification, regression)."]
+	application: Annotated[str, ..., "Application field (e.g., agriculture, healthcare)."]
+	dataset_name: Annotated[str, ..., "Dataset name (e.g., banana_quality)."]
+	data_modality: Annotated[List[str], ..., "Data modality (e.g., ['tabular', 'image'])."]
+	model_name: Annotated[str, ..., "Model name (e.g., XGBoost, ResNet)."]
+	model_type: Annotated[str, ..., "Model type (e.g., vision, text, tabular)."]
+	hardware_cuda: Annotated[bool, ..., "Requires CUDA? (True/False)."]
+	hardware_cpu_cores: Annotated[int, ..., "Number of CPU cores required."]
+	hardware_memory: Annotated[str, ..., "RAM required (e.g., '32GB')."]
+
+
+
+class TheFinalAnswer(TypedDict):
+	"""Final answer of LLM response to user."""
+	final_output: Union[UserRequirementsToJSON, ConversationalResponse]
+
+
+
+PROMPT_AGENT_SYS_MSG_PROMPT = Prompts.PROMPT_AGENT_PROMPT
+MGR_SYS_MSG_PROMPT = Prompts.AGENT_MANAGER_PROMPT
+REQ_VER_RELEVANCY_MSG_PROMPT = Prompts.REQUEST_VERIFY_RELEVANCY
+REQ_VER_ADEQUACY_MSG_PROMPT = Prompts.REQUEST_VERIFY_ADEQUACY
+PAR_JSON_MSG_PROMPT = Prompts.PARSE_JSON_PROMPT
+
+
+
+CONFIG = {"configurable": {"thread_id": str(uuid.uuid4())}}
+CHECKPOINTER = MemorySaver()
+STORE = InMemoryStore()
+
+
+
+MODEL_HIGH_TEMP = ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0.8, num_predict=128_000)
+MODEL_LOW_TEMP = ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0, num_predict=128_000)
+MODEL_STRUCTURE_OUTPUT = MODEL_LOW_TEMP.with_structured_output(UserRequirementsToJSON, method="json_schema")
+
+
+
+def enhance_human_query(human_msg: str) -> str:
+	"""Enhances the human query by formatting it with special tokens of LLama 3 series models.
+
+	This function constructs a structured prompt including:
+	- `sys_msg (from context)
+	- `human_msg (latest human query)
+	- `ai_msg (space for AI response)
+
+	Args:
+		human_msg (str): User's query.
+
+	Returns:
+		formatted_query: A formatted human query wrapped with special tokens.
+
+	Example:
+		>>> state.user_query = [HumanMessage(content="What is AI?")]
+		>>> enhance_human_query(state)
+		formatted_query="<|start_header_id|>HUMAN<|end_header_id|>What is AI?<|end_of_turn_id|><|start_header_id|>AI<|end_header_id|>"
+	"""
+	formatted_query = (
+		f"{START_HEADER_ID}HUMAN{END_HEADER_ID}"
+		f"{human_msg}{END_OF_TURN_ID}"
+		f"{START_HEADER_ID}AI{END_HEADER_ID}"
+	)
+	return formatted_query
+
+
+
+def add_eotext_eoturn_to_ai_msg(
+	ai_msg: AIMessage, 
+	end_of_turn_id_token: str = END_OF_TURN_ID,
+	end_of_text_token: str = END_OF_TEXT
+) -> AIMessage:
+	"""Ensures AIMessage content ends with required special tokens.
+
+	This function appends `<|end_of_text|>` and `<|eot_id|>` at the end of 
+	the message content if they are not already present.
+
+	Args:
+		ai_msg (AIMessage): The AI-generated message.
+		end_of_text_token (str, optional) = "<|end_of_text|>": Special token indicating the end of the text.
+		end_of_turn_id_token (str, optional) = "<|eot_id|>": Special token marking the end of a conversation turn.
+
+	Returns:
+		AIMessage: The updated AI message with the required tokens.
+
+	Example:
+		>>> message = AIMessage(content="Hello, how can I assist you?")
+		>>> add_eotext_eoturn_to_ai_msg(message, "<|end_of_text|>", "<|eot_id|>")
+		AIMessage(content="Hello, how can I assist you?<|end_of_text|><|eot_id|>")
+	"""
+	content = ai_msg.content.strip()
+	if not content.endswith(end_of_turn_id_token):
+		content += end_of_turn_id_token
+	if not content.endswith(end_of_turn_id_token + end_of_text_token):
+			content = content.replace(end_of_turn_id_token, end_of_turn_id_token + end_of_text_token)
+	return AIMessage(content=content)
+
+
+
+def build_react_sys_msg_prompt(tool_desc_prompt: str, react_prompt: str, tools: List[BaseTool])-> str:
 	"""Builds a formatted system prompt with tool descriptions.
 
 	Args:
-		tool_desc_prompt (str): Template for tool descriptions.
-		react_prompt (str): Template for constructing the final system prompt.
-		tools (list): List of tool objects.
+		tool_desc_prompt (PromptTemplate): Template for tool descriptions.
+		react_prompt (PromptTemplate): Template for constructing the final system prompt.
+		tools (List[BaseTool]): List of tool objects.
 
 	Returns:
 		str: A fully formatted system prompt with tool descriptions.
@@ -117,547 +280,263 @@ def build_system_prompt(tool_desc_prompt: str, react_prompt: str, tools: List[Ba
 		) + " Format the arguments as a JSON object."
 		for tool in tools
 	]
-	return SystemMessage(react_prompt.format(
-		begin_of_text=begin_of_text, 
-		start_header_id=start_header_id, 
-		end_header_id=end_header_id, 
-		end_of_turn_id=end_of_turn_id, 
+	prompt = react_prompt.format(
+		BEGIN_OF_TEXT=BEGIN_OF_TEXT, 
+		START_HEADER_ID=START_HEADER_ID, 
+		END_HEADER_ID=END_HEADER_ID, 
+		END_OF_TURN_ID=END_OF_TURN_ID, 
 		tools_desc="\n\n".join(list_tool_desc), 
-		tools_name=", ".join(tool.name for tool in tools),
-	))
-
-
-
-def enhance_human_message(state: State) -> HumanMessage:
-	"""Enhances the human query by formatting it with system and assistant structure.
-
-	This function constructs a structured prompt including:
-	- `system_prompt (from context)
-	- `user_query (latest human query)
-	- `ai_resp (space for AI response)
-
-	Args:
-		state (State): The current conversation state.
-
-	Returns:
-		HumanMessage: A formatted human query wrapped with special tokens.
-
-	Example:
-		>>> state.user_query = [HumanMessage(content="What is AI?")]
-		>>> enhance_human_query(state)
-		HumanMessage(content='<|start_header_id|>user<|end_header_id|>What is AI?<|end_of_turn_id|><|start_header_id|>assistant<|end_header_id|>')
-	"""
-	user_query = state.user_query[-1].content if state.user_query else ""
-	formatted_query = (
-		f"{start_header_id}user{end_header_id}"
-		f"{user_query}"
-		f"{end_of_turn_id}"
-		f"{start_header_id}assistant{end_header_id}"
+		tools_name=", ".join(tool.name for tool in tools)
 	)
-	return HumanMessage(content=formatted_query)
+	return prompt
 
 
 
-def add_eot_id_to_ai_message(ai_message: AIMessage, special_token: str = end_of_turn_id) -> AIMessage:
-	"""Appends a special token at the end of an AIMessage's content if it's not already present.
-
-	This function ensures that the AI-generated message always ends with the specified special token.
-	If the message already contains the token at the end, it remains unchanged.
+def model_parse_json(human_msg: HumanMessage, schema: UserRequirementsToJSON) -> json:
+	"""LLM tạo JSON đúng theo định dạng Pydantic.
 
 	Args:
-		ai_message (AIMessage): The AI-generated message.
-		special_token (str, optional): The special token to append (default is `end_of_turn_id`).
+		human_msg (HumanMessage): Tin nhắn đầu vào của người dùng.
+		schema (Type[BaseModel]): Pydantic model dùng để kiểm tra JSON.
 
 	Returns:
-		AIMessage: The updated AI message with the special token appended if necessary.
+		dict: JSON đã được kiểm tra và xác nhận hợp lệ.
+	"""
+	json_data = MODEL_STRUCTURE_OUTPUT.invoke([human_msg])
+	if not json_data:
+		json_schema = str(TypeAdapter(UserRequirementsToJSON).json_schema()["properties"])
+		sys_msg = SystemMessage(content=PAR_JSON_MSG_PROMPT.format(
+			BEGIN_OF_TEXT=BEGIN_OF_TEXT, 
+			START_HEADER_ID=START_HEADER_ID, 
+			END_HEADER_ID=END_HEADER_ID, 
+			json_specification=json_schema, 
+			human_msg=human_msg.content, 
+			END_OF_TURN_ID=END_OF_TURN_ID
+		))
+		ai_msg_json = MODEL_LOW_TEMP.invoke([sys_msg])
+		pattern = r"```json\n(.*?)\n```"
+		match = re.search(pattern=pattern, string=ai_msg_json.content, flags=re.DOTALL)
+		if not match:
+			raise ValueError(">>> Không tìm thấy JSON hợp lệ trong phản hồi của mô hình.")
+		json_string = match.group(1).strip()
+		try:
+			json_data = json.loads(json_string)
+			if DEBUG: 
+				print(">>> JSON hợp lệ:")
+				print(json.dumps(json_data, indent=2, ensure_ascii=False))
+		except json.JSONDecodeError as e:
+			raise ValueError(f">>> JSON không hợp lệ (DecodeError): {e}")
+	return json_data 
+
+
+
+def manager_agent(state: State) -> State:
+	"""Manager Agent.
 
 	Example:
-		>>> message = AIMessage(content="Hello, how can I assist you?")
-		>>> add_eot_id_to_ai_message(message, special_token="<|eot_id|>")
-		AIMessage(content="Hello, how can I assist you?<|eot_id|>")
+		>>> Human query: I need a very accurate model to classify images in the 
+				Butterfly Image Classification dataset into their respective 
+				categories. The dataset has been uploaded with its label 
+				information in the labels.csv file.
+		>>> AI response: Here is a sample code that uses the Keras library to develop and train a convolutional neural network (CNN) model for ...
 	"""
-	if not ai_message.content.strip().endswith(special_token):
-		return AIMessage(content=ai_message.content.strip() + special_token)
-	return ai_message 
+	sys_msg = SystemMessage(content=MGR_SYS_MSG_PROMPT.format(
+		BEGIN_OF_TEXT=BEGIN_OF_TEXT, 
+		START_HEADER_ID=START_HEADER_ID, 
+		END_HEADER_ID=END_HEADER_ID, 
+		END_OF_TURN_ID=END_OF_TURN_ID 
+	))
+	human_msg = HumanMessage(content=enhance_human_query(human_msg=state.human_query[-1].content if state.human_query else ""))
+	ai_msg_json = HumanMessage(str(model_parse_json(human_msg=human_msg, schema=UserRequirementsToJSON)))
+	ai_msg = MODEL_LOW_TEMP.invoke([sys_msg, human_msg, ai_msg_json])
+	if not isinstance(ai_msg, AIMessage): ai_msg = AIMessage(content=ai_msg.strip() if isinstance(ai_msg, str) else "At node_manager_agent, I'm unable to generate a response.")
+	ai_msg = add_eotext_eoturn_to_ai_msg(ai_msg=ai_msg, end_of_turn_id_token=END_OF_TURN_ID, end_of_text_token=END_OF_TEXT)
+	state.add_unique_msgs(node="MANAGER_AGENT", msgs_type="SYS", msg=sys_msg)
+	state.add_unique_msgs(node="MANAGER_AGENT", msgs_type="HUMAN", msg=human_msg)
+	state.add_unique_msgs(node="MANAGER_AGENT", msgs_type="AI", msg=AIMessage("<|parse_json|>" + ai_msg_json.content + "<|end_parse_json|>" + ai_msg.content))
+	return state
 
 
 
-CONFIG = {"configurable": {"thread_id": str(uuid.uuid4())}}
-CHECKPOINTER = MemorySaver()
-STORE = InMemoryStore()
-MODEL = ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0.8, num_predict=128_000)
-MODEL_BIND_TOOLS = MODEL.bind_tools(tools=TOOLS)
-REACT_SYSTEM_MESSAGE_PROMPT = build_system_prompt(tool_desc_prompt=TOOL_DESC_PROMPT, react_prompt=REACT_PROMPT, tools=TOOLS)
+def check_contain_yes_or_no(ai_msg: str) -> str:
+	"""Checks if the AI response contains 'Yes' or 'No'."""
+	pattern = r"<\|start_header_id\|>assistant<\|end_header_id\|>\s*\n\s*(yes|no)\b"
+	match = re.search(pattern=pattern, string=ai_msg, flags=re.IGNORECASE)
+	if match:
+		return match.group(1).upper()
+	else:
+		return "[ERROR]: Không tìm thấy 'Yes' hoặc 'No' trong phản hồi AI!"
 
 
 
-def chatbot_react(state: State) -> State:
-	"""Processes a user query and updates the conversation state with the chatbot's response.
-
-	This function:
-	- Enhances the user query.
-	- Calls the AI model with `SYSTEM_PROMPT` and the enhanced query.
-	- Ensures the AI response is formatted correctly.
-	- Appends the special token `<|eot_id|>` if missing.
-	- Prevents duplicate messages in `state.messages`.
-
-	Args:
-		state (State): The current conversation state, containing message history.
-
-	Example:
-		>>> state = State(messages={"SYSTEM": [], "HUMAN": [], "AI": []})
-		>>> chatbot(state)
-		{'messages': 
-			{
-				'HUMAN': HumanMessage(content='Formatted user query'), 
-				'AI': AIMessage(content='Chatbot response<|eot_id|>')
-			}
-		}
-	"""
-	human_message = enhance_human_message(state=state)
-	resp = MODEL.invoke([REACT_SYSTEM_MESSAGE_PROMPT, human_message])
-
-	if not isinstance(resp, AIMessage):
-		resp = AIMessage(
-			content=resp.strip() 
-			if isinstance(resp, str) 
-			else "I'm unable to generate a response."
+def req_ver_relevancy(state: State) -> List[BaseMessage]:
+	"""Check request verification of human_query."""
+	human_msg = state.human_query[-1]
+	sys_msg = SystemMessage(content=REQ_VER_RELEVANCY_MSG_PROMPT.format(
+		instruction=human_msg.content, 
+		BEGIN_OF_TEXT=BEGIN_OF_TEXT, 
+		START_HEADER_ID=START_HEADER_ID, 
+		END_HEADER_ID=END_HEADER_ID, 
+		END_OF_TURN_ID=END_OF_TURN_ID
+	))
+	ai_msg = MODEL_LOW_TEMP.invoke([sys_msg])
+	if not isinstance(ai_msg, AIMessage):
+		ai_msg = AIMessage(
+			content=ai_msg.strip() 
+			if isinstance(ai_msg, str) 
+			else "At node_request_verify-REQUEST_VERIFY_RELEVANCY, I'm unable to generate a response."
 		)
-	resp = add_eot_id_to_ai_message(ai_message=resp, special_token=end_of_turn_id)
+	ai_msg = add_eotext_eoturn_to_ai_msg(
+		ai_msg=ai_msg, 
+		end_of_turn_id_token=END_OF_TURN_ID, 
+		end_of_text_token=END_OF_TEXT
+	)
+	return [sys_msg, human_msg, ai_msg]
+
+
+
+def req_ver_adequacy(state: State) -> List[BaseMessage]:
+	"""Check request verification of AIMessage response with JSON object."""
+	pattern = r"<\|parse_json\|>(.*?)<\|end_parse_json\|>"
+	human_msg = state.messages['MANAGER_AGENT']['HUMAN'][-1]
+	ai_msg = state.messages['MANAGER_AGENT']['AI'][-1]
+	json_obj_from_ai_msg = re.findall(pattern=pattern, string=ai_msg.content, flags=re.DOTALL)[-1]
+	sys_msg = SystemMessage(content=REQ_VER_ADEQUACY_MSG_PROMPT.format(
+		BEGIN_OF_TEXT=BEGIN_OF_TEXT, 
+		START_HEADER_ID=START_HEADER_ID, 
+		END_HEADER_ID=END_HEADER_ID, 
+		parsed_user_requirements=json_obj_from_ai_msg, 
+		END_OF_TURN_ID=END_OF_TURN_ID
+	))
+	ai_msg = MODEL_LOW_TEMP.invoke([sys_msg])
+	if not isinstance(ai_msg, AIMessage):
+		ai_msg = AIMessage(
+			content=ai_msg.strip()
+			if isinstance(ai_msg, str) 
+			else "At node_request_verify-REQUEST_VERIFY_ADEQUACY, I'm unable to generate a response."
+		)
+	ai_msg = add_eotext_eoturn_to_ai_msg(
+		ai_msg=ai_msg, 
+		end_of_turn_id_token=END_OF_TURN_ID, 
+		end_of_text_token=END_OF_TEXT
+	)
+	return [sys_msg, human_msg, ai_msg]
+
+
+
+def request_verify(state: State) -> State:
+	"""Request verification output of Agent Manager."""
+	ai_msg_relevancy = req_ver_relevancy(state=state)[2]
+	ai_msg_adequacy = req_ver_adequacy(state=state)[2]
+	yes_no_relevancy = check_contain_yes_or_no(ai_msg=ai_msg_relevancy.content)
+	yes_no_adequacy  = check_contain_yes_or_no(ai_msg=ai_msg_adequacy.content )
+	yes_no = "YES" if "YES" in (yes_no_relevancy, yes_no_adequacy) else "NO"
+	ai_msg = AIMessage(content=yes_no)
+	state.add_unique_msgs(node="REQUEST_VERIFY", msgs_type="AI", msg=ai_msg)
+	return state
+
+
+
+def req_ver_determine_yes_or_no(state: State) -> State:
+	"""Determines the next step based on the AI response from REQUEST_VERIFY."""
+	resp_map = {
+		"YES": "PROMPT_AGENT", 
+		"NO": END
+	}
+	ai_msg = state.get_latest_msg(
+		agent_type="REQUEST_VERIFY", 
+		msg_type="AI"
+	)
+	if not ai_msg or not hasattr(ai_msg, "content"):
+		raise ValueError("[ERROR]: No valid AI message found in REQUEST_VERIFY.")
+	resp = ai_msg.content.strip().upper()
+	return resp_map.get(resp, ValueError(f">>> [ERROR]: Unexpected response '{resp}'"))
+
+
+
+def prompt_agent(state: State) -> State:
+	"""Prompt Agent."""
+	human_msg = state.human_query[-1].content
+	sys_msg = SystemMessage(content=PROMPT_AGENT_SYS_MSG_PROMPT.format(
+		BEGIN_OF_TEXT=BEGIN_OF_TEXT, 
+		START_HEADER_ID=START_HEADER_ID, 
+		END_HEADER_ID=END_HEADER_ID, 
+		json_schema=str(TypeAdapter(UserRequirementsToJSON).json_schema()["properties"]), 
+		human_msg=human_msg, 
+		END_OF_TURN_ID=END_OF_TURN_ID
+	))
+	ai_msg = PROMPT_AGENT_SYS_MSG_PROMPT.format()
 	return {"messages": {
-		"SYSTEM": [REACT_SYSTEM_MESSAGE_PROMPT], 
-		"HUMAN": [human_message], 
-		"AI": [resp]
-	}}
+		"PROMPT_AGENT": {
+			"SYSTEM": [MGR_SYS_MSG_PROMPT], 
+			"HUMAN": [human_msg], 
+			"AI": [ai_msg]
+		}}}
 
 
 
 workflow = StateGraph(State)
 
-workflow.add_node("chatbot_react", chatbot_react)
+workflow.add_node("MANAGER_AGENT", manager_agent)
+workflow.add_node("REQUEST_VERIFY", request_verify)
+workflow.add_node("PROMPT_AGENT", prompt_agent)
 
-workflow.add_edge(START, "chatbot_react")
-workflow.add_edge("chatbot_react", END)
+workflow.add_edge(START, "MANAGER_AGENT")
+workflow.add_edge("MANAGER_AGENT", "REQUEST_VERIFY")
+workflow.add_conditional_edges("REQUEST_VERIFY", req_ver_determine_yes_or_no)
+workflow.add_edge("PROMPT_AGENT", "REQUEST_VERIFY")
 
-app = workflow.compile(checkpointer=CHECKPOINTER, store=STORE)
+app = workflow.compile(
+	checkpointer=CHECKPOINTER, 
+	store=STORE, debug=DEBUG, 
+	name="FOXCONN-AI Research"
+)
 
 
 
 def main() -> None:
-	"""Hàm chính để nhận truy vấn từ người dùng và hiển thị phản hồi."""
-	while True: 
-		user_query = input("👨_query: ")
-		if user_query.lower() == "exit":
-			print(">>> SystemExit: Goodbye! Have a great day!😊")
+	"""Handles user queries and displays AI responses."""
+	for user_query in QUERIES:
+		user_query = user_query.strip().lower()
+		if user_query == "exit":
+			print(">>> [System Exit] Goodbye! Have a great day! 😊")
 			break
-		print_stream(
-			app.stream(input={"user_query": [user_query]}, 
-			stream_mode="values", config=CONFIG)
-	)
+		streamlit_user_interface(
+			app.stream(
+				input={"human_query": [user_query]}, 
+				stream_mode="values", 
+				config=CONFIG
+			))
 
 
 
-def print_stream(stream) -> None:
-	"""Hiển thị kết quả hội thoại theo cách dễ đọc hơn."""
+def streamlit_user_interface(stream: Iterator[Dict[str, Dict[str, Dict[str, List[BaseMessage]]]] | Any]) -> None:
+	"""Hiển thị kết quả hội thoại trên Streamlit."""
 	for s in stream:
 		if len(list(s.keys())) == 2:
-			messages = s["messages"]
-			if "SYSTEM" in messages and messages["SYSTEM"]:
-				print("\n ⚙️ **SYSTEM**:")
-				messages["SYSTEM"][-1].pretty_print()
+			msgs = s["messages"]
+	print("DEBUG")
 
-			if "HUMAN" in messages and messages["HUMAN"]:
-				print("\n 👨 **HUMAN**:")
-				messages["HUMAN"][-1].pretty_print()
 
-			if "AI" in messages and messages["AI"]:
-				print("\n 🤖 **AI**:")
-				messages["AI"][-1].pretty_print()
-			print("🔹" * 30)
+
+QUERIES = [
+	"""I need a highly accurate machine learning model developed to classify images within the Butterfly Image Classification dataset into their correct species categories. 
+The dataset has been uploaded with its label information in the labels.csv file. 
+Please use a convolutional neural network (CNN) architecture for this task, leveraging transfer learning from a pre-trained ResNet-50 model to improve accuracy. 
+Optimize the model using cross-validation on the training split to fine-tune hyperparameters, and aim for an accuracy of at least 0.95 (95%) on the test split. 
+Provide the final trained model, a detailed report of the training process, hyperparameter settings, accuracy metrics, and a confusion matrix to evaluate performance across different categories.""",
+
+	"""Please provide a classification model that categorizes images into one of four clothing categories. 
+The image path, along with its label information, can be found in the files train labels.csv and test labels.csv. 
+The model should achieve at least 0.95 (95%) accuracy on the test set and be implemented using PyTorch. 
+Additionally, please include data augmentation techniques and a confusion matrix in the evaluation."""	
+	
+	"""Hello, What is heavier a kilo of feathers or a kilo of steel?""", 
+	
+	"""exit"""
+]
 
 
 
 if __name__ == "__main__":
 	fire.Fire(main)
-
-
-
-# def llm_with_tools(query, history, tools, idx):
-# 	chat_history = [(x["user"], x["bot"]) for x in history] + [(query, "")]
-# 	planning_prompt = build_input_text(chat_history=chat_history, tools=tools)
-# 	text = ""
-# 	while True:
-# 		resp = model_invoke(input_text=planning_prompt+text, idx=idx)
-# 		action, action_input, output = parse_latest_tool_call(resp=resp) 
-# 		if action:
-# 			res = tool_exe(
-# 				tool_name=action, tool_args=action_input, idx=idx
-# 			)
-# 			text += res
-# 			break
-# 		else:  
-# 			text += output
-# 			break
-# 	new_history = []
-# 	new_history.extend(history)
-# 	new_history.append(
-# 		{'user': query, 'bot': text}
-# 	)
-# 	idx += 1
-# 	return text, new_history
-
-
-
-# def build_input_text_archive(
-# 		chat_history, 
-# 		tools, 
-# 		im_start = "<|im_start|>", 
-# 		im_end = "<|im_end|>"
-# 	):
-# 	"""Tổng hợp lịch sử hội thoại và thông tin plugin thành một văn bản đầu vào (context history)."""
-# 	prompt = f"{im_start}system\nYou are a helpful assistant.{im_end}"
-# 	tools_text = []
-# 	for tool_info in tools:
-# 		tool = tool_desc.format(
-# 			name_for_model=tool_info["name_for_model"],
-# 			name_for_human=tool_info["name_for_human"],
-# 			description_for_model=tool_info["description_for_model"],
-# 			parameters=json.dumps(tool_info["parameters"], ensure_ascii=False)
-# 		)
-# 		if dict(tool_info).get("args_format", "json") == "json":
-# 			tool += ". Format the arguments as a JSON object."
-# 		elif dict(tool_info).get("args_format", "code") == "code":
-# 			tool += ". Enclose the code within triple backticks (`) at the beginning and end of the code."
-# 		else:
-# 			raise NotImplementedError
-# 		tools_text.append(tool)
-# 	tools_desc = "\n\n".join(tools_text)
-# 	tools_name = ", ".join([tool_info["name_for_model"] for tool_info in tools])
-# 	for i, (query, response) in enumerate(chat_history):
-# 		if tools:  # Nếu có gọi tool 
-# 			# Quyết định điền thông tin chi tiết của tool vào cuối hội thoại hoặc trước cuối hội thoại.
-# 			if (len(chat_history) == 1) or (i == len(chat_history) - 2):
-# 				query = react_prompt.format(
-# 					tools_desc=tools_desc, 
-# 					tools_name=tools_name, 
-# 					query=query
-# 				)
-# 		query = query.strip() # Quan trọng! Nếu không áp dụng strip, cấu trúc dữ liệu sẽ khác so với cách được xây dựng trong quá trình huấn luyện.
-# 		if isinstance(response, str):
-# 			response = response.strip()
-# 		elif not response:
-# 			raise ValueError(">>> Error: response is None or empty, expected a string.")  
-# 		else:
-# 			try:
-# 				response = str(response).strip() # Quan trọng! Nếu không áp dụng strip, cấu trúc dữ liệu sẽ khác so với cách được xây dựng trong quá trình huấn luyện.
-# 			except Exception as e:
-# 				raise e
-# 		# Trong text_completion, sử dụng định dạng sau để phân biệt giữa User và AI 
-# 		prompt += f"\n{im_start}user\n{query}{im_end}"
-# 		prompt += f"\n{im_start}assistant\n{response}{im_end}"
-# 	assert prompt.endswith(f"\n{im_start}assistant\n{im_end}")
-# 	prompt = prompt[: -len(f"{im_end}")]
-# 	return prompt
-
-
-
-# def llm_with_tools(query, history, tools, idx):
-# 	chat_history = [(x["user"], x["bot"]) for x in history] + [(query, "")]
-# 	planning_prompt = build_input_text(chat_history=chat_history, tools=tools)
-# 	text = ""
-# 	while True:
-# 		resp = model_invoke(input_text=planning_prompt+text, idx=idx)
-# 		action, action_input, output = parse_latest_tool_call(resp=resp) 
-# 		if action:
-# 			res = tool_exe(
-# 				tool_name=action, tool_args=action_input, idx=idx
-# 			)
-# 			text += res
-# 			break
-# 		else:  
-# 			text += output
-# 			break
-# 	new_history = []
-# 	new_history.extend(history)
-# 	new_history.append(
-# 		{'user': query, 'bot': text}
-# 	)
-# 	idx += 1
-# 	return text, new_history
-
-
-
-# def parse_latest_tool_call(resp):
-# 	"""Xử lý kết quả inference LLM, phân tích chuỗi để thực thi công cụ."""
-# 	tool_name, tool_args = "", ""
-# 	action = str(resp).rfind("Action:")
-# 	action_input = str(resp).rfind("Action Input:")
-# 	observation = str(resp).rfind("Observation:")
-# 	if 0 <= action < action_input < observation:
-# 		tool_name = str(resp[action + len("Action:") : action_input]).strip()
-# 		tool_args = str(resp[action_input + len("Action Input:") : observation]).strip()
-# 		resp = resp[:observation]
-# 	return tool_name, tool_args, resp
-
-
-
-# def ai_vision(tool_args, idx):
-# 	import numpy as np 
-# 	import cv2 
-# 	from paddleocr import PaddleOCR, draw_ocr
-# 	from PIL import Image 
-# 	vid_path = json5.loads(tool_args)["video_path"]
-# 	ocr = PaddleOCR(use_angle_cls=False, lang='en') 
-# 	cap = cv2.VideoCapture(vid_path)
-# 	if not cap.isOpened():
-# 		print(">>> Can not open camera")
-# 		exit()
-# 	print(">>> Starting real-time OCR. Press 'q' to exit.")
-# 	while True:
-# 		ret, frame = cap.read()
-# 		if not ret:
-# 			print(">>> Can't receive frame (stream end?). Exiting...")
-# 			break 
-# 		# Perform OCR on the current frame
-# 		result = ocr.ocr(frame, cls=False)
-# 		# Draw detected text on the frame
-# 		for res in result:
-# 			if res is not None:
-# 				for line in res:
-# 					box, (text, score) = line 
-# 					box = np.array(box, dtype=np.int32)
-# 					# Draw bounding box
-# 					cv2.polylines(frame, [box], isClosed=True, color=(0, 255, 0), thickness=2)
-# 					# Display text near the bounding box
-# 					x, y = box[0]
-# 					cv2.putText(frame, f"{text} ({score:.2f})", (x, y - 10), 
-# 					cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-
-# 		cv2.imshow("Research Demo LLM+Vision", frame)
-# 		if cv2.waitKey(1) & 0xFF == ord('q'):
-# 			break 
-# 	cap.release()
-# 	cv2.destroyAllWindows()
-# 	print(">>> OCR session ended.")
-
-
-
-# def tool_exe(tool_name: str, tool_args: str, idx: int) -> str:
-# 	"""Thực thi công cụ (tool execution) được LLM gọi."""
-# 	if tool_name == "image_to_text":
-# 		resp = image_to_text(
-# 			tool_args=tool_args, idx=idx
-# 		)
-# 		return resp
-# 	elif tool_name == "text_to_image":
-# 		resp = text_to_image(tool_args=tool_args)
-# 		return resp
-# 	elif tool_name == "ai_vision":
-# 		resp = ai_vision(
-# 			tool_args=tool_args, 
-# 			idx=idx
-# 		)
-# 		return "Finish AI-Vision, released all VRAM and Windows."
-# 	else:
-# 		raise NotImplementedError
-
-
-
-# def request_image_from_web(tool_args, img_save_path="./"):
-# 	try:
-# 		img_path = json5.loads(tool_args)["image_path"]
-# 		if str(img_path).startswith("http"):
-# 			headers = {
-# 				"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3",
-# 				"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-# 				"Accept-Language": "en-US,en;q=0.5",
-# 				"Accept-Encoding": "gzip, deflate, br",
-# 				"Connection": "keep-alive",
-# 				"Upgrade-Insecure-Requests": "1"
-# 			}
-# 			yzmdata = requests.get(url=img_path, headers=headers)
-# 			tmp_img = BytesIO(yzmdata.content)
-# 			img = Image.open(tmp_img).convert('RGB')
-# 			img.save(img_save_path)
-# 			img = Image.open(img_save_path).convert('RGB')
-# 			return img
-# 		else:
-# 			img = Image.open(img_path).convert('RGB')
-# 			return img 
-# 	except:
-# 		img_path = input(">>> Vui lòng nhập địa chỉ hình ảnh hoặc URL: ")
-# 		if img_path.startswith('http'):
-# 			headers = {
-# 				"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3",
-# 				"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-# 				"Accept-Language": "en-US,en;q=0.5",
-# 				"Accept-Encoding": "gzip, deflate, br",
-# 				"Connection": "keep-alive",
-# 				"Upgrade-Insecure-Requests": "1"
-# 			}
-# 			yzmdata = requests.get(img_path,headers=headers)
-# 			tmp_img = BytesIO(yzmdata.content)
-# 			img = Image.open(tmp_img).convert('RGB')
-# 			img.save(img_save_path)
-# 			img = Image.open(img_save_path).convert('RGB')
-# 			return img
-# 		else:
-# 			img = Image.open(img_path).convert('RGB')
-# 			return img 
-
-
-
-# def main():
-# 	history = []
-# 	for idx, query in tqdm.tqdm(enumerate([
-# 		"Hello, Good afternoon!", # -- id 0 
-# 		"Who is Jay Chou?", # -- id 1
-# 		"Who is his wife?", # -- id 2
-# 		"Describe what is in this image, this is URL of the image: https://www.night_city_img.com", # -- id 3
-# 		"Draw me a cute kitten, preferably a black cat", # -- id 4
-# 		"Modify this description: 'A blue Honda car parked on the street' to 'A red Mazda car parked on the street'", # --id 5
-# 		"I need to check the text on this product in real-time to see if it is accurate and complete. Here is the link of video product: /home/chwenjun225/projects/DeepEngine/nexus_mind/images/fuzetea_vid2.mp4", # -- id 6
-# 		"exit" 
-# 	])):
-# 		print("\n")
-# 		print(f">>> 🧑 query:\n\t{query}\n")
-# 		if query.lower() == "exit":
-# 			print(f">>> 🤖 response:\nGoodbye! Have a great day! 😊\n")
-# 			break 
-# 		response, history = llm_with_tools(
-# 			query=query, 
-# 			history=history, 
-# 			tools=tools, 
-# 			idx=idx
-# 		)
-# 		print(f">>> 🤖 response:\n{response}\n")
-
-
-
-# if __name__ == "__main__":
-# 	fire.Fire(main) 
-
-
-
-# tools = [
-# 	{
-# 		"name_for_human": "image_to_text", 
-# 		"name_for_model": "image_to_text", 
-# 		"description_for_model": "image_to_text is a service that generates textual descriptions from images. By providing the URL of an image, it returns a detailed and realistic description of the image.",
-# 		"parameters": [
-# 			{
-# 				"name": "image_path",
-# 				"description": "the URL of the image to be described",
-# 				"required": True,
-# 				"schema": {"type": "string"},
-# 			}
-# 		],
-# 	},
-# 	{
-# 		"name_for_human": "text_to_image",
-# 		"name_for_model": "text_to_image",
-# 		"description_for_model": "text_to_image is an AI image generation service. It takes a text description as input and returns a URL of the generated image.",
-# 		"parameters": [
-# 			{
-# 				"name": "text",
-# 				"description": "english keywords or a text prompt describing what you want in the image.",
-# 				"required": True,
-# 				"schema": {"type": "string"}
-# 			}
-# 		]
-# 	},
-# 	{
-# 		"name_for_human": "modify_text",
-# 		"name_for_model": "modify_text",
-# 		"description_for_model": "modify_text changes the original prompt based on the input request to make it more suitable.",
-# 		"parameters": [
-# 			{
-# 				"name": "describe_before",
-# 				"description": "the prompt or image description before modification.",
-# 				"required": True,
-# 				"schema": {"type": "string"}
-# 			},
-# 			{
-# 				"name": "modification_request",
-# 				"description": "the request to modify the prompt or image description, e.g., change 'cat' to 'dog' in the text.",
-# 				"required": True,
-# 				"schema": {"type": "string"}
-# 			}
-# 		]
-# 	}, 
-# 	{ 
-# 		"name_for_human": "ai_vision", 
-# 		"name_for_model": "ai_vision", 
-# 		"description_for_model": "ai_vision is a service that use ai-vision to detects and extracts characters from a product image. It processes the image and returns the recognized text to the AI agent for further analysis.",
-# 		"parameters": [
-# 			{
-# 				"name": "video_path",
-# 				"description": "The file path of a video or the IP address of a camera for real-time character detection.",
-# 				"required": True,
-# 				"schema": {"type": "string"}
-# 			}
-# 		],
-# 	},
-# ]
-
-
-
-# fake_response = [
-# # "Hello, Good afternoon!", -- Fake resp id 0 -- No tool
-# 	"""
-# 	Thought: The input is a greeting. No tools are needed.
-# 	Final Answer: Hello! Good afternoon! How can I assist you today?
-# 	""", 
-# # "Who is Jay Chou?", -- Fake resp id 1 -- No tool 
-# 	"""
-# 	Thought: The user is asking for information about Jay Chou. I should retrieve general knowledge.
-# 	Final Answer: Jay Chou is a Taiwanese singer, songwriter, and actor, widely known for his influence in Mandopop music. He has released numerous albums and is recognized for his unique blend of classical and contemporary music.
-# 	""", 
-# # "Who is his wife?", -- Fake resp id 2 -- No tool 
-# 	"""
-# 	Thought: The previous question was about Jay Chou. "His wife" likely refers to Jay Chou's spouse.
-# 	Final Answer: Jay Chou's wife is Hannah Quinlivan, an actress and model from Taiwan.
-# 	""", 
-# # "Describe what is in this image, this is URL of the image: https://www.night_city_img.com", --> Fake resp id 3 -- Tool-use: image_to_text
-# 	"""
-# 	Thought: The user wants a description of an image. I should use the image_to_text API.
-# 	Action: image_to_text
-# 	Action Input: {"image_path": "https://www.tushengwen.com"}
-# 	Observation: "The image depicts a vibrant cityscape at night, illuminated by neon lights and tall skyscrapers."
-# 	Thought: I now know the final answer.
-# 	Final Answer: The image depicts a vibrant cityscape at night, illuminated by neon lights and tall skyscrapers.
-# 	""",
-# # "Draw me a cute kitten, preferably a black cat", -- Fake resp id 4 -- Tool-use: text_to_image
-# 	"""
-# 	Thought: The user is requesting an image generation. I should use the text_to_image API.
-# 	Action: text_to_image
-# 	Action Input: {"text": "A cute black kitten with big eyes, fluffy fur, and a playful expression"}
-# 	Observation: Here is the generated image URL: [https://www.wenshengtu.com]
-# 	Thought: I now know the final answer.
-# 	Final Answer: Here is an image of a cute black kitten: [https://www.wenshengtu.com]
-# 	""", 
-# # "Modify this description: 'A blue Honda car parked on the street' to 'A red Mazda car parked on the street'", -- Fake resp id 5 -- Tool-use: modify_text
-# 	"""
-# 	Thought: The user wants to modify a text description. They want change from `A blue honda car parked on the street` to `A red Mazda car parked on the street`.
-# 	Final Answer: "A red Mazda car parked on the street."
-# 	""", 
-# # "I need to check the text on this product in real-time to see if it is accurate and complete. Here is the link of video product: /home/chwenjun225/projects/DeepEngine/nexus_mind/images/fuzetea_vid1.mp4", # -- id 6
-# 	"""
-# 	Thought: I need to analyze the text on the product in real-time to verify its accuracy and completeness. I should process the video file to extract frames and apply OCR. 
-# 	Action: ai_vision
-# 	Action Input: {"video_path": "/home/chwenjun225/projects/DeepEngine/nexus_mind/images/fuzetea_vid1.mp4"}
-# 	Observation: The OCR result has been extracted from the product video. The detected text is: ["fuzetea", "Passion fruit tea and chia seeds"]
-# 	Thought: I will now compare the extracted text with the expected information to check if it is accurate and complete.
-# 	Final Answer: The text on the product has been successfully extracted. The accuracy and completeness can now be verified based on the expected product information.
-# 	"""
-# # "exit",
-# 	"""Goodbye! Have a great day! 😊"""
-# ]
-
-
-
-# dict_fake_responses = {idx: fresp for idx, fresp in enumerate(fake_response)}
-
-
-
-# STOP_WORDS = ["Observation:", "Observation:\n"]

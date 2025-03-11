@@ -547,9 +547,7 @@ def display_conversation_results(messages: dict) -> None:
 				for msg in msg_list:
 					content = getattr(msg, "content", "[No content]")
 					print(f"\t- {content}")
-
 	print("\n===== END OF CONVERSATION =====\n")
-
 
 
 

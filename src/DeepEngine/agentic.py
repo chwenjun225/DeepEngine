@@ -495,7 +495,7 @@ def prompt_agent(state: State) -> State:
 	return state
 
 
-# TODO: rag, kết nối với chromadb_storage sau, nếu chưa có thì để trống. 
+
 def retrieval_augmented_planning_agent(state: State) -> State:
 	"Retrieval-Augmented Planning Agent."
 	human_msg = state.messages["PROMPT_AGENT"]["AI"][-1].content
@@ -538,7 +538,12 @@ def model_agent(state: State) -> State:
 	return state
 
 
-
+# TODO: Ý tưởng sử dụng Multi-Agent gọi đến Yolov8 API, 
+# Yolov8 API sẽ lấy mọi hình ảnh cỡ nhỏ nó phát hiện 
+# được là lỗi và đưa vào mô hình llama3.2-11b-vision 
+# để đọc ảnh, sau đó Llama3.2-11b-vision gửi lại text 
+# đến Multi-Agent để Multi-Agent xác định xem đấy có phải 
+# là lỗi không.
 workflow = StateGraph(State)
 
 workflow.add_node("MANAGER_AGENT", manager_agent)

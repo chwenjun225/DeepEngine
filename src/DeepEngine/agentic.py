@@ -58,17 +58,18 @@ END_OF_TURN_ID		= 	"<|eot_id|>"
 
 
 
-MSG_TYPES = {	SystemMessage: "SYS", HumanMessage: "HUMAN", AIMessage: "AI"	}
+MSG_TYPES = {SystemMessage: "SYS", HumanMessage: "HUMAN", AIMessage: "AI"}
 
 
 
 DEFAULT_AGENTS: Dict[str, Dict[str, List[BaseMessage]]] 	= 	{
-	"MANAGER_AGENT": 	{	"SYS": [], "HUMAN": [], "AI": []	},
-	"REQUEST_VERIFY": 	{	"SYS": [], "HUMAN": [], "AI": []	},
-	"PROMPT_AGENT": 	{	"SYS": [], "HUMAN": [], "AI": []	},
-	"DATA_AGENT": 		{	"SYS": [], "HUMAN": [], "AI": []	},
-	"MODEL_AGENT": 		{	"SYS": [], "HUMAN": [], "AI": []	},
-	"OP_AGENT": 		{	"SYS": [], "HUMAN": [], "AI": []	},
+	"MANAGER_AGENT": 				{	"SYS": [], "HUMAN": [], "AI": []	},
+	"REQUEST_VERIFY": 				{	"SYS": [], "HUMAN": [], "AI": []	},
+	"PROMPT_AGENT": 				{	"SYS": [], "HUMAN": [], "AI": []	},
+	"RAP": 							{	"SYS": [], "HUMAN": [], "AI": []	},
+	"DATA_AGENT": 					{	"SYS": [], "HUMAN": [], "AI": []	},
+	"MODEL_AGENT": 					{	"SYS": [], "HUMAN": [], "AI": []	},
+	"OP_AGENT": 					{	"SYS": [], "HUMAN": [], "AI": []	},
 }
 
 
@@ -187,11 +188,12 @@ class Prompt2JSON(TypedDict):
 
 
 
+CONVERSATION_2_JSON_MSG_PROMPT 	= 	Prompts.CONVERSATION_2_JSON_PROMPT 
 MGR_SYS_MSG_PROMPT 				= 	Prompts.AGENT_MANAGER_PROMPT
 VER_RELEVANCY_MSG_PROMPT 		= 	Prompts.REQUEST_VERIFY_RELEVANCY
 VER_ADEQUACY_MSG_PROMPT 		= 	Prompts.REQUEST_VERIFY_ADEQUACY
-CONVERSATION_2_JSON_MSG_PROMPT 	= 	Prompts.CONVERSATION_TO_JSON_PROMPT
 PROMPT_2_JSON_SYS_MSG_PROMPT 	= 	Prompts.PROMPT_AGENT_PROMPT
+RAP_SYS_MSG_PROMPT 				= 	Prompts.RETRIEVAL_AUGMENTED_PLANNING_PROMPT
 
 
 
@@ -201,8 +203,8 @@ STORE = InMemoryStore()
 
 
 
-LLM_HTEMP	=	ChatOllama(model="llama3.2:3b-instruct-fp16", temperature=0.8, num_predict=128_000)
-LLM_LTEMP 	= 	ChatOllama(model="llama3.2:3b-instruct-fp16", temperature=0, num_predict=128_000)
+LLM_HTEMP	=	ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0.8, num_predict=128_000)
+LLM_LTEMP 	= 	ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0, num_predict=128_000)
 
 LLM_STRUC_OUT_CONVERSATION 	=	LLM_HTEMP.with_structured_output(schema=Conversation, method="json_schema")
 LLM_STRUC_OUT_AUTOML 		= 	LLM_HTEMP.with_structured_output(schema=Prompt2JSON, method="json_schema")
@@ -467,7 +469,7 @@ def req_ver_yes_or_no_control_flow(state: State) -> State:
 
 def prompt_agent(state: State) -> State:
 	"""Prompt Agent parses user's requirements into JSON following a TypedDict schema.
-	
+
 	Args:
 		state (State): The current state of the conversation.
 
@@ -475,7 +477,7 @@ def prompt_agent(state: State) -> State:
 		State: Updated state with the parsed JSON response.
 	"""
 	if "MANAGER_AGENT" not in state.messages or "HUMAN" not in state.messages["MANAGER_AGENT"]:
-		raise ValueError("[ERROR]: No HUMAN messages found in MANAGER_AGENT.")
+		raise ValueError(">>> [ERROR]: No HUMAN messages found in MANAGER_AGENT.")
 	human_msg = state.messages["MANAGER_AGENT"]["HUMAN"][-1]
 	parsed_json = conversation2json(
 		msg_prompt=PROMPT_2_JSON_SYS_MSG_PROMPT, 
@@ -489,17 +491,38 @@ def prompt_agent(state: State) -> State:
 	if extra_keys := received_keys - expected_keys: 
 		raise ValueError(f"[ERROR]: JSON có các trường không hợp lệ: {extra_keys}")
 	ai_msg_json = AIMessage(content=json.dumps(parsed_json, indent=2))
-	ai_msg_json = add_eotext_eoturn_to_ai_msg(ai_msg=ai_msg_json, end_of_turn_id_token=END_OF_TURN_ID, end_of_text_token=END_OF_TEXT)
 	state.add_unique_msgs(node="PROMPT_AGENT", msgs_type="AI", msg=ai_msg_json)
 	return state
 
 
-
-def rap_agent(state: State) -> State:
+# TODO: rag, kết nối với chromadb_storage sau, nếu chưa có thì để trống. 
+def retrieval_augmented_planning_agent(state: State) -> State:
 	"Retrieval-Augmented Planning Agent."
-	# làm thế nào để triển khai retrival-augmented planning
-	# 1. đầu vào external source kết hợp với kết quả từ prompt parsing 
-	# 2. output 
+	human_msg = state.messages["PROMPT_AGENT"]["AI"][-1].content
+	plan_knowledge = ""
+	sys_msg = SystemMessage(content=RAP_SYS_MSG_PROMPT.format(
+		BEGIN_OF_TEXT=BEGIN_OF_TEXT, 
+		START_HEADER_ID=START_HEADER_ID, 
+		END_HEADER_ID=END_HEADER_ID, 
+		user_requirements=human_msg, 
+		plan_knowledge=plan_knowledge,
+		END_OF_TURN_ID=END_OF_TURN_ID
+	))
+	ai_msg = LLM_LTEMP.invoke([sys_msg])
+	if not isinstance(ai_msg, AIMessage): 
+		ai_msg = AIMessage(
+			content=ai_msg.strip() 
+			if isinstance(ai_msg, str) 
+			else "At node_manager_agent, I'm unable to generate a response."
+		)
+	ai_msg = add_eotext_eoturn_to_ai_msg(
+		ai_msg=ai_msg, 
+		end_of_turn_id_token=END_OF_TURN_ID, 
+		end_of_text_token=END_OF_TEXT
+	)
+	state.add_unique_msgs(node="RAP", msgs_type="SYS", msg=sys_msg)
+	state.add_unique_msgs(node="RAP", msgs_type="HUMAN", msg=human_msg)
+	state.add_unique_msgs(node="RAP", msgs_type="AI", msg=ai_msg)
 	return state
 
 
@@ -521,16 +544,16 @@ workflow = StateGraph(State)
 workflow.add_node("MANAGER_AGENT", manager_agent)
 workflow.add_node("REQUEST_VERIFY", request_verify)
 workflow.add_node("PROMPT_AGENT", prompt_agent)
-workflow.add_node("RETRIEVAL_AUGMENTED_PLANNING", rap_agent)
+workflow.add_node("RAP", retrieval_augmented_planning_agent)
 workflow.add_node("DATA_AGENT", data_agent)
 workflow.add_node("MODEL_AGENT", model_agent)
 
 workflow.add_edge(START, "MANAGER_AGENT")
 workflow.add_edge("MANAGER_AGENT", "REQUEST_VERIFY")
 workflow.add_conditional_edges("REQUEST_VERIFY", req_ver_yes_or_no_control_flow, ["PROMPT_AGENT", END])
-workflow.add_edge("PROMPT_AGENT", "RETRIEVAL_AUGMENTED_PLANNING")
-workflow.add_edge("RETRIEVAL_AUGMENTED_PLANNING", "DATA_AGENT")
-workflow.add_edge("RETRIEVAL_AUGMENTED_PLANNING", "MODEL_AGENT")
+workflow.add_edge("PROMPT_AGENT", "RAP")
+workflow.add_edge("RAP", "DATA_AGENT")
+workflow.add_edge("RAP", "MODEL_AGENT")
 workflow.add_edge("DATA_AGENT", "MODEL_AGENT")
 workflow.add_edge("MODEL_AGENT", END)
 
@@ -539,57 +562,81 @@ app = workflow.compile(checkpointer=CHECKPOINTER, store=STORE, debug=DEBUG, name
 
 
 def main() -> None:
-	"""Handles user queries and displays AI responses."""
+	"""
+	Xử lý truy vấn của người dùng và hiển thị phản hồi từ AI.
+
+	Workflow:
+		1. Nhận truy vấn từ danh sách `QUERIES`.
+		2. Kiểm tra xem người dùng có nhập "exit" để thoát không.
+		3. Gửi truy vấn đến hệ thống AI thông qua `app.invoke()`.
+		4. Kiểm tra tính hợp lệ của dữ liệu trả về từ `app.invoke()`.
+		5. Trích xuất `messages` và hiển thị kết quả hội thoại.
+
+	Raises:
+		ValueError: Nếu `app.invoke()` không trả về dictionary hoặc không chứa key "messages".
+	"""
 	for user_query in QUERIES:
 		user_query = user_query.strip()
 		if user_query.lower() == "exit":
 			print("\n>>> [System Exit] Goodbye! Have a great day! 😊\n")
 			break
-		state_data = app.invoke(
-			input={
-				"human_query": [user_query], "messages": default_messages()
-			}, config=CONFIG)
+		state_data = app.invoke(input={"human_query": [user_query], "messages": default_messages()}, config=CONFIG)
 		if not isinstance(state_data, dict):
 			raise ValueError("[ERROR]: app.invoke() không trả về dictionary.")
-		messages = state_data.get("messages")
-		if messages is None:
+		if "messages" not in state_data:
 			raise ValueError("[ERROR]: Key 'messages' không có trong kết quả.")
+		messages = state_data["messages"]
 		display_conversation_results(messages)
 
 
 
 def display_conversation_results(messages: dict) -> None:
-	"""Hiển thị kết quả hội thoại từ tất cả các agent trong hệ thống."""
-	print("\n===== CONVERSATION RESULTS =====\n")
+	"""
+	Hiển thị kết quả hội thoại từ tất cả các agent trong hệ thống.
+
+	Args:
+		messages (dict): Dictionary chứa các tin nhắn được nhóm theo agent và loại tin nhắn.
+			- **Node**: Tên agent (ví dụ: "MANAGER_AGENT", "PROMPT_AGENT").
+			- **Msgs_type**: Dictionary chứa các loại tin nhắn ("HUMAN", "AI", "SYS"), mỗi loại là một danh sách tin nhắn.
+
+	Example:
+		messages = {
+			"MANAGER_AGENT": {
+				"SYS": [],
+				"HUMAN": [HumanMessage(content="Hello!")],
+				"AI": [AIMessage(content="Hi! How can I assist you?")]
+			}
+		}
+
+	Returns:
+		None: Hàm chỉ hiển thị kết quả trên terminal mà không trả về giá trị.
+	"""
+	print("\n===== [CONVERSATION RESULTS] =====\n")
 	if not messages:
 		print("[INFO]: Không có tin nhắn nào trong hội thoại.")
 		return
-	for node, msg_types in messages.items():
+	for node, msgs in messages.items():
 		print(f"\n[{node}]")
-		for msg_type, msg_list in msg_types.items():
-			if msg_list:
-				print(f"  {msg_type}:")
-				for msg in msg_list:
-					content = getattr(msg, "content", "[No content]")
-					print(f"\t- {content}")
-	print("\n===== END OF CONVERSATION =====\n")
+		if isinstance(msgs, dict):
+			for msg_category, msg_list in msgs.items():
+				if msg_list:
+					print(f"  {msg_category}:")
+					for msg in msg_list:
+						content = getattr(msg, "content", "[No content]")
+						print(f"\t- {content}")
+		else:
+			raise ValueError(f"`msgs` phải là một dictionary chứa danh sách tin nhắn, `msgs` hiện tại là: {msgs}")
+	print("\n===== [END OF CONVERSATION] =====\n")
 
 
 
 QUERIES = [
-	"""I need a highly accurate machine learning model developed to classify images within the Butterfly Image Classification dataset into their correct species categories. 
-The dataset has been uploaded with its label information in the labels.csv file. 
-Please use a convolutional neural network (CNN) architecture for this task, leveraging transfer learning from a pre-trained ResNet-50 model to improve accuracy. 
-Optimize the model using cross-validation on the training split to fine-tune hyperparameters, and aim for an accuracy of at least 0.95 (95%) on the test split. 
-Provide the final trained model, a detailed report of the training process, hyperparameter settings, accuracy metrics, and a confusion matrix to evaluate performance across different categories.""",
+	"""I need a highly accurate machine learning model developed to classify images within the Butterfly Image Classification dataset into their correct species categories. The dataset has been uploaded with its label information in the labels.csv file. Please use a convolutional neural network (CNN) architecture for this task, leveraging transfer learning from a pre-trained ResNet-50 model to improve accuracy. Optimize the model using cross-validation on the training split to fine-tune hyperparameters, and aim for an accuracy of at least 0.95 (95%) on the test split. Provide the final trained model, a detailed report of the training process, hyperparameter settings, accuracy metrics, and a confusion matrix to evaluate performance across different categories.""",
 
-	"""Please provide a classification model that categorizes images into one of four clothing categories. 
-The image path, along with its label information, can be found in the files train labels.csv and test labels.csv. 
-The model should achieve at least 0.95 (95%) accuracy on the test set and be implemented using PyTorch. 
-Additionally, please include data augmentation techniques and a confusion matrix in the evaluation."""	
-	
+	"""Please provide a classification model that categorizes images into one of four clothing categories. The image path, along with its label information, can be found in the files train labels.csv and test labels.csv. The model should achieve at least 0.95 (95%) accuracy on the test set and be implemented using PyTorch. Additionally, please include data augmentation techniques and a confusion matrix in the evaluation."""	
+
 	"""Hello, What is heavier a kilo of feathers or a kilo of steel?""", 
-	
+
 	"""exit"""
 ]
 

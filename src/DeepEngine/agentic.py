@@ -62,7 +62,7 @@ MSG_TYPES = {SystemMessage: "SYS", HumanMessage: "HUMAN", AIMessage: "AI"}
 
 
 
-DEFAULT_AGENTS: Dict[str, Dict[str, List[BaseMessage]]] 	= 	{
+DEFAULT_AGENTS: Dict[str, Dict[str, List[BaseMessage]]] = {
 	"MANAGER_AGENT": 				{	"SYS": [], "HUMAN": [], "AI": []	},
 	"REQUEST_VERIFY": 				{	"SYS": [], "HUMAN": [], "AI": []	},
 	"PROMPT_AGENT": 				{	"SYS": [], "HUMAN": [], "AI": []	},
@@ -538,12 +538,23 @@ def model_agent(state: State) -> State:
 	return state
 
 
-# TODO: Ý tưởng sử dụng Multi-Agent gọi đến Yolov8 API, 
-# Yolov8 API sẽ lấy mọi hình ảnh cỡ nhỏ nó phát hiện 
-# được là lỗi và đưa vào mô hình llama3.2-11b-vision 
-# để đọc ảnh, sau đó Llama3.2-11b-vision gửi lại text 
-# đến Multi-Agent để Multi-Agent xác định xem đấy có phải 
-# là lỗi không.
+# TODO: Ý tưởng sử dụng Multi-Agent gọi đến Yolov8 API, Yolov8 
+# API sẽ lấy mọi hình ảnh cỡ nhỏ nó phát hiện  được là lỗi và 
+# đưa vào mô hình llama3.2-11b-vision để đọc ảnh, sau đó 
+# Llama3.2-11b-vision gửi lại text đến Multi-Agent để 
+# Multi-Agent xác định xem đấy có phải là lỗi không.
+
+# Nếu muốn vậy thì hiện tại ta cần có data-agent và model-agent
+# data-agent để generate dữ liệu training, model-agent để viết 
+# kiến trúc model vision.
+
+# Bây giờ cần build tools trước cho mô hình, bao gồm 
+# tool vision, tool genData, tool llama3.2-11b-vision-instruct
+
+# Nhưng tại sao lại ko dùng vision yolov8 để finetune. Mục tiêu 
+# ở đây, ta sẽ tận dụng cả sức mạnh của LLM-Vision, để hiểu rõ
+# hình ảnh có gì, sau đó gửi về cho LLM-instruct để xử lý text 
+# từ LLM-vision.
 workflow = StateGraph(State)
 
 workflow.add_node("MANAGER_AGENT", manager_agent)

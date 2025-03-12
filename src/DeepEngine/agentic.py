@@ -62,7 +62,7 @@ MSG_TYPES = {	SystemMessage: "SYS", HumanMessage: "HUMAN", AIMessage: "AI"	}
 
 
 
-DEFAULT_AGENTS: Dict[str, Dict[str, List[BaseMessage]]] = {
+DEFAULT_AGENTS: Dict[str, Dict[str, List[BaseMessage]]] 	= 	{
 	"MANAGER_AGENT": 	{	"SYS": [], "HUMAN": [], "AI": []	},
 	"REQUEST_VERIFY": 	{	"SYS": [], "HUMAN": [], "AI": []	},
 	"PROMPT_AGENT": 	{	"SYS": [], "HUMAN": [], "AI": []	},
@@ -497,6 +497,9 @@ def prompt_agent(state: State) -> State:
 
 def rap_agent(state: State) -> State:
 	"Retrieval-Augmented Planning Agent."
+	# làm thế nào để triển khai retrival-augmented planning
+	# 1. đầu vào external source kết hợp với kết quả từ prompt parsing 
+	# 2. output 
 	return state
 
 

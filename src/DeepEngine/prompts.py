@@ -156,6 +156,7 @@ modeling) so that the AI agents can successfully implement them. Do NOT directly
 - Ensure that your plan completely include the end-to-end process of machine learning or artificial intelligence model development pipeline in detail (i.e., from data retrieval to model training and evaluation) when applicable based on the given requirements.""" 
 
 
+
 	PLANNING_PROMPT = """Now, I want you to devise an end-to-end actionable plan according to the user's requirements described in the following JSON object.
 
 ```json
@@ -168,12 +169,11 @@ Here is a list of past experience cases and knowledge written by an human expert
 When devising a plan, follow these instructions and do not forget them:
 - Ensure that your plan is up-to-date with current state-of-the-art knowledge.
 - Ensure that your plan is based on the requirements and objectives described in the above JSON object.
-- Ensure that your plan is designed for AI agents instead of human experts. These agents
-are capable of conducting machine learning and artificial intelligence research.
+- Ensure that your plan is designed for AI agents instead of human experts. These agents are capable of conducting machine learning and artificial intelligence research.
 - Ensure that your plan is self-contained with sufficient instructions to be executed by the AI agents.
-- Ensure that your plan includes all the key points and instructions (from handling data to
-modeling) so that the AI agents can successfully implement them. Do NOT directly write the code.
+- Ensure that your plan includes all the key points and instructions (from handling data to modeling) so that the AI agents can successfully implement them. Do NOT directly write the code.
 - Ensure that your plan completely include the end-to-end process of machine learning or artificial intelligence model development pipeline in detail (i.e., from data retrieval to model training and evaluation) when applicable based on the given requirements.""" 
+
 
 
 	KNOWLEDGE_RETRIEVAL_PROMPT = """Kaggle Notebook

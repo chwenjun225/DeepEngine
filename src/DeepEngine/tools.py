@@ -18,24 +18,6 @@ from langgraph.types import Command, interrupt
 
 
 @tool(parse_docstring=True)
-def ocr():
-	pass 
-
-
-
-@tool(parse_docstring=True)
-def gen_img_data():
-	pass 
-
-
-
-@tool(parse_docstring=True)
-def create_model_block():
-	pass 
-
-
-
-@tool(parse_docstring=True)
 def add(a: float, b: float) -> float:
 	"""Returns the sum of two numbers.
 

@@ -1,4 +1,4 @@
-# BASH CLI
+# TRAN VAN TUAN - BASH CLI
 
 
 
@@ -86,7 +86,7 @@ lm_eval --model hf \
 
 # VLLM runserver 
 # vllm serve /home/chwenjun225/Projects/Foxer/notebooks/DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct \
-# /home/chwenjun225_laptop/.llama/checkpoints/Phi-3.5-vision-instruct
+# 	/home/chwenjun225_laptop/.llama/checkpoints/Phi-3.5-vision-instruct
 vllm serve /home/chwenjun225_laptop/.llama/checkpoints/Phi-3.5-vision-instruct \
 	--host 127.0.0.1 \
 	--port 2026 \

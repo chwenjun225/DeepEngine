@@ -555,6 +555,9 @@ def model_agent(state: State) -> State:
 # ở đây, ta sẽ tận dụng cả sức mạnh của LLM-Vision, để hiểu rõ
 # hình ảnh có gì, sau đó gửi về cho LLM-instruct để xử lý text 
 # từ LLM-vision.
+
+# **1. Image-to-Image Generation (CycleGAN, Pix2Pix, StyleGAN)**
+# **2. Data Augmentation (Biến đổi dữ liệu)**
 workflow = StateGraph(State)
 
 workflow.add_node("MANAGER_AGENT", manager_agent)

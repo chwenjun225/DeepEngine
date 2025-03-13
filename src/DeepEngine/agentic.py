@@ -44,7 +44,7 @@ from prompts import Prompts
 
 
 
-NAME = "FOXCONN-AI Research"
+NAME = "Fulian-AI Research"
 DEBUG = False
 
 
@@ -164,6 +164,18 @@ class State(BaseModel):
 				self.messages[node][msgs_type].append(msg)
 
 
+
+# TODO: Sửa lại lớp này sau, docs cần phải là prompt guide cho LLM.
+class ReActStructResponse(BaseModel):
+	"""ReAct structured response format of AI during the reasoning process."""
+	user_query: str = Field(description="The original question provided by the user.")
+	thought: str = Field(description="Logical reasoning before executing an action")
+	action: str = Field(description=f"The action to be taken, chosen from available tools.")
+	action_input:str = Field(description="The required input for the action.") 
+	observation: Optional[str] = Field(description="The outcome of executing the action.")
+
+
+
 # TODO: Cần thêm prompt để hướng dẫn mô hình trả lời tốt hơn, đề xuất sử dụng chain-of-thought prompt.
 class Conversation(TypedDict):
 	"""You are an AI assistant. Respond in a conversational manner. Be kind and helpful."""
@@ -234,7 +246,7 @@ def add_special_token_to_human_query(human_msg: str) -> str:
 
 
 
-def add_eotext_eoturn_to_ai_msg(ai_msg: AIMessage, end_of_turn_id_token: str = END_OF_TURN_ID, end_of_text_token: str = END_OF_TEXT) -> AIMessage:
+def add_eoturn_eotext_to_ai_msg(ai_msg: AIMessage, end_of_turn_id_token: str = END_OF_TURN_ID, end_of_text_token: str = END_OF_TEXT) -> AIMessage:
 	"""Ensures AIMessage content ends with required special tokens.
 
 	This function appends `<|end_of_text|>` and `<|eot_id|>` at the end of the message content if they are not already present.
@@ -256,6 +268,7 @@ def add_eotext_eoturn_to_ai_msg(ai_msg: AIMessage, end_of_turn_id_token: str = E
 	if not content.endswith(end_of_turn_id_token): content += end_of_turn_id_token
 	if not content.endswith(end_of_turn_id_token + end_of_text_token): content = content.replace(end_of_turn_id_token, end_of_turn_id_token + end_of_text_token)
 	return AIMessage(content=content)
+
 
 
 # TODO: Tối ưu hàm này, cần loại bỏ `.get()` tránh tạo đối tượng không cần thiết.
@@ -372,7 +385,7 @@ def manager_agent(state: State) -> State:
 			if isinstance(ai_msg, str) 
 			else "At node_manager_agent, I'm unable to generate a response."
 		)
-	ai_msg = add_eotext_eoturn_to_ai_msg(ai_msg=ai_msg, end_of_turn_id_token=END_OF_TURN_ID, end_of_text_token=END_OF_TEXT)
+	ai_msg = add_eoturn_eotext_to_ai_msg(ai_msg=ai_msg, end_of_turn_id_token=END_OF_TURN_ID, end_of_text_token=END_OF_TEXT)
 	state.add_unique_msgs(node="MANAGER_AGENT", msgs_type="SYS", msg=sys_msg)
 	state.add_unique_msgs(node="MANAGER_AGENT", msgs_type="HUMAN", msg=human_msg)
 	state.add_unique_msgs(node="MANAGER_AGENT", msgs_type="AI", msg=AIMessage("<|parse_json|>" + human_msg_json.content + "<|end_parse_json|>" + ai_msg.content))
@@ -401,7 +414,7 @@ def relevancy(state: State) -> List[BaseMessage]:
 	))
 	ai_msg = LLM_LTEMP.invoke([sys_msg])
 	if not isinstance(ai_msg, AIMessage): ai_msg = AIMessage(content=ai_msg.strip() if isinstance(ai_msg, str) else "At node_request_verify-REQUEST_VERIFY_RELEVANCY, I'm unable to generate a response.")
-	ai_msg = add_eotext_eoturn_to_ai_msg(ai_msg=ai_msg, end_of_turn_id_token=END_OF_TURN_ID, end_of_text_token=END_OF_TEXT)
+	ai_msg = add_eoturn_eotext_to_ai_msg(ai_msg=ai_msg, end_of_turn_id_token=END_OF_TURN_ID, end_of_text_token=END_OF_TEXT)
 	return [sys_msg, human_msg, ai_msg]
 
 
@@ -421,7 +434,7 @@ def adequacy(state: State) -> List[BaseMessage]:
 	))
 	ai_msg = LLM_LTEMP.invoke([sys_msg])
 	if not isinstance(ai_msg, AIMessage): ai_msg = AIMessage(content=ai_msg.strip() if isinstance(ai_msg, str) else "At node_request_verify-REQUEST_VERIFY_ADEQUACY, I'm unable to generate a response.")
-	ai_msg = add_eotext_eoturn_to_ai_msg(ai_msg=ai_msg, end_of_turn_id_token=END_OF_TURN_ID, end_of_text_token=END_OF_TEXT)
+	ai_msg = add_eoturn_eotext_to_ai_msg(ai_msg=ai_msg, end_of_turn_id_token=END_OF_TURN_ID, end_of_text_token=END_OF_TEXT)
 	return [sys_msg, human_msg, ai_msg]
 
 
@@ -515,7 +528,7 @@ def retrieval_augmented_planning_agent(state: State) -> State:
 			if isinstance(ai_msg, str) 
 			else "At node_manager_agent, I'm unable to generate a response."
 		)
-	ai_msg = add_eotext_eoturn_to_ai_msg(
+	ai_msg = add_eoturn_eotext_to_ai_msg(
 		ai_msg=ai_msg, 
 		end_of_turn_id_token=END_OF_TURN_ID, 
 		end_of_text_token=END_OF_TEXT
@@ -594,7 +607,10 @@ def main() -> None:
 	Raises:
 		ValueError: Nếu `app.invoke()` không trả về dictionary hoặc không chứa key "messages".
 	"""
-	for user_query in QUERIES:
+	for i, user_query in enumerate(QUERIES, 1):
+		print(f"\n👨_query_{i}:")
+		print(user_query)
+		print("\n🤖_response:")
 		user_query = user_query.strip()
 		if user_query.lower() == "exit":
 			print("\n>>> [System Exit] Goodbye! Have a great day! 😊\n")

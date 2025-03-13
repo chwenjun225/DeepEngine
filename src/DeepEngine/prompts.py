@@ -414,3 +414,19 @@ What is the {name_for_human} API useful for?
 Type: {type}.
 Properties: {properties}.
 Required: {required}.""" # Tham khảo tại: https://github.com/OpenBMB/MiniCPM-CookBook/blob/d0772b24af057c8e7f5d6e12fd00f3cde0481a3c/agent_demo/agent_demo.py#L76
+
+
+
+	MULTI_STEP_PROMPT = """{BEGIN_OF_TEXT}{START_HEADER_ID}SYSTEM{END_HEADER_ID}Analyze the following text for its main argument, supporting evidence, and potential counterarguments. 
+Provide your analysis in the following steps:
+
+1. Main Argument: Identify and state the primary claim or thesis.
+2. Supporting Evidence: List the key points or evidence used to support the main argument.
+3. Potential Counterarguments: Suggest possible objections or alternative viewpoints to the main argument.{END_OF_TURN_ID}
+
+{START_HEADER_ID}HUMAN{END_HEADER_ID}
+Text: {text}
+{END_OF_TURN_ID}
+
+{START_HEADER_ID}AI{END_HEADER_ID}
+Analysis:"""

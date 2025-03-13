@@ -417,7 +417,7 @@ Required: {required}.""" # Tham khảo tại: https://github.com/OpenBMB/MiniCPM
 
 
 
-	MULTI_STEP_PROMPT = """{BEGIN_OF_TEXT}{START_HEADER_ID}SYSTEM{END_HEADER_ID}Analyze the following text for its main argument, supporting evidence, and potential counterarguments. 
+	MULTI_STEP_REASONNING_PROMPT = """{BEGIN_OF_TEXT}{START_HEADER_ID}SYSTEM{END_HEADER_ID}Analyze the following text for its main argument, supporting evidence, and potential counterarguments. 
 Provide your analysis in the following steps:
 
 1. Main Argument: Identify and state the primary claim or thesis.

@@ -14,17 +14,30 @@ from collections import defaultdict
 
 
 from pydantic import BaseModel, Field, ValidationError, TypeAdapter
-from typing_extensions import (Annotated, TypedDict, Sequence, Union, Optional, Literal, List, Dict, Iterator, Any, Type)
+from typing_extensions import (
+	Annotated, TypedDict, 
+	Sequence, Union, Optional, 
+	Literal, List, Dict, Iterator, 
+	Any, Type
+)
 
 
 
+from langchain_chroma import Chroma 
+from langchain_huggingface.embeddings import HuggingFaceEmbeddings
 from langchain_core.language_models import LanguageModelInput
 from langchain_core.runnables import Runnable
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.tools import InjectedToolCallId, BaseTool
 from langchain.tools import tool
 from langchain_ollama import ChatOllama
-from langchain_core.messages import (HumanMessage, AIMessage, SystemMessage, BaseMessage, ToolMessage)
+from langchain_core.messages import (
+	HumanMessage,
+	AIMessage, 
+	SystemMessage, 
+	BaseMessage, 
+	ToolMessage
+)
 from langchain_core.prompts import PromptTemplate
 
 
@@ -44,8 +57,25 @@ from prompts import Prompts
 
 
 
-NAME = "Fulian-AI Research"
 DEBUG = False
+NAME = "FOXCONN-FULIAN-B09-AI-Research-陳文俊-V1047876"
+
+
+
+COLLECTION_NAME = "FOXCONN-FULIAN-B09-AI-Research-陳文俊-V1047876"
+EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+EMBEDDING_MODEL = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL_NAME)
+PERSIS_DIRECTORY = "/home/chwenjun225/projects/DeepEngine/src/DeepEngine/chromadb_storage"
+VECTOR_DB = Chroma(persist_directory=PERSIS_DIRECTORY, embedding_function=EMBEDDING_MODEL_NAME, collection_name=COLLECTION_NAME)
+
+
+
+CONVERSATION_2_JSON_MSG_PROMPT 	= 	Prompts.CONVERSATION_2_JSON_PROMPT 
+MGR_SYS_MSG_PROMPT 				= 	Prompts.AGENT_MANAGER_PROMPT
+VER_RELEVANCY_MSG_PROMPT 		= 	Prompts.REQUEST_VERIFY_RELEVANCY
+VER_ADEQUACY_MSG_PROMPT 		= 	Prompts.REQUEST_VERIFY_ADEQUACY
+PROMPT_2_JSON_SYS_MSG_PROMPT 	= 	Prompts.PROMPT_AGENT_PROMPT
+RAP_SYS_MSG_PROMPT 				= 	Prompts.RETRIEVAL_AUGMENTED_PLANNING_PROMPT
 
 
 
@@ -58,21 +88,23 @@ END_OF_TURN_ID		= 	"<|eot_id|>"
 
 
 
+CONFIG = {"configurable": {"thread_id": str(uuid.uuid4()), "recursion_limit": 100}}
+CHECKPOINTER = MemorySaver()
+STORE = InMemoryStore()
+
+
+
 MSG_TYPES = {SystemMessage: "SYS", HumanMessage: "HUMAN", AIMessage: "AI"}
 
-
-
 DEFAULT_AGENTS: Dict[str, Dict[str, List[BaseMessage]]] = {
-	"MANAGER_AGENT": 				{	"SYS": [], "HUMAN": [], "AI": []	},
-	"REQUEST_VERIFY": 				{	"SYS": [], "HUMAN": [], "AI": []	},
-	"PROMPT_AGENT": 				{	"SYS": [], "HUMAN": [], "AI": []	},
-	"RAP": 							{	"SYS": [], "HUMAN": [], "AI": []	},
-	"DATA_AGENT": 					{	"SYS": [], "HUMAN": [], "AI": []	},
-	"MODEL_AGENT": 					{	"SYS": [], "HUMAN": [], "AI": []	},
-	"OP_AGENT": 					{	"SYS": [], "HUMAN": [], "AI": []	},
+	"MANAGER_AGENT": 	{	"SYS": [], "HUMAN": [], "AI": []	},
+	"REQUEST_VERIFY": 	{	"SYS": [], "HUMAN": [], "AI": []	},
+	"PROMPT_AGENT": 	{	"SYS": [], "HUMAN": [], "AI": []	},
+	"RAP": 				{	"SYS": [], "HUMAN": [], "AI": []	},
+	"DATA_AGENT": 		{	"SYS": [], "HUMAN": [], "AI": []	},
+	"MODEL_AGENT": 		{	"SYS": [], "HUMAN": [], "AI": []	},
+	"OP_AGENT": 		{	"SYS": [], "HUMAN": [], "AI": []	},
 }
-
-
 
 def default_messages() -> Dict[str, Dict[str, List[BaseMessage]]]:
 	"""Tạo dictionary mặc định cho `messages`, giữ nguyên danh sách các Agent.
@@ -85,8 +117,6 @@ def default_messages() -> Dict[str, Dict[str, List[BaseMessage]]]:
 		Dict[str, Dict[str, List[BaseMessage]]]: Cấu trúc lưu trữ tin nhắn theo Agent và loại tin nhắn.
 	"""
 	return defaultdict(lambda: {"SYS": [], "HUMAN": [], "AI": []}, DEFAULT_AGENTS.copy())
-
-
 
 class State(BaseModel):
 	"""Manages structured conversation state in a multi-agent system.
@@ -121,7 +151,7 @@ class State(BaseModel):
 			for msg_list in agent_messages.values():
 				all_messages.extend(msg_list)
 		return all_messages
-
+		
 	def get_latest_msg(self, agent_type: str, msg_type: str) -> BaseMessage:
 		"""Returns the latest message from a specified agent and type.
 
@@ -144,7 +174,7 @@ class State(BaseModel):
 
 	def add_unique_msgs(self, node: str, msgs_type: str, msg: BaseMessage) -> None:
 		"""Adds a unique message to a specific node in the State.
-
+		
 		Args:
 			node (str): The agent node (e.g., "MANAGER_AGENT", "REQUEST_VERIFY").
 			msgs_type (str): The message type (one of "AI", "HUMAN", "SYS").
@@ -197,21 +227,6 @@ class Prompt2JSON(TypedDict):
 	vram: 			Annotated[str, ..., "GPU's VRAM required (e.g., '6GB')."					]
 	cpu_cores: 		Annotated[int, ..., "Number of CPU cores required."							]
 	ram: 			Annotated[str, ..., "RAM required (e.g., '16GB')."							]
-
-
-
-CONVERSATION_2_JSON_MSG_PROMPT 	= 	Prompts.CONVERSATION_2_JSON_PROMPT 
-MGR_SYS_MSG_PROMPT 				= 	Prompts.AGENT_MANAGER_PROMPT
-VER_RELEVANCY_MSG_PROMPT 		= 	Prompts.REQUEST_VERIFY_RELEVANCY
-VER_ADEQUACY_MSG_PROMPT 		= 	Prompts.REQUEST_VERIFY_ADEQUACY
-PROMPT_2_JSON_SYS_MSG_PROMPT 	= 	Prompts.PROMPT_AGENT_PROMPT
-RAP_SYS_MSG_PROMPT 				= 	Prompts.RETRIEVAL_AUGMENTED_PLANNING_PROMPT
-
-
-
-CONFIG = {"configurable": {"thread_id": str(uuid.uuid4()), "recursion_limit": 100}}
-CHECKPOINTER = MemorySaver()
-STORE = InMemoryStore()
 
 
 
@@ -666,9 +681,16 @@ def display_conversation_results(messages: dict) -> None:
 
 
 QUERIES = [
-	"""I need a highly accurate machine learning model developed to classify images within the Butterfly Image Classification dataset into their correct species categories. The dataset has been uploaded with its label information in the labels.csv file. Please use a convolutional neural network (CNN) architecture for this task, leveraging transfer learning from a pre-trained ResNet-50 model to improve accuracy. Optimize the model using cross-validation on the training split to fine-tune hyperparameters, and aim for an accuracy of at least 0.95 (95%) on the test split. Provide the final trained model, a detailed report of the training process, hyperparameter settings, accuracy metrics, and a confusion matrix to evaluate performance across different categories.""",
+	"""I need a highly accurate machine learning model developed to classify images within the Butterfly Image Classification dataset into their correct species categories. 
+	The dataset has been uploaded with its label information in the labels.csv file. 
+	Please use a convolutional neural network (CNN) architecture for this task, leveraging transfer learning from a pre-trained ResNet-50 model to improve accuracy. 
+	Optimize the model using cross-validation on the training split to fine-tune hyperparameters, and aim for an accuracy of at least 0.95 (95%) on the test split. 
+	Provide the final trained model, a detailed report of the training process, hyperparameter settings, accuracy metrics, and a confusion matrix to evaluate performance across different categories.""",
 
-	"""Please provide a classification model that categorizes images into one of four clothing categories. The image path, along with its label information, can be found in the files train labels.csv and test labels.csv. The model should achieve at least 0.95 (95%) accuracy on the test set and be implemented using PyTorch. Additionally, please include data augmentation techniques and a confusion matrix in the evaluation."""	
+	"""Please provide a classification model that categorizes images into one of four clothing categories. 
+	The image path, along with its label information, can be found in the files train labels.csv and test labels.csv. 
+	The model should achieve at least 0.95 (95%) accuracy on the test set and be implemented using PyTorch. 
+	Additionally, please include data augmentation techniques and a confusion matrix in the evaluation."""	
 
 	"""Hello, What is heavier a kilo of feathers or a kilo of steel?""", 
 

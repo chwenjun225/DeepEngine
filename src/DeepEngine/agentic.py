@@ -201,8 +201,8 @@ STORE = InMemoryStore()
 
 
 
-LLM_HTEMP	=	ChatOllama(model="llama3.2:3b-instruct-fp16", temperature=0.8, num_predict=128_000)
-LLM_LTEMP 	= 	ChatOllama(model="llama3.2:3b-instruct-fp16", temperature=0, num_predict=128_000)
+LLM_HTEMP	=	ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0.8, num_predict=128_000)
+LLM_LTEMP 	= 	ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0, num_predict=128_000)
 
 LLM_STRUC_OUT_CONVERSATION 	=	LLM_HTEMP.with_structured_output(schema=Conversation, method="json_schema")
 LLM_STRUC_OUT_AUTOML 		= 	LLM_HTEMP.with_structured_output(schema=Prompt2JSON, method="json_schema")
@@ -543,9 +543,7 @@ def main() -> None:
 			print("\n>>> [System Exit] Goodbye! Have a great day! 😊\n")
 			break
 		state_data = app.invoke(
-			input={
-				"human_query": [user_query], "messages": default_messages()
-			}, config=CONFIG)
+			input={"human_query": [user_query], "messages": default_messages()}, config=CONFIG)
 		if not isinstance(state_data, dict):
 			raise ValueError("[ERROR]: app.invoke() không trả về dictionary.")
 		messages = state_data.get("messages")

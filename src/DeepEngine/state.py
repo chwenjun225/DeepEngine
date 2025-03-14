@@ -1,7 +1,4 @@
 from collections import defaultdict
-
-
-
 from pydantic import BaseModel, Field, ValidationError, TypeAdapter
 from typing_extensions import (Annotated, TypedDict, Sequence, Union, Optional, Literal, List, Dict, Iterator, Any, Type)
 
@@ -119,3 +116,38 @@ class State(BaseModel):
 		else:
 			if msg.content not in {m.content for m in self.messages[node][msgs_type]}:
 				self.messages[node][msgs_type].append(msg)
+
+
+
+class ReAct(TypedDict):
+	"""You are an AI assistant, answer the following questions as best you can."""
+	user_query: Annotated[str, ..., "The original question provided by the user."]
+	thought: Annotated[str, ..., "Logical reasoning before executing an action."]
+	action: Annotated[str, ..., "The action to be taken, chosen from available tools: {tools_name}."]
+	action_input: Annotated[str, ..., "The required input for the action."]
+	observation: Annotated[Optional[str], None, "The outcome of executing the action, if applicable."]
+	thought: str = "I now know the final answer."
+	final_answer: str = "The final answer to the original input question."
+
+
+
+class Conversation(TypedDict):
+	"""You are an AI assistant. Respond in a conversational manner. Be kind and helpful."""
+	response:		Annotated[str, ..., "A conversational response to the user's query"			]
+	justification: 	Annotated[str, ..., "A brief explanation or reasoning behind the response."	]
+
+
+
+class Prompt2JSON(TypedDict):
+	"""Parses user requirements related to AI project potential into structured JSON."""
+	problem_area: 	Annotated[str, ..., "Problem domain (e.g., tabular data analysis)."			]
+	task: 			Annotated[str, ..., "Type of ML task (e.g., classification, regression)."	]
+	application: 	Annotated[str, ..., "Application field (e.g., agriculture, healthcare)."	]
+	dataset_name: 	Annotated[str, ..., "Dataset name (e.g., banana_quality)."					]
+	data_modality: 	Annotated[List[str], ..., "Data modality (e.g., ['tabular', 'image'])."		]
+	model_name: 	Annotated[str, ..., "Model name (e.g., XGBoost, ResNet)."					]
+	model_type: 	Annotated[str, ..., "Model type (e.g., vision, text, tabular)."				]
+	cuda: 			Annotated[bool, ..., "Requires CUDA? (True/False)."							]
+	vram: 			Annotated[str, ..., "GPU's VRAM required (e.g., '6GB')."					]
+	cpu_cores: 		Annotated[int, ..., "Number of CPU cores required."							]
+	ram: 			Annotated[str, ..., "RAM required (e.g., '16GB')."							]

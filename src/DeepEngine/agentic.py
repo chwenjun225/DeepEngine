@@ -25,9 +25,9 @@ from const_params import *
 
 
 
-def get_latest_msg(state: State, node: str, msg_type: str) -> BaseMessage:
+def get_latest_msg(state: State, node: str, msgs_type: str) -> BaseMessage:
 	"""Lấy tin nhắn mới nhất từ một node (agent), đảm bảo tốc độ O(1)."""
-	return state["messages"][node][msg_type][-1]
+	return state["messages"][node][msgs_type][-1]
 
 
 
@@ -189,10 +189,7 @@ def manager_agent(state: State) -> State:
 			END_HEADER_ID=END_HEADER_ID, 
 			END_OF_TURN_ID=END_OF_TURN_ID
 		))
-	human_msg = HumanMessage(
-		content=add_special_token_to_human_query(
-			human_msg=state["human_query"][-1].content if state["human_query"] else ""
-		))
+	human_msg = HumanMessage(content=add_special_token_to_human_query(human_msg=state["human_query"][-1].content))
 	human_msg_json = HumanMessage(json.dumps((conversation2json(
 			msg_prompt=CONVERSATION_2_JSON_MSG_PROMPT, llm_structure_output=LLM_STRUC_OUT_CONVERSATION, human_msg=human_msg, 
 			schema=Conversation)), 
@@ -221,7 +218,7 @@ def check_contain_yes_or_no(ai_msg: str) -> str:
 
 def relevancy(state: State) -> List[BaseMessage]:
 	"""Check request verification-relevancy of human_query."""
-	human_msg = state.human_query[-1] # TODO: Tiếp tục debug phần này
+	human_msg = state["human_query"][-1]
 	sys_msg = SystemMessage(content=VER_RELEVANCY_MSG_PROMPT.format(
 		instruction=human_msg.content, 
 		BEGIN_OF_TEXT=BEGIN_OF_TEXT, 
@@ -230,7 +227,8 @@ def relevancy(state: State) -> List[BaseMessage]:
 		END_OF_TURN_ID=END_OF_TURN_ID
 	))
 	ai_msg = LLM_LTEMP.invoke([sys_msg])
-	if not isinstance(ai_msg, AIMessage): ai_msg = AIMessage(content=ai_msg.strip() if isinstance(ai_msg, str) else "At node_request_verify-REQUEST_VERIFY_RELEVANCY, I'm unable to generate a response.")
+	if not isinstance(ai_msg, AIMessage): 
+		ai_msg = AIMessage(content=ai_msg.strip() if isinstance(ai_msg, str) else "At node_request_verify-REQUEST_VERIFY_RELEVANCY, I'm unable to generate a response.")
 	ai_msg = add_eoturn_eotext_to_ai_msg(ai_msg=ai_msg, end_of_turn_id_token=END_OF_TURN_ID, end_of_text_token=END_OF_TEXT)
 	return [sys_msg, human_msg, ai_msg]
 
@@ -238,9 +236,9 @@ def relevancy(state: State) -> List[BaseMessage]:
 
 def adequacy(state: State) -> List[BaseMessage]:
 	"""Check request verification-adequacy of AIMessage response with JSON object."""
-	pattern = r"<\|parse_json\|>(.*?)<\|end_parse_json\|>"
-	human_msg = state.messages['MANAGER_AGENT']['HUMAN'][-1]
-	ai_msg = state.messages['MANAGER_AGENT']['AI'][-1]
+	pattern = r"<\|json\|>(.*?)<\|end_json\|>"
+	human_msg = state["messages"]['MANAGER_AGENT']['HUMAN'][-1]
+	ai_msg = get_latest_msg(state=state, node="MANAGER_AGENT", msgs_type="AI")
 	json_obj_from_ai_msg = re.findall(pattern=pattern, string=ai_msg.content, flags=re.DOTALL)[-1]
 	sys_msg = SystemMessage(content=VER_ADEQUACY_MSG_PROMPT.format(
 		BEGIN_OF_TEXT=BEGIN_OF_TEXT, 
@@ -250,7 +248,8 @@ def adequacy(state: State) -> List[BaseMessage]:
 		END_OF_TURN_ID=END_OF_TURN_ID
 	))
 	ai_msg = LLM_LTEMP.invoke([sys_msg])
-	if not isinstance(ai_msg, AIMessage): ai_msg = AIMessage(content=ai_msg.strip() if isinstance(ai_msg, str) else "At node_request_verify-REQUEST_VERIFY_ADEQUACY, I'm unable to generate a response.")
+	if not isinstance(ai_msg, AIMessage): 
+		ai_msg = AIMessage(content=ai_msg.strip() if isinstance(ai_msg, str) else "At node_request_verify-REQUEST_VERIFY_ADEQUACY, I'm unable to generate a response.")
 	ai_msg = add_eoturn_eotext_to_ai_msg(ai_msg=ai_msg, end_of_turn_id_token=END_OF_TURN_ID, end_of_text_token=END_OF_TEXT)
 	return [sys_msg, human_msg, ai_msg]
 

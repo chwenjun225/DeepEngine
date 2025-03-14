@@ -45,7 +45,7 @@ NAME = "foxconn_fulian_b09_ai_research_tranvantuan_v1047876"
 COLLECTION_NAME = "foxconn_fulian_b09_ai_research_tranvantuan_v1047876"
 EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 EMBEDDING_MODEL = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL_NAME)
-PERSIS_DIRECTORY = "/home/chwenjun225/projects/DeepEngine/src/DeepEngine/chromadb_storage"
+PERSIS_DIRECTORY = "/home/chwenjun225_laptop/projects/DeepEngine/src/DeepEngine/chromadb_storage"
 VECTOR_DB = Chroma(persist_directory=PERSIS_DIRECTORY, embedding_function=EMBEDDING_MODEL_NAME, collection_name=COLLECTION_NAME)
 
 

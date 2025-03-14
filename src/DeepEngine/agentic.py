@@ -20,9 +20,25 @@ from langgraph.graph import StateGraph, START, END
 
 
 
-from prompts import Prompts 
 from state import State, Conversation, Prompt2JSON, ReAct, default_messages
 from const_params import *
+
+
+
+def get_latest_msg(state: State, node: str, msg_type: str) -> BaseMessage:
+	"""Lấy tin nhắn mới nhất từ một node (agent), đảm bảo tốc độ O(1)."""
+	return state["messages"][node][msg_type][-1]
+
+
+
+def add_unique_msg(state: State, node: str, msgs_type: str, msg: BaseMessage) -> None:
+	"""Thêm tin nhắn nếu chưa có, tối ưu hóa O(1)."""
+	if node == "REQUEST_VERIFY":
+		state["messages"][node][msgs_type] = [msg]
+	else:
+		existing_msgs = state["messages"][node][msgs_type] 
+		if not existing_msgs or existing_msgs[-1].content != msg.content:
+			existing_msgs.append(msg)
 
 
 
@@ -173,13 +189,14 @@ def manager_agent(state: State) -> State:
 			END_HEADER_ID=END_HEADER_ID, 
 			END_OF_TURN_ID=END_OF_TURN_ID
 		))
-	human_msg = HumanMessage(content=add_special_token_to_human_query(human_msg=state.human_query[-1].content if state.human_query else ""))
+	human_msg = HumanMessage(
+		content=add_special_token_to_human_query(
+			human_msg=state["human_query"][-1].content if state["human_query"] else ""
+		))
 	human_msg_json = HumanMessage(json.dumps((conversation2json(
-			msg_prompt=CONVERSATION_2_JSON_MSG_PROMPT, 
-			llm_structure_output=LLM_STRUC_OUT_CONVERSATION, 
-			human_msg=human_msg, schema=Conversation
-		)), indent=2
-	))
+			msg_prompt=CONVERSATION_2_JSON_MSG_PROMPT, llm_structure_output=LLM_STRUC_OUT_CONVERSATION, human_msg=human_msg, 
+			schema=Conversation)), 
+		indent=2))
 	ai_msg = LLM_LTEMP.invoke([sys_msg, human_msg, human_msg_json])
 	if not isinstance(ai_msg, AIMessage): 
 		ai_msg = AIMessage(
@@ -188,25 +205,23 @@ def manager_agent(state: State) -> State:
 			else "At node_manager_agent, I'm unable to generate a response."
 		)
 	ai_msg = add_eoturn_eotext_to_ai_msg(ai_msg=ai_msg, end_of_turn_id_token=END_OF_TURN_ID, end_of_text_token=END_OF_TEXT)
-	state.add_unique_msgs(node="MANAGER_AGENT", msgs_type="SYS", msg=sys_msg)
-	state.add_unique_msgs(node="MANAGER_AGENT", msgs_type="HUMAN", msg=human_msg)
-	state.add_unique_msgs(node="MANAGER_AGENT", msgs_type="AI", msg=AIMessage("<|parse_json|>" + human_msg_json.content + "<|end_parse_json|>" + ai_msg.content))
+	add_unique_msg(state=state, node="MANAGER_AGENT", msgs_type="SYS", msg=sys_msg)
+	add_unique_msg(state=state, node="MANAGER_AGENT", msgs_type="HUMAN", msg=human_msg)
+	add_unique_msg(state=state, node="MANAGER_AGENT", msgs_type="AI", msg=AIMessage("<|json|>" + human_msg_json.content + "<|end_json|>" + ai_msg.content))
 	return state
 
 
 
 def check_contain_yes_or_no(ai_msg: str) -> str:
 	"""Checks if the AI response contains 'Yes' or 'No'."""
-	pattern = r"<\|start_header_id\|>assistant<\|end_header_id\|>\s*\n\s*(yes|no)\b"
-	match = re.search(pattern=pattern, string=ai_msg, flags=re.IGNORECASE)
-	if match:return match.group(1).upper()
-	else:return "[ERROR]: Không tìm thấy 'Yes' hoặc 'No' trong phản hồi AIMessage!"
+	match = re.search(r"<\|start_header_id\|>assistant<\|end_header_id\|>\s*\n\s*(yes|no)\b", ai_msg, re.IGNORECASE)
+	return match.group(1).upper() if match else "[ERROR]: Không tìm thấy 'Yes' hoặc 'No' trong phản hồi AIMessage!"
 
 
 
 def relevancy(state: State) -> List[BaseMessage]:
 	"""Check request verification-relevancy of human_query."""
-	human_msg = state.human_query[-1]
+	human_msg = state.human_query[-1] # TODO: Tiếp tục debug phần này
 	sys_msg = SystemMessage(content=VER_RELEVANCY_MSG_PROMPT.format(
 		instruction=human_msg.content, 
 		BEGIN_OF_TEXT=BEGIN_OF_TEXT, 
@@ -313,13 +328,13 @@ def prompt_agent(state: State) -> State:
 
 def retrieval_augmented_planning_agent(state: State) -> State:
 	"Retrieval-Augmented Planning Agent."
-	human_msg = state.messages["PROMPT_AGENT"]["AI"][-1].content
+	human_msg_content = state.messages["PROMPT_AGENT"]["AI"][-1].content
 	plan_knowledge = ""
 	sys_msg = SystemMessage(content=RAP_SYS_MSG_PROMPT.format(
 		BEGIN_OF_TEXT=BEGIN_OF_TEXT, 
 		START_HEADER_ID=START_HEADER_ID, 
 		END_HEADER_ID=END_HEADER_ID, 
-		user_requirements=human_msg, 
+		user_requirements=human_msg_content, 
 		plan_knowledge=plan_knowledge,
 		END_OF_TURN_ID=END_OF_TURN_ID
 	))
@@ -336,7 +351,7 @@ def retrieval_augmented_planning_agent(state: State) -> State:
 		end_of_text_token=END_OF_TEXT
 	)
 	state.add_unique_msgs(node="RAP", msgs_type="SYS", msg=sys_msg)
-	state.add_unique_msgs(node="RAP", msgs_type="HUMAN", msg=human_msg)
+	state.add_unique_msgs(node="RAP", msgs_type="HUMAN", msg=HumanMessage(human_msg_content))
 	state.add_unique_msgs(node="RAP", msgs_type="AI", msg=ai_msg)
 	return state
 
@@ -351,6 +366,10 @@ def data_agent(state: State) -> State:
 def model_agent(state: State) -> State:
 	"Model Agent."
 	return state
+
+
+
+# TODO: Trước tiên cần tối ưu prompt.
 
 
 # TODO: Ý tưởng sử dụng Multi-Agent gọi đến Yolov8 API, Yolov8 
@@ -385,11 +404,11 @@ workflow.add_node("MODEL_AGENT", model_agent)
 workflow.add_edge(START, "MANAGER_AGENT")
 workflow.add_edge("MANAGER_AGENT", "REQUEST_VERIFY")
 workflow.add_conditional_edges("REQUEST_VERIFY", req_ver_yes_or_no_control_flow, ["PROMPT_AGENT", END])
-workflow.add_edge("PROMPT_AGENT", END)
-# workflow.add_edge("RAP", "DATA_AGENT")
-# workflow.add_edge("RAP", "MODEL_AGENT")
-# workflow.add_edge("DATA_AGENT", "MODEL_AGENT")
-# workflow.add_edge("MODEL_AGENT", END)
+workflow.add_edge("PROMPT_AGENT", "RAP")
+workflow.add_edge("RAP", "DATA_AGENT")
+workflow.add_edge("RAP", "MODEL_AGENT")
+workflow.add_edge("DATA_AGENT", "MODEL_AGENT")
+workflow.add_edge("MODEL_AGENT", END)
 
 app = workflow.compile(checkpointer=CHECKPOINTER, store=STORE, debug=DEBUG, name=NAME)
 
@@ -416,7 +435,7 @@ def main() -> None:
 		if user_query.lower() == "exit":
 			print("\n>>> [System Exit] Goodbye! Have a great day! 😊\n")
 			break
-		state_data = app.invoke(input={"human_query": [user_query], "messages": default_messages()}, config=CONFIG)
+		state_data = app.invoke(input={"human_query": [HumanMessage(user_query)], "messages": default_messages()}, config=CONFIG)
 		if not isinstance(state_data, dict):
 			raise ValueError("[ERROR]: app.invoke() không trả về dictionary.")
 		if "messages" not in state_data:
@@ -427,8 +446,7 @@ def main() -> None:
 
 
 def display_conversation_results(messages: dict) -> None:
-	"""
-	Hiển thị kết quả hội thoại từ tất cả các agent trong hệ thống.
+	"""Hiển thị kết quả hội thoại từ tất cả các agent trong hệ thống.
 
 	Args:
 		messages (dict): Dictionary chứa các tin nhắn được nhóm theo agent và loại tin nhắn.

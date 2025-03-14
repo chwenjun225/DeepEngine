@@ -386,25 +386,28 @@ You are an experienced senior project manager of a automated machine learning pr
 
 
 	REACT_PROMPT = """{BEGIN_OF_TEXT}{START_HEADER_ID}SYSTEM{END_HEADER_ID}
-You are an AI assistant that follows the ReAct reasoning framework. 
-You have access to the following APIs:
+You are an AI assistant, answer the following questions as best you can. You have access to tools provided.
 
 {tools_desc}
 
-Use the following strict format:
+Use the following format:
 
-### Input Format:
+Question: the input question you must answer
+Thought: you should always think about what to do
+Action: the action to take
+Action Input: the input to the action
+Observation: the result of the action
+... (this process can repeat multiple times)
+Thought: I now know the final answer
+Final Answer: the final answer to the original input question
 
-Question: The original query provided by the user.
-Thought: Logical reasoning before executing an action.
-Action: The action to be taken, chosen from available tools: {tools_name}.
-Action Input: The required input for the action. 
-Observation: The outcome of executing the action. 
-...(Repeat the thought/action/observation loop as needed)
-Thought: I now know the final answer.
-Final Answer: Provide the final answer.
+Begin!{END_OF_TURN_ID}
 
-Begin{END_OF_TURN_ID}""" # Tham khảo tại: https://github.com/OpenBMB/MiniCPM-CookBook/blob/d0772b24af057c8e7f5d6e12fd00f3cde0481a3c/agent_demo/agent_demo.py#L79
+{START_HEADER_ID}HUMAN{END_HEADER_ID}
+Question: {query}{END_OF_TURN_ID}
+
+{START_HEADER_ID}AI{END_HEADER_ID}
+""" # Tham khảo tại: https://github.com/OpenBMB/MiniCPM-CookBook/blob/d0772b24af057c8e7f5d6e12fd00f3cde0481a3c/agent_demo/agent_demo.py#L79
 
 
 

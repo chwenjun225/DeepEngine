@@ -136,6 +136,7 @@ The summary of the plan should enable you to fulfill your responsibilities as th
 Note that you should not perform data visualization because you cannot see it. Make sure that another data scientist can exectly reproduce the results based on your summary.""" 
 
 
+
 	PLAN_REVISION_PROMPT = """Now, you will be asked to revise and rethink num2words(n_plans) different end-to-end actionable plans according to the user's requirements described in the JSON object below.
 
 ```json
@@ -155,25 +156,6 @@ JSON object.
 modeling) so that the AI agents can successfully implement them. Do NOT directly write the code.
 - Ensure that your plan completely include the end-to-end process of machine learning or artificial intelligence model development pipeline in detail (i.e., from data retrieval to model training and evaluation) when applicable based on the given requirements.""" 
 
-
-	PLANNING_PROMPT = """Now, I want you to devise an end-to-end actionable plan according to the user's requirements described in the following JSON object.
-
-```json
-{user_requirements}
-```
-
-Here is a list of past experience cases and knowledge written by an human expert for a relevant task:
-{plan_knowledge}
-
-When devising a plan, follow these instructions and do not forget them:
-- Ensure that your plan is up-to-date with current state-of-the-art knowledge.
-- Ensure that your plan is based on the requirements and objectives described in the above JSON object.
-- Ensure that your plan is designed for AI agents instead of human experts. These agents
-are capable of conducting machine learning and artificial intelligence research.
-- Ensure that your plan is self-contained with sufficient instructions to be executed by the AI agents.
-- Ensure that your plan includes all the key points and instructions (from handling data to
-modeling) so that the AI agents can successfully implement them. Do NOT directly write the code.
-- Ensure that your plan completely include the end-to-end process of machine learning or artificial intelligence model development pipeline in detail (i.e., from data retrieval to model training and evaluation) when applicable based on the given requirements.""" 
 
 
 	KNOWLEDGE_RETRIEVAL_PROMPT = """Kaggle Notebook
@@ -267,7 +249,27 @@ suggested hyperparameters.
 4. Extract useful information and underlying characteristics of the dataset.""" 
 
 
-# TODO: prompt này dùng để parse yêu cầu người dùng thành json object theo schema json liên quan đến machine learning 
+
+	RETRIEVAL_AUGMENTED_PLANNING_PROMPT = """{BEGIN_OF_TEXT}{START_HEADER_ID}SYSTEM{END_HEADER_ID}
+Now, I want you to devise an end-to-end actionable plan according to the user's requirements described in the following JSON object.
+
+```json
+{user_requirements}
+```
+
+Here is a list of past experience cases and knowledge written by an human expert for a relevant task:
+{plan_knowledge}
+
+When devising a plan, follow these instructions and do not forget them:
+- Ensure that your plan is up-to-date with current state-of-the-art knowledge.
+- Ensure that your plan is based on the requirements and objectives described in the above JSON object.
+- Ensure that your plan is designed for AI agents instead of human experts. These agents are capable of conducting machine learning and artificial intelligence research.
+- Ensure that your plan is self-contained with sufficient instructions to be executed by the AI agents.
+- Ensure that your plan includes all the key points and instructions (from handling data to modeling) so that the AI agents can successfully implement them. Do NOT directly write the code.
+- Ensure that your plan completely include the end-to-end process of machine learning or artificial intelligence model development pipeline in detail (i.e., from data retrieval to model training and evaluation) when applicable based on the given requirements.{END_OF_TURN_ID}""" 
+
+
+
 	PROMPT_AGENT_PROMPT = """{BEGIN_OF_TEXT}{START_HEADER_ID}SYSTEM{END_HEADER_ID}
 You are an assistant project manager in the AutoML development team. 
 Your task is to parse the user's requirement into a valid JSON format, strictly following the given JSON specification schema as your reference. 
@@ -320,7 +322,7 @@ Let's begin. Remember, your response must begin with "```json" or "{{" and end w
 
 
 
-	CONVERSATION_TO_JSON_PROMPT = """{BEGIN_OF_TEXT}{START_HEADER_ID}SYSTEM{END_HEADER_ID}
+	CONVERSATION_2_JSON_PROMPT = """{BEGIN_OF_TEXT}{START_HEADER_ID}SYSTEM{END_HEADER_ID}
 You are an AI assistant. Your task is to generate a structured JSON response in a conversational manner. 
 Be kind, helpful, and ensure the response adheres strictly to the following schema:
 ```json
@@ -377,6 +379,57 @@ Start the python code with "```python". Please ensure the completeness of the co
 
 
 	AGENT_MANAGER_PROMPT = """{BEGIN_OF_TEXT}{START_HEADER_ID}SYSTEM{END_HEADER_ID}
-You are an experienced senior project manager of a automated machine learning project (AutoML). You have two main responsibilities as follows.
+You are an experienced senior project manager of a automated machine learning project (AutoML). You have two main responsibilities as follows:
 1. Receive requirements and/or inquiries from users through a well-structured JSON object.
 2. Using recent knowledge and state-of-the-art studies to devise promising high-quality plans for data scientists, machine learning research engineers, and MLOps engineers in your team to execute subsequent processes based on the user requirements you have received.{END_OF_TURN_ID}"""
+
+
+
+	REACT_PROMPT = """{BEGIN_OF_TEXT}{START_HEADER_ID}SYSTEM{END_HEADER_ID}
+You are an AI assistant, answer the following questions as best you can. You have access to tools provided.
+
+{tools_desc}
+
+Use the following format:
+
+Question: the input question you must answer
+Thought: you should always think about what to do
+Action: the action to take
+Action Input: the input to the action
+Observation: the result of the action
+... (this process can repeat multiple times)
+Thought: I now know the final answer
+Final Answer: the final answer to the original input question
+
+Begin!{END_OF_TURN_ID}
+
+{START_HEADER_ID}HUMAN{END_HEADER_ID}
+Question: {query}{END_OF_TURN_ID}
+
+{START_HEADER_ID}AI{END_HEADER_ID}
+""" # Tham khảo tại: https://github.com/OpenBMB/MiniCPM-CookBook/blob/d0772b24af057c8e7f5d6e12fd00f3cde0481a3c/agent_demo/agent_demo.py#L79
+
+
+
+	TOOL_DESC_PROMPT = """{name_for_model}: Call this tool to interact with the {name_for_human} API. 
+What is the {name_for_human} API useful for? 
+{description_for_model}.
+Type: {type}.
+Properties: {properties}.
+Required: {required}.""" # Tham khảo tại: https://github.com/OpenBMB/MiniCPM-CookBook/blob/d0772b24af057c8e7f5d6e12fd00f3cde0481a3c/agent_demo/agent_demo.py#L76
+
+
+
+	MULTI_STEP_REASONNING_PROMPT = """{BEGIN_OF_TEXT}{START_HEADER_ID}SYSTEM{END_HEADER_ID}Analyze the following text for its main argument, supporting evidence, and potential counterarguments. 
+Provide your analysis in the following steps:
+
+1. Main Argument: Identify and state the primary claim or thesis.
+2. Supporting Evidence: List the key points or evidence used to support the main argument.
+3. Potential Counterarguments: Suggest possible objections or alternative viewpoints to the main argument.{END_OF_TURN_ID}
+
+{START_HEADER_ID}HUMAN{END_HEADER_ID}
+Text: {text}
+{END_OF_TURN_ID}
+
+{START_HEADER_ID}AI{END_HEADER_ID}
+Analysis:"""

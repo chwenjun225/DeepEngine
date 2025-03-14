@@ -1,211 +1,28 @@
 import re
-import uuid
-import random
-import tqdm
-import requests
 import json
-import json5
 import fire 
-import streamlit as st 
-from PIL import Image
-from io import BytesIO
-from collections import defaultdict
 
 
 
-from pydantic import BaseModel, Field, ValidationError, TypeAdapter
-from typing_extensions import (Annotated, TypedDict, Sequence, Union, Optional, Literal, List, Dict, Iterator, Any, Type)
+from pydantic import BaseModel, TypeAdapter
+from typing_extensions import List, Dict, Type
 
 
 
 from langchain_core.language_models import LanguageModelInput
 from langchain_core.runnables import Runnable
-from langchain_core.output_parsers import PydanticOutputParser
-from langchain_core.tools import InjectedToolCallId, BaseTool
-from langchain.tools import tool
-from langchain_ollama import ChatOllama
-from langchain_core.messages import (HumanMessage, AIMessage, SystemMessage, BaseMessage, ToolMessage)
-from langchain_core.prompts import PromptTemplate
+from langchain_core.tools import BaseTool
+from langchain_core.messages import (HumanMessage, AIMessage, SystemMessage, BaseMessage)
 
 
 
-from langgraph.types import Command, interrupt
-from langgraph.graph.message import add_messages
-from langgraph.store.memory import InMemoryStore
-from langgraph.checkpoint.memory import MemorySaver
-from langgraph.managed import IsLastStep
-from langgraph.graph import (MessagesState, StateGraph, START, END)
-from langgraph.prebuilt import (create_react_agent, ToolNode, tools_condition)
+from langgraph.graph import StateGraph, START, END
 
 
 
-from tools import (add, subtract, multiply, divide, power, square_root)
 from prompts import Prompts 
-
-
-
-NAME = "FOXCONN-AI Research"
-DEBUG = False
-
-
-
-BEGIN_OF_TEXT		=	"<|begin_of_text|>"
-END_OF_TEXT			= 	"<|end_of_text|>"
-START_HEADER_ID		= 	"<|start_header_id|>"
-END_HEADER_ID		= 	"<|end_header_id|>"
-END_OF_MESSAGE_ID	= 	"<|eom_id|>"
-END_OF_TURN_ID		= 	"<|eot_id|>"
-
-
-
-MSG_TYPES = {	SystemMessage: "SYS", HumanMessage: "HUMAN", AIMessage: "AI"	}
-
-
-
-DEFAULT_AGENTS: Dict[str, Dict[str, List[BaseMessage]]] = {
-	"MANAGER_AGENT": 	{	"SYS": [], "HUMAN": [], "AI": []	},
-	"REQUEST_VERIFY": 	{	"SYS": [], "HUMAN": [], "AI": []	},
-	"PROMPT_AGENT": 	{	"SYS": [], "HUMAN": [], "AI": []	},
-	"DATA_AGENT": 		{	"SYS": [], "HUMAN": [], "AI": []	},
-	"MODEL_AGENT": 		{	"SYS": [], "HUMAN": [], "AI": []	},
-	"OP_AGENT": 		{	"SYS": [], "HUMAN": [], "AI": []	},
-}
-
-
-
-def default_messages() -> Dict[str, Dict[str, List[BaseMessage]]]:
-	"""Tạo dictionary mặc định cho `messages`, giữ nguyên danh sách các Agent.
-
-	- Sử dụng `defaultdict` để tránh lỗi KeyError nếu truy cập Agent chưa tồn tại.
-	- `lambda: {"SYS": [], "HUMAN": [], "AI": []}` đảm bảo mỗi Agent có đủ 3 loại tin nhắn.
-	- `DEFAULT_AGENTS.copy()` giúp giữ nguyên cấu trúc ban đầu mà không bị ghi đè.
-
-	Returns:
-		Dict[str, Dict[str, List[BaseMessage]]]: Cấu trúc lưu trữ tin nhắn theo Agent và loại tin nhắn.
-	"""
-	return defaultdict(lambda: {"SYS": [], "HUMAN": [], "AI": []}, DEFAULT_AGENTS.copy())
-
-
-
-class State(BaseModel):
-	"""Manages structured conversation state in a multi-agent system.
-
-	Attributes:
-		human_query (List[HumanMessage]): List of user queries.
-		messages (Dict[str, Dict[str, List[BaseMessage]]]): 
-			Stores categorized messages by agent type and message type:
-			- **Agent types**: MANAGER_AGENT, REQUEST_VERIFY, PROMPT_AGENT, DATA_AGENT, MODEL_AGENT, OP_AGENT.
-			- **Message types**: SYSTEM, HUMAN, AI.
-		is_last_step (bool): Indicates if this is the final step.
-		remaining_steps (int): Number of steps left.
-
-	Methods:
-		get_all_msgs(): Retrieves all messages across all agents in chronological order.
-		get_latest_msg(agent_type, msg_type): Returns the latest message from a given agent and type.
-		get_msgs_by_agent_type_and_msg_type(agent_type, msg_type): Retrieves all messages from a specific agent and type.
-		add_unique_msgs(node, msgs_type, msg): Adds a unique message to a specified node.
-	"""
-	human_query: Annotated[List[HumanMessage], add_messages] = Field(default_factory=list)
-	messages: Dict[str, Dict[str, List[BaseMessage]]] = Field(
-		default_factory=default_messages, 
-		description="Categorized messages by agent type and message type."
-	)
-	is_last_step: bool = False
-	remaining_steps: int = 3
-
-	def get_all_msgs(self) -> List[BaseMessage]:
-		"""Retrieves all messages from all agents in chronological order."""
-		all_messages = []
-		for agent_messages in self.messages.values():
-			for msg_list in agent_messages.values():
-				all_messages.extend(msg_list)
-		return all_messages
-
-	def get_latest_msg(self, agent_type: str, msg_type: str) -> BaseMessage:
-		"""Returns the latest message from a specified agent and type.
-
-		Raises:
-			ValueError: If the agent type or message type is invalid.
-		"""
-		if agent_type not in self.messages: raise ValueError(f"[ERROR]: Invalid agent category '{agent_type}'. Must be one of {list(self.messages.keys())}.")
-		if msg_type not in self.messages[agent_type]: raise ValueError(f"[ERROR]: Invalid message type '{msg_type}'. Must be 'SYSTEM', 'HUMAN', or 'AI'.")
-		return self.messages[agent_type][msg_type][-1] if self.messages[agent_type][msg_type] else None
-
-	def get_msgs_by_node_and_msgs_type(self, node: str, msgs_type: str) -> List[BaseMessage]:
-		"""Retrieves all messages from a specified agent and type.
-
-		Raises:
-			ValueError: If the node or message type is invalid.
-		"""
-		if node not in self.messages: raise ValueError(f"[ERROR]: Invalid agent category '{node}'. Must be one of {list(self.messages.keys())}.")
-		if msgs_type not in self.messages[node]: raise ValueError(f"[ERROR]: Invalid message type '{msgs_type}'. Must be 'SYSTEM', 'HUMAN', or 'AI'.")
-		return self.messages[node][msgs_type]
-
-	def add_unique_msgs(self, node: str, msgs_type: str, msg: BaseMessage) -> None:
-		"""Adds a unique message to a specific node in the State.
-
-		Args:
-			node (str): The agent node (e.g., "MANAGER_AGENT", "REQUEST_VERIFY").
-			msgs_type (str): The message type (one of "AI", "HUMAN", "SYS").
-			msg (BaseMessage): The message object to be stored.
-
-		Raises:
-			ValueError: If the message type is invalid.
-		"""
-		if node not in self.messages: 
-			self.messages[node] = {"SYS": [], "HUMAN": [], "AI": []}
-		if msgs_type not in {"SYS", "HUMAN", "AI"}: 
-			raise ValueError(f"[ERROR]: Invalid message type '{msgs_type}'. Must be 'SYS', 'HUMAN', or 'AI'.")
-		if node == "REQUEST_VERIFY": 
-			self.messages[node][msgs_type] = [msg]
-		else:
-			if msg.content not in {m.content for m in self.messages[node][msgs_type]}:
-				self.messages[node][msgs_type].append(msg)
-
-
-# TODO: Cần thêm prompt để hướng dẫn mô hình trả lời tốt hơn, đề xuất sử dụng chain-of-thought prompt.
-class Conversation(TypedDict):
-	"""You are an AI assistant. Respond in a conversational manner. Be kind and helpful."""
-	response:		Annotated[str, ..., "A conversational response to the user's query"			]
-	justification: 	Annotated[str, ..., "A brief explanation or reasoning behind the response."	]
-
-
-
-class Prompt2JSON(TypedDict):
-	"""Parses user requirements related to AI project potential into structured JSON."""
-	problem_area: 	Annotated[str, ..., "Problem domain (e.g., tabular data analysis)."			]
-	task: 			Annotated[str, ..., "Type of ML task (e.g., classification, regression)."	]
-	application: 	Annotated[str, ..., "Application field (e.g., agriculture, healthcare)."	]
-	dataset_name: 	Annotated[str, ..., "Dataset name (e.g., banana_quality)."					]
-	data_modality: 	Annotated[List[str], ..., "Data modality (e.g., ['tabular', 'image'])."		]
-	model_name: 	Annotated[str, ..., "Model name (e.g., XGBoost, ResNet)."					]
-	model_type: 	Annotated[str, ..., "Model type (e.g., vision, text, tabular)."				]
-	cuda: 			Annotated[bool, ..., "Requires CUDA? (True/False)."							]
-	vram: 			Annotated[str, ..., "GPU's VRAM required (e.g., '6GB')."					]
-	cpu_cores: 		Annotated[int, ..., "Number of CPU cores required."							]
-	ram: 			Annotated[str, ..., "RAM required (e.g., '16GB')."							]
-
-
-
-MGR_SYS_MSG_PROMPT 				= 	Prompts.AGENT_MANAGER_PROMPT
-VER_RELEVANCY_MSG_PROMPT 		= 	Prompts.REQUEST_VERIFY_RELEVANCY
-VER_ADEQUACY_MSG_PROMPT 		= 	Prompts.REQUEST_VERIFY_ADEQUACY
-CONVERSATION_2_JSON_MSG_PROMPT 	= 	Prompts.CONVERSATION_TO_JSON_PROMPT
-PROMPT_2_JSON_SYS_MSG_PROMPT 	= 	Prompts.PROMPT_AGENT_PROMPT
-
-
-
-CONFIG = {"configurable": {"thread_id": str(uuid.uuid4()), "recursion_limit": 100}}
-CHECKPOINTER = MemorySaver()
-STORE = InMemoryStore()
-
-
-
-LLM_HTEMP	=	ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0.8, num_predict=128_000)
-LLM_LTEMP 	= 	ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0, num_predict=128_000)
-
-LLM_STRUC_OUT_CONVERSATION 	=	LLM_HTEMP.with_structured_output(schema=Conversation, method="json_schema")
-LLM_STRUC_OUT_AUTOML 		= 	LLM_HTEMP.with_structured_output(schema=Prompt2JSON, method="json_schema")
+from state import State, Conversation, Prompt2JSON, ReAct, default_messages
+from const_params import *
 
 
 
@@ -232,7 +49,7 @@ def add_special_token_to_human_query(human_msg: str) -> str:
 
 
 
-def add_eotext_eoturn_to_ai_msg(ai_msg: AIMessage, end_of_turn_id_token: str = END_OF_TURN_ID, end_of_text_token: str = END_OF_TEXT) -> AIMessage:
+def add_eoturn_eotext_to_ai_msg(ai_msg: AIMessage, end_of_turn_id_token: str = END_OF_TURN_ID, end_of_text_token: str = END_OF_TEXT) -> AIMessage:
 	"""Ensures AIMessage content ends with required special tokens.
 
 	This function appends `<|end_of_text|>` and `<|eot_id|>` at the end of the message content if they are not already present.
@@ -256,7 +73,7 @@ def add_eotext_eoturn_to_ai_msg(ai_msg: AIMessage, end_of_turn_id_token: str = E
 	return AIMessage(content=content)
 
 
-# TODO: Tối ưu hàm này, cần loại bỏ `.get()` tránh tạo đối tượng không cần thiết.
+
 def build_react_sys_msg_prompt(tool_desc_prompt: str, react_prompt: str, tools: List[BaseTool]) -> str:
 	"""Builds a formatted system prompt with tool descriptions.
 
@@ -370,7 +187,7 @@ def manager_agent(state: State) -> State:
 			if isinstance(ai_msg, str) 
 			else "At node_manager_agent, I'm unable to generate a response."
 		)
-	ai_msg = add_eotext_eoturn_to_ai_msg(ai_msg=ai_msg, end_of_turn_id_token=END_OF_TURN_ID, end_of_text_token=END_OF_TEXT)
+	ai_msg = add_eoturn_eotext_to_ai_msg(ai_msg=ai_msg, end_of_turn_id_token=END_OF_TURN_ID, end_of_text_token=END_OF_TEXT)
 	state.add_unique_msgs(node="MANAGER_AGENT", msgs_type="SYS", msg=sys_msg)
 	state.add_unique_msgs(node="MANAGER_AGENT", msgs_type="HUMAN", msg=human_msg)
 	state.add_unique_msgs(node="MANAGER_AGENT", msgs_type="AI", msg=AIMessage("<|parse_json|>" + human_msg_json.content + "<|end_parse_json|>" + ai_msg.content))
@@ -383,7 +200,7 @@ def check_contain_yes_or_no(ai_msg: str) -> str:
 	pattern = r"<\|start_header_id\|>assistant<\|end_header_id\|>\s*\n\s*(yes|no)\b"
 	match = re.search(pattern=pattern, string=ai_msg, flags=re.IGNORECASE)
 	if match:return match.group(1).upper()
-	else:return "[ERROR]: Không tìm thấy 'Yes' hoặc 'No' trong phản hồi AI!"
+	else:return "[ERROR]: Không tìm thấy 'Yes' hoặc 'No' trong phản hồi AIMessage!"
 
 
 
@@ -399,7 +216,7 @@ def relevancy(state: State) -> List[BaseMessage]:
 	))
 	ai_msg = LLM_LTEMP.invoke([sys_msg])
 	if not isinstance(ai_msg, AIMessage): ai_msg = AIMessage(content=ai_msg.strip() if isinstance(ai_msg, str) else "At node_request_verify-REQUEST_VERIFY_RELEVANCY, I'm unable to generate a response.")
-	ai_msg = add_eotext_eoturn_to_ai_msg(ai_msg=ai_msg, end_of_turn_id_token=END_OF_TURN_ID, end_of_text_token=END_OF_TEXT)
+	ai_msg = add_eoturn_eotext_to_ai_msg(ai_msg=ai_msg, end_of_turn_id_token=END_OF_TURN_ID, end_of_text_token=END_OF_TEXT)
 	return [sys_msg, human_msg, ai_msg]
 
 
@@ -419,7 +236,7 @@ def adequacy(state: State) -> List[BaseMessage]:
 	))
 	ai_msg = LLM_LTEMP.invoke([sys_msg])
 	if not isinstance(ai_msg, AIMessage): ai_msg = AIMessage(content=ai_msg.strip() if isinstance(ai_msg, str) else "At node_request_verify-REQUEST_VERIFY_ADEQUACY, I'm unable to generate a response.")
-	ai_msg = add_eotext_eoturn_to_ai_msg(ai_msg=ai_msg, end_of_turn_id_token=END_OF_TURN_ID, end_of_text_token=END_OF_TEXT)
+	ai_msg = add_eoturn_eotext_to_ai_msg(ai_msg=ai_msg, end_of_turn_id_token=END_OF_TURN_ID, end_of_text_token=END_OF_TEXT)
 	return [sys_msg, human_msg, ai_msg]
 
 
@@ -430,8 +247,8 @@ def request_verify(state: State) -> State:
 	ai_msg_adequacy = adequacy(state=state)[2]
 	yes_no_relevancy = check_contain_yes_or_no(ai_msg=ai_msg_relevancy.content)
 	yes_no_adequacy  = check_contain_yes_or_no(ai_msg=ai_msg_adequacy.content )
-	yes_no = "YES" if "YES" in (yes_no_relevancy, yes_no_adequacy) else "NO"
-	ai_msg = AIMessage(content=yes_no)
+	yes_or_no_answer = "YES" if "YES" in (yes_no_relevancy, yes_no_adequacy) else "NO"
+	ai_msg = AIMessage(content=yes_or_no_answer)
 	state.add_unique_msgs(node="REQUEST_VERIFY", msgs_type="AI", msg=ai_msg)
 	return state
 
@@ -467,7 +284,7 @@ def req_ver_yes_or_no_control_flow(state: State) -> State:
 
 def prompt_agent(state: State) -> State:
 	"""Prompt Agent parses user's requirements into JSON following a TypedDict schema.
-	
+
 	Args:
 		state (State): The current state of the conversation.
 
@@ -475,7 +292,7 @@ def prompt_agent(state: State) -> State:
 		State: Updated state with the parsed JSON response.
 	"""
 	if "MANAGER_AGENT" not in state.messages or "HUMAN" not in state.messages["MANAGER_AGENT"]:
-		raise ValueError("[ERROR]: No HUMAN messages found in MANAGER_AGENT.")
+		raise ValueError(">>> [ERROR]: No HUMAN messages found in MANAGER_AGENT.")
 	human_msg = state.messages["MANAGER_AGENT"]["HUMAN"][-1]
 	parsed_json = conversation2json(
 		msg_prompt=PROMPT_2_JSON_SYS_MSG_PROMPT, 
@@ -489,14 +306,38 @@ def prompt_agent(state: State) -> State:
 	if extra_keys := received_keys - expected_keys: 
 		raise ValueError(f"[ERROR]: JSON có các trường không hợp lệ: {extra_keys}")
 	ai_msg_json = AIMessage(content=json.dumps(parsed_json, indent=2))
-	ai_msg_json = add_eotext_eoturn_to_ai_msg(ai_msg=ai_msg_json, end_of_turn_id_token=END_OF_TURN_ID, end_of_text_token=END_OF_TEXT)
 	state.add_unique_msgs(node="PROMPT_AGENT", msgs_type="AI", msg=ai_msg_json)
 	return state
 
 
 
-def rap_agent(state: State) -> State:
+def retrieval_augmented_planning_agent(state: State) -> State:
 	"Retrieval-Augmented Planning Agent."
+	human_msg = state.messages["PROMPT_AGENT"]["AI"][-1].content
+	plan_knowledge = ""
+	sys_msg = SystemMessage(content=RAP_SYS_MSG_PROMPT.format(
+		BEGIN_OF_TEXT=BEGIN_OF_TEXT, 
+		START_HEADER_ID=START_HEADER_ID, 
+		END_HEADER_ID=END_HEADER_ID, 
+		user_requirements=human_msg, 
+		plan_knowledge=plan_knowledge,
+		END_OF_TURN_ID=END_OF_TURN_ID
+	))
+	ai_msg = LLM_LTEMP.invoke([sys_msg])
+	if not isinstance(ai_msg, AIMessage): 
+		ai_msg = AIMessage(
+			content=ai_msg.strip() 
+			if isinstance(ai_msg, str) 
+			else "At node_manager_agent, I'm unable to generate a response."
+		)
+	ai_msg = add_eoturn_eotext_to_ai_msg(
+		ai_msg=ai_msg, 
+		end_of_turn_id_token=END_OF_TURN_ID, 
+		end_of_text_token=END_OF_TEXT
+	)
+	state.add_unique_msgs(node="RAP", msgs_type="SYS", msg=sys_msg)
+	state.add_unique_msgs(node="RAP", msgs_type="HUMAN", msg=human_msg)
+	state.add_unique_msgs(node="RAP", msgs_type="AI", msg=ai_msg)
 	return state
 
 
@@ -512,81 +353,116 @@ def model_agent(state: State) -> State:
 	return state
 
 
+# TODO: Ý tưởng sử dụng Multi-Agent gọi đến Yolov8 API, Yolov8 
+# API sẽ lấy mọi hình ảnh cỡ nhỏ nó phát hiện  được là lỗi và 
+# đưa vào mô hình llama3.2-11b-vision để đọc ảnh, sau đó 
+# Llama3.2-11b-vision gửi lại text đến Multi-Agent để 
+# Multi-Agent xác định xem đấy có phải là lỗi không.
 
+# Nếu muốn vậy thì hiện tại ta cần có data-agent và model-agent
+# data-agent để generate dữ liệu training, model-agent để viết 
+# kiến trúc model vision.
+
+# Bây giờ cần build tools trước cho mô hình, bao gồm 
+# tool vision, tool genData, tool llama3.2-11b-vision-instruct
+
+# Nhưng tại sao lại ko dùng vision yolov8 để finetune. Mục tiêu 
+# ở đây, ta sẽ tận dụng cả sức mạnh của LLM-Vision, để hiểu rõ
+# hình ảnh có gì, sau đó gửi về cho LLM-instruct để xử lý text 
+# từ LLM-vision.
+
+# **1. Image-to-Image Generation (CycleGAN, Pix2Pix, StyleGAN)**
+# **2. Data Augmentation (Biến đổi dữ liệu)**
 workflow = StateGraph(State)
 
 workflow.add_node("MANAGER_AGENT", manager_agent)
 workflow.add_node("REQUEST_VERIFY", request_verify)
 workflow.add_node("PROMPT_AGENT", prompt_agent)
-workflow.add_node("RETRIEVAL_AUGMENTED_PLANNING", rap_agent)
+workflow.add_node("RAP", retrieval_augmented_planning_agent)
 workflow.add_node("DATA_AGENT", data_agent)
 workflow.add_node("MODEL_AGENT", model_agent)
 
 workflow.add_edge(START, "MANAGER_AGENT")
 workflow.add_edge("MANAGER_AGENT", "REQUEST_VERIFY")
 workflow.add_conditional_edges("REQUEST_VERIFY", req_ver_yes_or_no_control_flow, ["PROMPT_AGENT", END])
-workflow.add_edge("PROMPT_AGENT", "RETRIEVAL_AUGMENTED_PLANNING")
-workflow.add_edge("RETRIEVAL_AUGMENTED_PLANNING", "DATA_AGENT")
-workflow.add_edge("RETRIEVAL_AUGMENTED_PLANNING", "MODEL_AGENT")
-workflow.add_edge("DATA_AGENT", "MODEL_AGENT")
-workflow.add_edge("MODEL_AGENT", END)
+workflow.add_edge("PROMPT_AGENT", END)
+# workflow.add_edge("RAP", "DATA_AGENT")
+# workflow.add_edge("RAP", "MODEL_AGENT")
+# workflow.add_edge("DATA_AGENT", "MODEL_AGENT")
+# workflow.add_edge("MODEL_AGENT", END)
 
 app = workflow.compile(checkpointer=CHECKPOINTER, store=STORE, debug=DEBUG, name=NAME)
 
 
 
 def main() -> None:
-	"""Handles user queries and displays AI responses."""
-	for user_query in QUERIES:
+	"""Xử lý truy vấn của người dùng và hiển thị phản hồi từ AI.
+
+	Workflow:
+		1. Nhận truy vấn từ danh sách `QUERIES`.
+		2. Kiểm tra xem người dùng có nhập "exit" để thoát không.
+		3. Gửi truy vấn đến hệ thống AI thông qua `app.invoke()`.
+		4. Kiểm tra tính hợp lệ của dữ liệu trả về từ `app.invoke()`.
+		5. Trích xuất `messages` và hiển thị kết quả hội thoại.
+
+	Raises:
+		ValueError: Nếu `app.invoke()` không trả về dictionary hoặc không chứa key "messages".
+	"""
+	for i, user_query in enumerate(QUERIES, 1):
+		print(f"\n👨_query_{i}:")
+		print(user_query)
+		print("\n🤖_response:")
 		user_query = user_query.strip()
 		if user_query.lower() == "exit":
 			print("\n>>> [System Exit] Goodbye! Have a great day! 😊\n")
 			break
-		state_data = app.invoke(
-			input={"human_query": [user_query], "messages": default_messages()}, config=CONFIG)
+		state_data = app.invoke(input={"human_query": [user_query], "messages": default_messages()}, config=CONFIG)
 		if not isinstance(state_data, dict):
 			raise ValueError("[ERROR]: app.invoke() không trả về dictionary.")
-		messages = state_data.get("messages")
-		if messages is None:
+		if "messages" not in state_data:
 			raise ValueError("[ERROR]: Key 'messages' không có trong kết quả.")
+		messages = state_data["messages"]
 		display_conversation_results(messages)
 
 
 
 def display_conversation_results(messages: dict) -> None:
-	"""Hiển thị kết quả hội thoại từ tất cả các agent trong hệ thống."""
-	print("\n===== CONVERSATION RESULTS =====\n")
+	"""
+	Hiển thị kết quả hội thoại từ tất cả các agent trong hệ thống.
+
+	Args:
+		messages (dict): Dictionary chứa các tin nhắn được nhóm theo agent và loại tin nhắn.
+			- **Node**: Tên agent (ví dụ: "MANAGER_AGENT", "PROMPT_AGENT").
+			- **Msgs_type**: Dictionary chứa các loại tin nhắn ("HUMAN", "AI", "SYS"), mỗi loại là một danh sách tin nhắn.
+
+	Example:
+		messages = {
+			"MANAGER_AGENT": {
+				"SYS": [],
+				"HUMAN": [HumanMessage(content="Hello!")],
+				"AI": [AIMessage(content="Hi! How can I assist you?")]
+			}
+		}
+
+	Returns:
+		None: Hàm chỉ hiển thị kết quả trên terminal mà không trả về giá trị.
+	"""
+	print("\n===== [CONVERSATION RESULTS] =====\n")
 	if not messages:
 		print("[INFO]: Không có tin nhắn nào trong hội thoại.")
 		return
-	for node, msg_types in messages.items():
+	for node, msgs in messages.items():
 		print(f"\n[{node}]")
-		for msg_type, msg_list in msg_types.items():
-			if msg_list:
-				print(f"  {msg_type}:")
-				for msg in msg_list:
-					content = getattr(msg, "content", "[No content]")
-					print(f"\t- {content}")
-	print("\n===== END OF CONVERSATION =====\n")
-
-
-
-QUERIES = [
-	"""I need a highly accurate machine learning model developed to classify images within the Butterfly Image Classification dataset into their correct species categories. 
-The dataset has been uploaded with its label information in the labels.csv file. 
-Please use a convolutional neural network (CNN) architecture for this task, leveraging transfer learning from a pre-trained ResNet-50 model to improve accuracy. 
-Optimize the model using cross-validation on the training split to fine-tune hyperparameters, and aim for an accuracy of at least 0.95 (95%) on the test split. 
-Provide the final trained model, a detailed report of the training process, hyperparameter settings, accuracy metrics, and a confusion matrix to evaluate performance across different categories.""",
-
-	"""Please provide a classification model that categorizes images into one of four clothing categories. 
-The image path, along with its label information, can be found in the files train labels.csv and test labels.csv. 
-The model should achieve at least 0.95 (95%) accuracy on the test set and be implemented using PyTorch. 
-Additionally, please include data augmentation techniques and a confusion matrix in the evaluation."""	
-	
-	"""Hello, What is heavier a kilo of feathers or a kilo of steel?""", 
-	
-	"""exit"""
-]
+		if isinstance(msgs, dict):
+			for msg_category, msg_list in msgs.items():
+				if msg_list:
+					print(f"  {msg_category}:")
+					for msg in msg_list:
+						content = getattr(msg, "content", "[No content]")
+						print(f"\t- {content}")
+		else:
+			raise ValueError(f"`msgs` phải là một dictionary chứa danh sách tin nhắn, `msgs` hiện tại là: {msgs}")
+	print("\n===== [END OF CONVERSATION] =====\n")
 
 
 

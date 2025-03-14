@@ -1,0 +1,31 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug Upload Data to ChromaDB",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/home/chwenjun225/projects/DeepEngine/src/DeepEngine/database.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--action", "upload_data_to_server",
+                "--collection_name", "foxconn_fulian_b09_ai_research_tranvantuan_v1047876",
+                "--file_path", "/home/chwenjun225/projects/DeepEngine/docs/pdf/Hands-On-ML-sklearn-keras-tf-2nd-Edition-Aurelien-Geron.pdf",
+                "--persist_directory", "/home/chwenjun225/projects/DeepEngine/src/DeepEngine/chromadb_storage"
+            ]
+        }, 
+        {
+            "name": "Python Debugger: Current File with Arguments",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": [
+                "${command:pickArgs}"
+            ]
+        }
+    ]
+}

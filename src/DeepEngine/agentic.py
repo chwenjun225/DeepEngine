@@ -5,8 +5,8 @@ import fire
 
 
 
-from pydantic import BaseModel, Field, ValidationError, TypeAdapter
-from typing_extensions import (Annotated, TypedDict, Sequence, Union, Optional, Literal, List, Dict, Iterator, Any, Type)
+from pydantic import BaseModel, TypeAdapter
+from typing_extensions import (Annotated, TypedDict, Optional, List, Dict, Type)
 
 
 
@@ -17,12 +17,7 @@ from langchain_core.runnables import Runnable
 from langchain_core.tools import BaseTool
 from langchain.tools import tool
 from langchain_ollama import ChatOllama
-from langchain_core.messages import (
-	HumanMessage,
-	AIMessage, 
-	SystemMessage, 
-	BaseMessage
-)
+from langchain_core.messages import (HumanMessage, AIMessage, SystemMessage, BaseMessage)
 
 
 
@@ -33,16 +28,16 @@ from langgraph.graph import (StateGraph, START, END)
 
 
 from prompts import Prompts 
-from state import State
+from state import State, default_messages
 
 
 
 DEBUG = False
-NAME = "FOXCONN-FULIAN-B09-AI-Research-陳文俊-V1047876"
+NAME = "foxconn_fulian_b09_ai_research_tranvantuan_v1047876"
 
 
 
-COLLECTION_NAME = "FOXCONN-FULIAN-B09-AI-Research-陳文俊-V1047876"
+COLLECTION_NAME = "foxconn_fulian_b09_ai_research_tranvantuan_v1047876"
 EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 EMBEDDING_MODEL = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL_NAME)
 PERSIS_DIRECTORY = "/home/chwenjun225/projects/DeepEngine/src/DeepEngine/chromadb_storage"
@@ -86,7 +81,6 @@ class ReAct(TypedDict):
 
 
 
-# TODO: Cần thêm prompt để hướng dẫn mô hình trả lời tốt hơn, đề xuất sử dụng chain-of-thought prompt.
 class Conversation(TypedDict):
 	"""You are an AI assistant. Respond in a conversational manner. Be kind and helpful."""
 	response:		Annotated[str, ..., "A conversational response to the user's query"			]
@@ -166,7 +160,6 @@ def add_eoturn_eotext_to_ai_msg(ai_msg: AIMessage, end_of_turn_id_token: str = E
 
 
 
-# TODO: Tối ưu hàm này, cần loại bỏ `.get()` tránh tạo đối tượng không cần thiết.
 def build_react_sys_msg_prompt(tool_desc_prompt: str, react_prompt: str, tools: List[BaseTool]) -> str:
 	"""Builds a formatted system prompt with tool descriptions.
 

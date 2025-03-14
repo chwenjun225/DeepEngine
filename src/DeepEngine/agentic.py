@@ -201,7 +201,7 @@ def check_contain_yes_or_no(ai_msg: str) -> str:
 	pattern = r"<\|start_header_id\|>assistant<\|end_header_id\|>\s*\n\s*(yes|no)\b"
 	match = re.search(pattern=pattern, string=ai_msg, flags=re.IGNORECASE)
 	if match:return match.group(1).upper()
-	else:return "[ERROR]: Không tìm thấy 'Yes' hoặc 'No' trong phản hồi AI!"
+	else:return "[ERROR]: Không tìm thấy 'Yes' hoặc 'No' trong phản hồi AIMessage!"
 
 
 

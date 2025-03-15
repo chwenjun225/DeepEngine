@@ -2,6 +2,11 @@ import uuid
 
 
 
+from langchain_core.prompts import \
+    AIMessagePromptTemplate, \
+    BaseChatPromptTemplate, \
+	BasePromptTemplate, \
+    FewShotChatMessagePromptTemplate
 from langchain_ollama import ChatOllama
 from langchain_chroma import Chroma
 from langchain_huggingface.embeddings import HuggingFaceEmbeddings
@@ -13,7 +18,7 @@ from langgraph.store.memory import InMemoryStore
 
 
 
-from prompts import Prompts
+import prompts
 from state import Conversation, Prompt2JSON
 
 
@@ -50,12 +55,12 @@ VECTOR_DB = Chroma(persist_directory=PERSIS_DIRECTORY, embedding_function=EMBEDD
 
 
 
-CONVERSATION_2_JSON_MSG_PROMPT 	= 	Prompts.CONVERSATION_2_JSON_PROMPT 
-MGR_SYS_MSG_PROMPT 				= 	Prompts.AGENT_MANAGER_PROMPT
-VER_RELEVANCY_MSG_PROMPT 		= 	Prompts.REQUEST_VERIFY_RELEVANCY
-VER_ADEQUACY_MSG_PROMPT 		= 	Prompts.REQUEST_VERIFY_ADEQUACY
-PROMPT_2_JSON_SYS_MSG_PROMPT 	= 	Prompts.PROMPT_AGENT_PROMPT
-RAP_SYS_MSG_PROMPT 				= 	Prompts.RETRIEVAL_AUGMENTED_PLANNING_PROMPT
+CONVERSATION_2_JSON_MSG_PROMPT 	= 	prompts.CONVERSATION_2_JSON_PROMPT 
+MGR_SYS_MSG_PROMPT 				= 	prompts.AGENT_MANAGER_PROMPT
+VER_RELEVANCY_MSG_PROMPT 		= 	prompts.REQUEST_VERIFY_RELEVANCY
+VER_ADEQUACY_MSG_PROMPT 		= 	prompts.REQUEST_VERIFY_ADEQUACY
+PROMPT_2_JSON_SYS_MSG_PROMPT 	= 	prompts.PROMPT_AGENT_PROMPT
+RAP_SYS_MSG_PROMPT 				= 	prompts.RETRIEVAL_AUGMENTED_PLANNING_PROMPT
 
 
 

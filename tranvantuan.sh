@@ -66,13 +66,26 @@ python /home/chwenjun225/projects/DeepEngine/third_3rdparty/MiniCPM-o-main/web_d
 postgresql+psycopg://langchain:langchain@localhost:6024/langchain
 # Docker run pgvector16
 docker run \
-	--name pgvector-container \
+	--name chat_history_pgvector \
+	-e POSTGRES_USER=tranvantuan \
+	-e POSTGRES_PASSWORD=tranvantuan \
+	-e POSTGRES_DB=tranvantuan \
+	-p 2028:5432 \
+	-d pgvector/pgvector:pg16
+docker run \
+	--name rag_pgvector \
 	-e POSTGRES_USER=langchain \
 	-e POSTGRES_PASSWORD=langchain \
 	-e POSTGRES_DB=langchain \
-	-p 6024:5432 \
+	-p 2029:5432 \
 	-d pgvector/pgvector:pg16
-
+# Tạo bảng trong PgVector
+CREATE TABLE chat_messages (
+	session_id TEXT NOT NULL,
+	role TEXT NOT NULL CHECK (role IN ('SYS', 'HUMAN', 'AI')),
+	content TEXT NOT NULL,
+	timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
 
 # lm-eval-harness for finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct

@@ -1,6 +1,8 @@
 import re
 import json
 import fire 
+import logging
+import streamlit as st 
 
 
 
@@ -9,6 +11,7 @@ from typing_extensions import List, Dict, Type
 
 
 
+from langchain_community.chat_message_histories import PostgresChatMessageHistory
 from langchain_core.language_models import LanguageModelInput
 from langchain_core.runnables import Runnable
 from langchain_core.tools import BaseTool
@@ -22,6 +25,10 @@ from langgraph.graph import StateGraph, START, END
 
 from state import State, Conversation, Prompt2JSON, ReAct, default_messages
 from const_params import *
+
+
+
+logging.basicConfig(level=logging.CRITICAL)
 
 
 
@@ -192,11 +199,10 @@ def manager_agent(state: State) -> State:
 	human_msg = HumanMessage(content=add_special_token_to_human_query(human_msg=state["human_query"][-1].content))
 	human_msg_json = HumanMessage(json.dumps((conversation2json(
 			msg_prompt=CONVERSATION_2_JSON_MSG_PROMPT, llm_structure_output=LLM_STRUC_OUT_CONVERSATION, human_msg=human_msg, 
-			schema=Conversation)), 
-		indent=2))
+			schema=Conversation)), indent=2))
 	ai_msg = LLM_LTEMP.invoke([sys_msg, human_msg, human_msg_json])
 	if not isinstance(ai_msg, AIMessage): 
-		ai_msg = AIMessage(
+		ai_msg = AIMessage( 
 			content=ai_msg.strip() 
 			if isinstance(ai_msg, str) 
 			else "At node_manager_agent, I'm unable to generate a response."
@@ -327,7 +333,7 @@ def prompt_agent(state: State) -> State:
 def retrieval_augmented_planning_agent(state: State) -> State:
 	"Retrieval-Augmented Planning Agent."
 	human_msg_content = get_latest_msg(state=state, node="PROMPT_AGENT", msgs_type="AI").content
-	plan_knowledge = "" # TODO: RAG pipeline 
+	plan_knowledge = "" # TODO: Build RAG pipeline 
 	sys_msg = SystemMessage(content=RAP_SYS_MSG_PROMPT.format(
 		BEGIN_OF_TEXT=BEGIN_OF_TEXT, 
 		START_HEADER_ID=START_HEADER_ID, 
@@ -368,6 +374,7 @@ def model_agent(state: State) -> State:
 
 
 # TODO: Trước tiên cần tối ưu prompt.
+# TODO: Build RAG pipeline
 
 
 # TODO: Ý tưởng sử dụng Multi-Agent gọi đến Yolov8 API, Yolov8 

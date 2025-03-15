@@ -263,7 +263,7 @@ def request_verify(state: State) -> State:
 	yes_no_adequacy  = check_contain_yes_or_no(ai_msg=ai_msg_adequacy.content )
 	yes_or_no_answer = "YES" if "YES" in (yes_no_relevancy, yes_no_adequacy) else "NO"
 	ai_msg = AIMessage(content=yes_or_no_answer)
-	state.add_unique_msgs(node="REQUEST_VERIFY", msgs_type="AI", msg=ai_msg)
+	add_unique_msg(state=state, node="REQUEST_VERIFY", msgs_type="AI", msg=ai_msg)
 	return state
 
 
@@ -280,9 +280,9 @@ def req_ver_yes_or_no_control_flow(state: State) -> State:
 	Raises:
 		ValueError: If there is no valid AI response or an unexpected response.
 	"""
-	if "REQUEST_VERIFY" not in state.messages or "AI" not in state.messages["REQUEST_VERIFY"]:
+	if "REQUEST_VERIFY" not in state["messages"] or "AI" not in state["messages"]["REQUEST_VERIFY"]:
 		raise ValueError("[ERROR]: No AI message found in REQUEST_VERIFY.")
-	ai_msgs = state.messages["REQUEST_VERIFY"]["AI"]
+	ai_msgs = state["messages"]["REQUEST_VERIFY"]["AI"]
 	if not ai_msgs:
 		raise ValueError("[ERROR]: AI message list is empty in REQUEST_VERIFY.")
 	ai_msg = ai_msgs[-1]
@@ -305,11 +305,10 @@ def prompt_agent(state: State) -> State:
 	Returns:
 		State: Updated state with the parsed JSON response.
 	"""
-	if "MANAGER_AGENT" not in state.messages or "HUMAN" not in state.messages["MANAGER_AGENT"]:
+	if "MANAGER_AGENT" not in state["messages"] or "HUMAN" not in state["messages"]["MANAGER_AGENT"]:
 		raise ValueError(">>> [ERROR]: No HUMAN messages found in MANAGER_AGENT.")
-	human_msg = state.messages["MANAGER_AGENT"]["HUMAN"][-1]
-	parsed_json = conversation2json(
-		msg_prompt=PROMPT_2_JSON_SYS_MSG_PROMPT, 
+	human_msg = get_latest_msg(state=state, node="MANAGER_AGENT", msgs_type="HUMAN")
+	parsed_json = conversation2json(msg_prompt=PROMPT_2_JSON_SYS_MSG_PROMPT, 
 		llm_structure_output=LLM_STRUC_OUT_AUTOML,
 		human_msg=human_msg,
 		schema=Prompt2JSON
@@ -320,15 +319,15 @@ def prompt_agent(state: State) -> State:
 	if extra_keys := received_keys - expected_keys: 
 		raise ValueError(f"[ERROR]: JSON có các trường không hợp lệ: {extra_keys}")
 	ai_msg_json = AIMessage(content=json.dumps(parsed_json, indent=2))
-	state.add_unique_msgs(node="PROMPT_AGENT", msgs_type="AI", msg=ai_msg_json)
+	add_unique_msg(state=state, node="PROMPT_AGENT", msgs_type="AI", msg=ai_msg_json)
 	return state
 
 
 
 def retrieval_augmented_planning_agent(state: State) -> State:
 	"Retrieval-Augmented Planning Agent."
-	human_msg_content = state.messages["PROMPT_AGENT"]["AI"][-1].content
-	plan_knowledge = ""
+	human_msg_content = get_latest_msg(state=state, node="PROMPT_AGENT", msgs_type="AI").content
+	plan_knowledge = "" # TODO: RAG pipeline 
 	sys_msg = SystemMessage(content=RAP_SYS_MSG_PROMPT.format(
 		BEGIN_OF_TEXT=BEGIN_OF_TEXT, 
 		START_HEADER_ID=START_HEADER_ID, 
@@ -349,9 +348,9 @@ def retrieval_augmented_planning_agent(state: State) -> State:
 		end_of_turn_id_token=END_OF_TURN_ID, 
 		end_of_text_token=END_OF_TEXT
 	)
-	state.add_unique_msgs(node="RAP", msgs_type="SYS", msg=sys_msg)
-	state.add_unique_msgs(node="RAP", msgs_type="HUMAN", msg=HumanMessage(human_msg_content))
-	state.add_unique_msgs(node="RAP", msgs_type="AI", msg=ai_msg)
+	add_unique_msg(state=state, node="RAP", msgs_type="SYS", msg=sys_msg)
+	add_unique_msg(state=state, node="RAP", msgs_type="HUMAN", msg=HumanMessage(human_msg_content))
+	add_unique_msg(state=state, node="RAP", msgs_type="AI", msg=ai_msg)
 	return state
 
 

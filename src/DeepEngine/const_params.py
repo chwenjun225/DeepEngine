@@ -2,11 +2,6 @@ import uuid
 
 
 
-from langchain_core.prompts import \
-    AIMessagePromptTemplate, \
-    BaseChatPromptTemplate, \
-	BasePromptTemplate, \
-    FewShotChatMessagePromptTemplate
 from langchain_ollama import ChatOllama
 from langchain_chroma import Chroma
 from langchain_huggingface.embeddings import HuggingFaceEmbeddings

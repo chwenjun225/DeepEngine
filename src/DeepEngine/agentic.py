@@ -333,7 +333,7 @@ def prompt_agent(state: State) -> State:
 def retrieval_augmented_planning_agent(state: State) -> State:
 	"Retrieval-Augmented Planning Agent."
 	human_msg_content = get_latest_msg(state=state, node="PROMPT_AGENT", msgs_type="AI").content
-	plan_knowledge = "" # TODO: Build RAG pipeline 
+	plan_knowledge = "" 
 	sys_msg = SystemMessage(content=RAP_SYS_MSG_PROMPT.format(
 		BEGIN_OF_TEXT=BEGIN_OF_TEXT, 
 		START_HEADER_ID=START_HEADER_ID, 
@@ -372,7 +372,7 @@ def model_agent(state: State) -> State:
 	return state
 
 
-
+# TODO: Tích hợp auto-cot
 # TODO: Trước tiên cần tối ưu prompt.
 # TODO: Build RAG pipeline
 

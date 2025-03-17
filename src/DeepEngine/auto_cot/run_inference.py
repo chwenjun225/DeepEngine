@@ -8,6 +8,8 @@
 import argparse
 from utils import *
 
+
+
 def main():
 	args = parse_arguments()
 	print('*****************************')
@@ -16,8 +18,8 @@ def main():
 	
 	fix_seed(args.random_seed)
 	
-	print("OPENAI_API_KEY:")
-	print(os.getenv("OPENAI_API_KEY")[0:5] + '**********')
+	# print("OPENAI_API_KEY:")
+	# print(os.getenv("OPENAI_API_KEY")[0:5] + '**********')
 	
 	# Initialize decoder class (load model and tokenizer) ...
 	decoder = Decoder()
@@ -112,7 +114,9 @@ def main():
 	# Calculate accuracy ...
 	accuracy = (sum(correct_list) * 1.0 / total) * 100
 	print("accuracy : {}".format(accuracy))
-	
+
+
+
 def parse_arguments():
 	parser = argparse.ArgumentParser(description="Zero-shot-CoT")
 
@@ -209,6 +213,8 @@ def parse_arguments():
 	args.cot_trigger = "Let's think step by step."
 	
 	return args
+
+
 
 if __name__ == "__main__":
 	main()

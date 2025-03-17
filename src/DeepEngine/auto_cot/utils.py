@@ -28,6 +28,14 @@ from torch.utils.data import Dataset
 
 
 
+from langchain_ollama.chat_models import ChatOllama
+
+
+
+LLM = ChatOllama(model="llama3.2:3b-instruct-fp16", temperature=0.8, num_predict=128_000)
+
+
+
 def shuffleDict(d: dict):
 	keys = list(d.keys())
 	random.shuffle(keys)
@@ -36,7 +44,7 @@ def shuffleDict(d: dict):
 	[(key, d[key]) for key in keys]
 	random.shuffle(keys)
 	keys = [(key, d[key]) for key in keys]
-	#keys = d(keys)
+	# keys = d(keys)
 	return dict(keys)
 
 
@@ -67,9 +75,26 @@ def print_now(return_flag:int=0):
 
 
 
-# Sentence Generator (Decoder) for GPT-3 ...
-def decoder_for_gpt3(args, input, max_length):
+def decoder_for_ollama(args, input, max_length):
+	"""Generates a sentence using a language model via LangChain's ChatOllama.
 
+	Args:
+		args (argparse.Namespace): Arguments containing model configuration and settings.
+		input_text (str): The input prompt for the model.
+		max_length (int): Maximum number of tokens for the output.
+
+	Returns:
+		str: The generated text from the model.
+	"""
+	time.sleep(args.api_time_interval)
+	stop_sequences = ["\n"] if ("few_shot" in args.method or "auto" in args.method) else None
+	response = LLM.invoke(input, config={"max_tokens": max_length, "stop": stop_sequences})
+	return response.content
+
+
+
+def decoder_for_gpt3(args, input, max_length):
+	"""Sentence Generator (Decoder) for GPT-3."""
 	# GPT-3 API allows each users execute the API within 60 times in a minute ...
 	# time.sleep(1)
 	time.sleep(args.api_time_interval)
@@ -79,23 +104,20 @@ def decoder_for_gpt3(args, input, max_length):
 	
 	# Specify engine ...
 	# Instruct GPT3
-	if args.model == "gpt3":
-		engine = "text-ada-001"
-	elif args.model == "gpt3-medium":
-		engine = "text-babbage-001"
-	elif args.model == "gpt3-large":
-		engine = "text-curie-001"
-	elif args.model == "gpt3-xl":
-		engine = "text-davinci-002"
-	elif args.model == "text-davinci-001":
-		engine = "text-davinci-001"
-	elif args.model == "code-davinci-002":
-		engine = "code-davinci-002"
-	elif args.model == "llama3.2:1b-instruct-fp16":
-		engine = "llama3.2:1b-instruct-fp16"
-	else:
-		raise ValueError("model is not properly defined ...")
-	if ("few_shot" in args.method or "auto" in args.method)  and engine == "code-davinci-002":
+	model_mapping = {
+		"gpt3": "text-ada-001",
+		"gpt3-medium": "text-babbage-001",
+		"gpt3-large": "text-curie-001",
+		"gpt3-xl": "text-davinci-002",
+		"text-davinci-001": "text-davinci-001",
+		"code-davinci-002": "code-davinci-002",
+		"llama3.2:1b-instruct-fp16": "llama3.2:1b-instruct-fp16"
+	}
+	engine = model_mapping.get(args.model)
+	if not engine:
+		raise ValueError("Model is not properly defined.")
+	stop_sequences = ["\n"] if ("few_shot" in args.method or "auto" in args.method) and engine == "code-davinci-002" else None
+	if ("few_shot" in args.method or "auto" in args.method) and engine == "code-davinci-002":
 		response = openai.completions.create(
 			engine=engine,
 			prompt=input,
@@ -117,7 +139,6 @@ def decoder_for_gpt3(args, input, max_length):
 			presence_penalty=0,
 			stop=None
 		)
-
 	return response["choices"][0]["text"]
 
 
@@ -128,7 +149,7 @@ class Decoder():
 		pass
 
 	def decode(self, args, input, max_length):
-		response = decoder_for_gpt3(args, input, max_length)
+		response = decoder_for_ollama(args, input, max_length) 
 		return response
 
 

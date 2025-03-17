@@ -47,7 +47,7 @@ def main():
 			
 			print('*************************')
 			print("{}st data".format(i+1))
-					
+			
 			# Prepare question template ...
 			x, y = data
 			x = "Q: " + x[0] + "\n" + "A:"
@@ -70,7 +70,7 @@ def main():
 				x = demo + x + " " + args.cot_trigger
 			else:
 				raise ValueError("method is not properly defined ...")
-			
+
 			# Answer experiment by generating text ...
 			max_length = args.max_length_cot if "cot" in args.method else args.max_length_direct
 			z = decoder.decode(args, x, max_length)
@@ -101,7 +101,7 @@ def main():
 			print("pred : {}".format(pred))
 			print("GT : " + y)
 			print('*************************')
-			
+
 			# Checking answer ...
 			correct = (np.array([pred]) == np.array([y])).sum().item()
 			correct_list.append(correct)
@@ -109,7 +109,7 @@ def main():
 			
 			if (args.limit_dataset_size != 0) and ((i+1) >= args.limit_dataset_size):
 				break
-				#raise ValueError("Stop !!")
+				# raise ValueError("Stop !!")
 
 	# Calculate accuracy ...
 	accuracy = (sum(correct_list) * 1.0 / total) * 100

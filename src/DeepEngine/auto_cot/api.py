@@ -3,7 +3,7 @@ from utils import *
 
 
 
-def cot(method, question):
+def cot(method:str, question:str, debug:bool=True):
 	args = parse_arguments()
 	decoder = Decoder()
 	
@@ -18,11 +18,12 @@ def cot(method, question):
 		demo = None
 
 	x = "Q: " + question + "\n" + "A:"
-	print('*****************************')
-	print("Test Question:")
-	print(question)
-	print('*****************************')
-
+	if debug:
+		print('*****************************')
+		print("Test Question:")
+		print(question)
+		print('*****************************')
+	
 	if args.method == "zero_shot":
 		x = x + " " + args.direct_answer_trigger_for_zeroshot
 	elif args.method == "zero_shot_cot":
@@ -34,9 +35,10 @@ def cot(method, question):
 	else:
 		raise ValueError("method is not properly defined ...")
 
-	print("Prompted Input:")
-	print(x.replace("\n\n", "\n").strip())
-	print('*****************************')
+	if debug:
+		print("Prompted Input:")
+		print(x.replace("\n\n", "\n").strip())
+		print('*****************************')
 
 	max_length = args.max_length_cot if "cot" in args.method else args.max_length_direct
 	z = decoder.decode(args, x, max_length)
@@ -45,22 +47,24 @@ def cot(method, question):
 		z2 = x + z + " " + args.direct_answer_trigger_for_zeroshot_cot
 		max_length = args.max_length_direct
 		pred = decoder.decode(args, z2, max_length)
-		print("Output:")
-		print(z + " " + args.direct_answer_trigger_for_zeroshot_cot + " " + pred)
-		print('*****************************')
+		if debug:
+			print("Output:")
+			print(z + " " + args.direct_answer_trigger_for_zeroshot_cot + " " + pred)
+			print('*****************************')
 	else:
 		pred = z
-		print("Output:")
-		print(pred)
-		print('*****************************')
+		if debug:
+			print("Output:")
+			print(pred)
+			print('*****************************')
 
 
 
 def parse_arguments():
 	parser = argparse.ArgumentParser(description="Zero-shot-CoT")
-
 	parser.add_argument(
-		"--max_num_worker", type=int, default=0, help="maximum number of workers for dataloader")
+		"--max_num_worker", type=int, default=0, help="maximum number of workers for dataloader"
+	)
 	parser.add_argument(
 		"--model", type=str, default="llama3.2:1b-instruct-fp16", help="model used for decoding. Note that 'llama3.2:1b-instruct-fp16' are the smallest models."
 	)

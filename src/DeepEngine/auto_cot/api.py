@@ -1,5 +1,5 @@
 import argparse
-from utils import *
+from .utils import *
 
 
 
@@ -10,9 +10,9 @@ def cot(method:str, question:str, debug:bool=True):
 	args.method = method
 	if args.method != "zero_shot_cot":
 		if args.method == "auto_cot":
-			args.demo_path = "demos/multiarith_auto"
+			args.demo_path = "/home/chwenjun225_laptop/projects/DeepEngine/src/DeepEngine/auto_cot/demos/multiarith_auto"
 		else:
-			args.demo_path = "demos/multiarith_manual"
+			args.demo_path = "/home/chwenjun225_laptop/projects/DeepEngine/src/DeepEngine/auto_cot/demos/multiarith_manual"
 		demo = create_demo_text(args, cot_flag=True)
 	else:
 		demo = None
@@ -51,12 +51,14 @@ def cot(method:str, question:str, debug:bool=True):
 			print("Output:")
 			print(z + " " + args.direct_answer_trigger_for_zeroshot_cot + " " + pred)
 			print('*****************************')
+		return pred
 	else:
 		pred = z
 		if debug:
 			print("Output:")
 			print(pred)
 			print('*****************************')
+		return pred
 
 
 

@@ -32,7 +32,7 @@ from langchain_ollama.chat_models import ChatOllama
 
 
 
-LLM = ChatOllama(model="llama3.2:3b-instruct-fp16", temperature=0.8, num_predict=128_000)
+LLM = ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0.8, num_predict=128_000)
 
 
 

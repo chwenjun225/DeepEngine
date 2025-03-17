@@ -28,8 +28,9 @@ from const_params import *
 from auto_cot.api import cot
 
 
+
 # TODO: Working on this, build integrate auto chain of thought to multi-agent
-cot(method="auto_cot", question="", debug=False)
+x = cot(method="auto_cot", question="", debug=False)
 
 
 

@@ -74,12 +74,7 @@ Let's begin. Your response must start with ```json and end with ```. No extra te
 ### **Cải tiến `PARSE_JSON_PROMPT`**
 ```python
 PARSE_JSON_PROMPT = """{BEGIN_OF_TEXT}{START_HEADER_ID}SYSTEM{END_HEADER_ID}
-You are an AI project assistant. Your task is to extract and structure user requirements into a valid JSON format **strictly following** the given schema.
-
-## Rules:
-- **Only output JSON**—do not include any explanation or extra text.
-- Ensure that **all fields** in the JSON schema are present.
-- If the user's request lacks specific details, use **default values or placeholders** where appropriate.
+You are a helpful AI assistant, please extract and structure user requirements into a valid JSON format **strictly following** the given schema.
 
 ### JSON Schema:
 ```json

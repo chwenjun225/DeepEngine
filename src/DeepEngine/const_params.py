@@ -24,19 +24,24 @@ from state import Conversation, Prompt2JSON
 
 
 QUERIES = [
+    """Develop a machine learning model, potentially using ResNet or EfficientNet, to inspect industrial products for surface defects (scratches, dents, discoloration). 
+The dataset is provided as 'industrial_defects_images'. The model should achieve at least 0.97 accuracy""", 
+
+    """Base on your knowledge, build a deep learning model, to detect defects in PCB (Printed Circuit Board) images. 
+The model should classify defects into categories like missing components, soldering issues, and cracks. We have uploaded the dataset as 'pcb_defects_dataset'. The model must achieve at least 0.95 accuracy.""", 
+
 	"""I need a highly accurate machine learning model developed to classify images within the Butterfly Image Classification dataset into their correct species categories. 
-	The dataset has been uploaded with its label information in the labels.csv file. 
-	Please use a convolutional neural network (CNN) architecture for this task, leveraging transfer learning from a pre-trained ResNet-50 model to improve accuracy. 
-	Optimize the model using cross-validation on the training split to fine-tune hyperparameters, and aim for an accuracy of at least 0.95 (95%) on the test split. 
-	Provide the final trained model, a detailed report of the training process, hyperparameter settings, accuracy metrics, and a confusion matrix to evaluate performance across different categories.""",
+The dataset has been uploaded with its label information in the labels.csv file. 
+Please use a convolutional neural network (CNN) architecture for this task, leveraging transfer learning from a pre-trained ResNet-50 model to improve accuracy. 
+Optimize the model using cross-validation on the training split to fine-tune hyperparameters, and aim for an accuracy of at least 0.95 (95%) on the test split. 
+Provide the final trained model, a detailed report of the training process, hyperparameter settings, accuracy metrics, and a confusion matrix to evaluate performance across different categories.""", 
 
 	"""Please provide a classification model that categorizes images into one of four clothing categories. 
-	The image path, along with its label information, can be found in the files train labels.csv and test labels.csv. 
-	The model should achieve at least 0.95 (95%) accuracy on the test set and be implemented using PyTorch. 
-	Additionally, please include data augmentation techniques and a confusion matrix in the evaluation."""	
+The image path, along with its label information, can be found in the files train labels.csv and test labels.csv. 
+The model should achieve at least 0.95 (95%) accuracy on the test set and be implemented using PyTorch. Additionally, please include data augmentation techniques and a confusion matrix in the evaluation.""", 
 
 	"""Hello, What is heavier a kilo of feathers or a kilo of steel?""", 
-
+    
 	"""exit"""
 ]
 

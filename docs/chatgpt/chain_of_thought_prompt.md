@@ -1,4 +1,67 @@
-### **🚀 Chain-of-Thought (CoT) Prompt Template**
+> Note: 
+Chain-of-Thought
+
+Vấn đề lớn cần được chia ra thành các vấn đề chung, ví dụ:
+1. Vấn đề giải quyết là gì 
+2. Các bước đề giải quyết vấn đề là gì 
+3. Thực hiện các bước giải quyết vấn đề 
+4. Giải thích kết quả 
+
+
+
+# **🔹 Chain-of-Thought prompt tham khảo**
+Dưới đây là bản dịch giữ nguyên cấu trúc của prompt gốc:  
+
+```python
+logical_reasoning_prompt = PromptTemplate(
+    input_variables=["scenario"],
+    template="""Phân tích kỹ lưỡng câu đố logic sau đây. Thực hiện theo các bước sau trong quá trình phân tích:
+
+Liệt kê Các Dữ Kiện:
+
+Tóm tắt rõ ràng tất cả các thông tin và tuyên bố đã cho.
+Xác định tất cả các nhân vật hoặc yếu tố liên quan.
+Xác định Các Vai Trò hoặc Điều Kiện Có Thể:
+
+Xác định tất cả các vai trò, hành vi hoặc trạng thái có thể áp dụng cho các nhân vật hoặc yếu tố (ví dụ: người nói thật, kẻ nói dối, người thay đổi).
+Ghi chú Các Ràng Buộc:
+
+Liệt kê bất kỳ quy tắc, ràng buộc hoặc mối quan hệ nào được chỉ định trong câu đố.
+Tạo Các Kịch Bản Có Thể:
+
+Xem xét một cách có hệ thống tất cả các kết hợp có thể của các vai trò hoặc điều kiện đối với các nhân vật hoặc yếu tố.
+Đảm bảo rằng tất cả các hoán vị đều được tính đến.
+Kiểm Tra Mỗi Kịch Bản:
+
+Đối với mỗi kịch bản có thể:
+Giả định các vai trò hoặc điều kiện mà bạn đã gán.
+Phân tích từng tuyên bố dựa trên các giả định này.
+Kiểm tra tính nhất quán hoặc mâu thuẫn trong kịch bản.
+Loại Bỏ Các Kịch Bản Không Nhất Quán:
+
+Loại bỏ bất kỳ kịch bản nào dẫn đến mâu thuẫn hoặc vi phạm các ràng buộc.
+Ghi lại lý do loại bỏ từng kịch bản.
+Kết Luận Giải Pháp:
+
+Xác định kịch bản (các kịch bản) vẫn nhất quán sau khi kiểm tra.
+Tóm tắt các phát hiện.
+Đưa Ra Câu Trả Lời Rõ Ràng:
+
+Xác định dứt khoát vai trò hoặc điều kiện của từng nhân vật hoặc yếu tố.
+Giải thích tại sao đây là giải pháp duy nhất có thể dựa trên phân tích của bạn.
+Kịch bản:
+
+{scenario}
+
+Phân tích:"""
+)
+```
+
+Bản dịch này giữ nguyên cấu trúc gốc từng dòng và từng mục. Nếu bạn cần chỉnh sửa gì thêm, cứ nói nhé! 😊
+
+
+
+# **🚀 Chain-of-Thought (CoT) Prompt Template**
 Chain-of-Thought (CoT) prompting giúp mô hình suy luận tốt hơn bằng cách hướng dẫn nó chia nhỏ các bước suy nghĩ trước khi đưa ra câu trả lời.
 
 Dưới đây là một **template chuẩn cho CoT Prompting**, có thể điều chỉnh theo từng trường hợp cụ thể.

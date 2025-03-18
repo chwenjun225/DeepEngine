@@ -1,0 +1,1 @@
+FROM /home/chwenjun225/.llama/checkpoints/MiniCPM-o-2_6-gguf/Model-7.6B-Q4_0.gguf

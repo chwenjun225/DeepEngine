@@ -30,11 +30,11 @@ from auto_cot.api import cot
 
 
 # TODO: Working on this, build integrate auto chain of thought to multi-agent
-x = cot(method="auto_cot", question="", debug=False)
+# x = cot(method="auto_cot", question="", debug=False)
 
 
 
-logging.basicConfig(level=logging.CRITICAL)
+# logging.basicConfig(level=logging.CRITICAL)
 
 
 
@@ -169,7 +169,8 @@ def conversation2json(msg_prompt: str, llm_structure_output: Runnable[LanguageMo
 		ai_msg_json = LLM_LTEMP.invoke([sys_msg])
 		pattern = r"```json\n(.*?)\n```"
 		match = re.search(pattern=pattern, string=ai_msg_json.content, flags=re.DOTALL)
-		if not match: raise ValueError(">>> Không tìm thấy JSON hợp lệ trong phản hồi của mô hình.")
+		if not match: 
+			raise ValueError(">>> Không tìm thấy JSON hợp lệ trong phản hồi của mô hình.")
 		json_string = match.group(1).strip()
 		try:
 			json_data = json.loads(json_string)
@@ -180,8 +181,10 @@ def conversation2json(msg_prompt: str, llm_structure_output: Runnable[LanguageMo
 			raise ValueError(f">>> JSON không hợp lệ (DecodeError): {e}")
 	missing_keys = set(schema.__annotations__.keys()) - json_data.keys()
 	extra_keys = json_data.keys() - set(schema.__annotations__.keys())
-	if missing_keys: raise ValueError(f">>> JSON thiếu các trường bắt buộc: {missing_keys}")
-	if extra_keys: raise ValueError(f">>> JSON có các trường không hợp lệ: {extra_keys}")
+	if missing_keys:
+		raise ValueError(f">>> JSON thiếu các trường bắt buộc: {missing_keys}")
+	if extra_keys: 
+		raise ValueError(f">>> JSON có các trường không hợp lệ: {extra_keys}")
 	return json_data
 
 
@@ -203,9 +206,14 @@ def manager_agent(state: State) -> State:
 			END_OF_TURN_ID=END_OF_TURN_ID
 		))
 	human_msg = HumanMessage(content=add_special_token_to_human_query(human_msg=state["human_query"][-1].content))
-	human_msg_json = HumanMessage(json.dumps((conversation2json(
-			msg_prompt=CONVERSATION_2_JSON_MSG_PROMPT, llm_structure_output=LLM_STRUC_OUT_CONVERSATION, human_msg=human_msg, 
-			schema=Conversation)), indent=2))
+	human_msg_json = HumanMessage(
+		json.dumps((conversation2json(
+				msg_prompt=CONVERSATION_2_JSON_MSG_PROMPT, 
+				llm_structure_output=LLM_STRUC_OUT_CONVERSATION, 
+				human_msg=human_msg, 
+				schema=Conversation
+			)), indent=2
+		))
 	ai_msg = LLM_LTEMP.invoke([sys_msg, human_msg, human_msg_json])
 	if not isinstance(ai_msg, AIMessage): 
 		ai_msg = AIMessage( 
@@ -378,10 +386,13 @@ def model_agent(state: State) -> State:
 	return state
 
 
-# TODO: Tích hợp auto-cot
-# TODO: Trước tiên cần tối ưu prompt.
-# TODO: Build RAG pipeline
+# TODO: Tích hợp auto-cot.
 
+# TODO: Trước tiên cần tối ưu prompt.
+
+# TODO: Build RAG pipeline.
+
+# TODO:  `*state["messages"],` để đưa ngữ cảnh lịch sử trò chuyện vào mô hình.
 
 # TODO: Ý tưởng sử dụng Multi-Agent gọi đến Yolov8 API, Yolov8 
 # API sẽ lấy mọi hình ảnh cỡ nhỏ nó phát hiện  được là lỗi và 
@@ -415,11 +426,11 @@ workflow.add_node("MODEL_AGENT", model_agent)
 workflow.add_edge(START, "MANAGER_AGENT")
 workflow.add_edge("MANAGER_AGENT", "REQUEST_VERIFY")
 workflow.add_conditional_edges("REQUEST_VERIFY", req_ver_yes_or_no_control_flow, ["PROMPT_AGENT", END])
-workflow.add_edge("PROMPT_AGENT", "RAP")
-workflow.add_edge("RAP", "DATA_AGENT")
-workflow.add_edge("RAP", "MODEL_AGENT")
-workflow.add_edge("DATA_AGENT", "MODEL_AGENT")
-workflow.add_edge("MODEL_AGENT", END)
+workflow.add_edge("PROMPT_AGENT", END)
+# workflow.add_edge("RAP", "DATA_AGENT")
+# workflow.add_edge("RAP", "MODEL_AGENT")
+# workflow.add_edge("DATA_AGENT", "MODEL_AGENT")
+# workflow.add_edge("MODEL_AGENT", END)
 
 app = workflow.compile(checkpointer=CHECKPOINTER, store=STORE, debug=DEBUG, name=NAME)
 
@@ -446,13 +457,18 @@ def main() -> None:
 		if user_query.lower() == "exit":
 			print("\n>>> [System Exit] Goodbye! Have a great day! 😊\n")
 			break
-		state_data = app.invoke(input={"human_query": [HumanMessage(user_query)], "messages": default_messages()}, config=CONFIG)
-		if not isinstance(state_data, dict):
-			raise ValueError("[ERROR]: app.invoke() không trả về dictionary.")
-		if "messages" not in state_data:
-			raise ValueError("[ERROR]: Key 'messages' không có trong kết quả.")
+		state_data = app.invoke(
+			input={
+				"human_query": [HumanMessage(user_query)], 
+				"messages": default_messages()}, 
+			config=CONFIG)
+		if not isinstance(state_data, dict): raise ValueError("[ERROR]: app.invoke() không trả về dictionary.")
+		if "messages" not in state_data: raise ValueError("[ERROR]: Key 'messages' không có trong kết quả.")
 		messages = state_data["messages"]
+		print("\n===== [CONVERSATION RESULTS] =====\n")
+		# Lấy trạng thái, lịch sử bằng cách `app.get_state(CONFIG).values`
 		display_conversation_results(messages)
+		print("\n===== [END OF CONVERSATION] =====\n")
 
 
 
@@ -476,7 +492,6 @@ def display_conversation_results(messages: dict) -> None:
 	Returns:
 		None: Hàm chỉ hiển thị kết quả trên terminal mà không trả về giá trị.
 	"""
-	print("\n===== [CONVERSATION RESULTS] =====\n")
 	if not messages:
 		print("[INFO]: Không có tin nhắn nào trong hội thoại.")
 		return
@@ -491,7 +506,6 @@ def display_conversation_results(messages: dict) -> None:
 						print(f"\t- {content}")
 		else:
 			raise ValueError(f"`msgs` phải là một dictionary chứa danh sách tin nhắn, `msgs` hiện tại là: {msgs}")
-	print("\n===== [END OF CONVERSATION] =====\n")
 
 
 

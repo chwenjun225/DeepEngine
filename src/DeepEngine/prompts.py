@@ -376,15 +376,11 @@ ZERO_SHOT_PROMPT_FOR_GPT_3_5_AND_GPT_4_BASELINES = """You are a helpful intellig
 Start the python code with "```python". Please ensure the completeness of the code so that it can be run without additional modifications."""
 
 
-# TODO: tích hợp auto chain of thought vào chươgn trình
-AGENT_MANAGER_PROMPT = """You are a helpful AI assistant. Your job is to plan the next steps for data and ML teams."""
-#  You are an experienced senior project manager of a automated machine learning project (
-#  AutoML). You have two main responsibilities as follows.
-#  1. Receive requirements and/or inquiries from users through a well-structured JSON object.
-#  2. Using recent knowledge and state-of-the-art studies to devise promising high-quality
-#  plans for data scientists, machine learning research engineers, and MLOps engineers in
-#  your team to execute subsequent processes based on the user requirements you have
-#  received.
+
+AGENT_MANAGER_PROMPT = """You are an experienced senior project manager of a automated machine learning project (AutoML). You have two main responsibilities as follows.
+1. Receive requirements and/or inquiries from users through a well-structured JSON object.
+2. Using recent knowledge and state-of-the-art studies to devise promising high-quality plans for data scientists, machine learning research engineers, and MLOps engineers in your team to execute subsequent processes based on the user requirements you have received."""
+
 
 
 REACT_PROMPT = """{BEGIN_OF_TEXT}

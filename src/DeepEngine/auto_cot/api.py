@@ -9,10 +9,10 @@ def cot(method:str, question:str, debug:bool=True):
 	
 	args.method = method
 	if args.method != "zero_shot_cot":
-		if args.method == "auto_cot":
-			args.demo_path = "/home/chwenjun225_laptop/projects/DeepEngine/src/DeepEngine/auto_cot/demos/multiarith_auto"
+		if args.method == "auto_cot": # TODO: Sử dụng sau 
+			args.demo_path = "/home/chwenjun225/projects/DeepEngine/src/DeepEngine/auto_cot/demos/multiarith_auto"
 		else:
-			args.demo_path = "/home/chwenjun225_laptop/projects/DeepEngine/src/DeepEngine/auto_cot/demos/multiarith_manual"
+			args.demo_path = "/home/chwenjun225/projects/DeepEngine/src/DeepEngine/auto_cot/demos/multiarith_manual"
 		demo = create_demo_text(args, cot_flag=True)
 	else:
 		demo = None

@@ -19,6 +19,8 @@ from state import Conversation, Prompt2JSON
 
 
 QUERIES = [
+    """Hello, good morning""", 
+
     """Develop a machine learning model, potentially using ResNet or EfficientNet, to inspect industrial products for surface defects (scratches, dents, discoloration). 
 The dataset is provided as 'industrial_defects_images'. The model should achieve at least 0.97 accuracy""", 
 

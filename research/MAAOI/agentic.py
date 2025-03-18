@@ -29,15 +29,6 @@ from auto_cot.api import cot
 
 
 
-# TODO: Working on this, build integrate auto chain of thought to multi-agent
-# x = cot(method="auto_cot", question="", debug=False)
-
-
-
-# logging.basicConfig(level=logging.CRITICAL)
-
-
-
 def get_latest_msg(state: State, node: str, msgs_type: str) -> BaseMessage:
 	"""Lấy tin nhắn mới nhất từ một node (agent), đảm bảo tốc độ O(1)."""
 	return state["messages"][node][msgs_type][-1]
@@ -205,16 +196,8 @@ def manager_agent(state: State) -> State:
 			END_HEADER_ID=END_HEADER_ID, 
 			END_OF_TURN_ID=END_OF_TURN_ID
 		))
-	human_msg = HumanMessage(content=add_special_token_to_human_query(human_msg=state["human_query"][-1].content))
-	human_msg_json = HumanMessage(
-		json.dumps((conversation2json(
-				msg_prompt=CONVERSATION_2_JSON_MSG_PROMPT, 
-				llm_structure_output=LLM_STRUC_OUT_CONVERSATION, 
-				human_msg=human_msg, 
-				schema=Conversation
-			)), indent=2
-		))
-	ai_msg = LLM_LTEMP.invoke([sys_msg, human_msg, human_msg_json])
+	human_msg = HumanMessage(content=state["human_query"][-1].content)
+	ai_msg = LLM_LTEMP.invoke([sys_msg, human_msg])
 	if not isinstance(ai_msg, AIMessage): 
 		ai_msg = AIMessage( 
 			content=ai_msg.strip() 
@@ -224,15 +207,20 @@ def manager_agent(state: State) -> State:
 	ai_msg = add_eoturn_eotext_to_ai_msg(ai_msg=ai_msg, end_of_turn_id_token=END_OF_TURN_ID, end_of_text_token=END_OF_TEXT)
 	add_unique_msg(state=state, node="MANAGER_AGENT", msgs_type="SYS", msg=sys_msg)
 	add_unique_msg(state=state, node="MANAGER_AGENT", msgs_type="HUMAN", msg=human_msg)
-	add_unique_msg(state=state, node="MANAGER_AGENT", msgs_type="AI", msg=AIMessage("<|json|>" + human_msg_json.content + "<|end_json|>" + ai_msg.content))
+	add_unique_msg(state=state, node="MANAGER_AGENT", msgs_type="AI", msg=AIMessage(ai_msg.content))
 	return state
 
 
 
 def check_contain_yes_or_no(ai_msg: str) -> str:
 	"""Checks if the AI response contains 'Yes' or 'No'."""
-	match = re.search(r"<\|start_header_id\|>assistant<\|end_header_id\|>\s*\n\s*(yes|no)\b", ai_msg, re.IGNORECASE)
-	return match.group(1).upper() if match else "[ERROR]: Không tìm thấy 'Yes' hoặc 'No' trong phản hồi AIMessage!"
+	match = re.search(
+		r"<\|start_header_id\|>assistant<\|end_header_id\|>\s*\n\s*(yes|no)\b", 
+		ai_msg, re.IGNORECASE
+	)
+	return match.group(1).upper() \
+		if match \
+			else "[ERROR]: Không tìm thấy 'Yes' hoặc 'No' trong phản hồi AIMessage!"
 
 
 
@@ -288,7 +276,7 @@ def request_verify(state: State) -> State:
 
 
 
-def req_ver_yes_or_no_control_flow(state: State) -> State:
+def request_verify(state: State) -> State:
 	"""Determines the next step based on the AI response from REQUEST_VERIFY.
 
 	Args:
@@ -347,7 +335,7 @@ def prompt_agent(state: State) -> State:
 def retrieval_augmented_planning_agent(state: State) -> State:
 	"Retrieval-Augmented Planning Agent."
 	human_msg_content = get_latest_msg(state=state, node="PROMPT_AGENT", msgs_type="AI").content
-	plan_knowledge = "" 
+	plan_knowledge = """This is RAG steps""" 
 	sys_msg = SystemMessage(content=RAP_SYS_MSG_PROMPT.format(
 		BEGIN_OF_TEXT=BEGIN_OF_TEXT, 
 		START_HEADER_ID=START_HEADER_ID, 
@@ -414,6 +402,13 @@ def model_agent(state: State) -> State:
 
 # **1. Image-to-Image Generation (CycleGAN, Pix2Pix, StyleGAN)**
 # **2. Data Augmentation (Biến đổi dữ liệu)**
+
+# TODO: Lấy trạng thái, lịch sử bằng cách `app.get_state(CONFIG).values`
+
+# TODO: Working on this, build integrate auto chain of thought to multi-agent
+# x = cot(method="auto_cot", question="", debug=False)
+
+# logging.basicConfig(level=logging.CRITICAL)
 workflow = StateGraph(State)
 
 workflow.add_node("MANAGER_AGENT", manager_agent)
@@ -425,12 +420,9 @@ workflow.add_node("MODEL_AGENT", model_agent)
 
 workflow.add_edge(START, "MANAGER_AGENT")
 workflow.add_edge("MANAGER_AGENT", "REQUEST_VERIFY")
-workflow.add_conditional_edges("REQUEST_VERIFY", req_ver_yes_or_no_control_flow, ["PROMPT_AGENT", END])
+workflow.add_conditional_edges("REQUEST_VERIFY", request_verify, ["PROMPT_AGENT", END])
 workflow.add_edge("PROMPT_AGENT", END)
-# workflow.add_edge("RAP", "DATA_AGENT")
-# workflow.add_edge("RAP", "MODEL_AGENT")
-# workflow.add_edge("DATA_AGENT", "MODEL_AGENT")
-# workflow.add_edge("MODEL_AGENT", END)
+
 
 app = workflow.compile(checkpointer=CHECKPOINTER, store=STORE, debug=DEBUG, name=NAME)
 
@@ -466,7 +458,6 @@ def main() -> None:
 		if "messages" not in state_data: raise ValueError("[ERROR]: Key 'messages' không có trong kết quả.")
 		messages = state_data["messages"]
 		print("\n===== [CONVERSATION RESULTS] =====\n")
-		# Lấy trạng thái, lịch sử bằng cách `app.get_state(CONFIG).values`
 		display_conversation_results(messages)
 		print("\n===== [END OF CONVERSATION] =====\n")
 

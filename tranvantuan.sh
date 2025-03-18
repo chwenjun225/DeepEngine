@@ -98,6 +98,19 @@ lm_eval --model hf \
 
 
 # VLLM runserver 
+vllm serve /home/chwenjun225/.llama/checkpoints/Qwen2.5-VL-3B-Instruct \
+	--lora-dtype bfloat16 \
+	--host 127.0.0.1 \
+	--port 2029 \
+	--gpu-memory-utilization 0.3 \
+	--dtype bfloat16 \
+	--device auto \
+	--allow-credentials \
+	--enable-prompt-adapter \
+	--enable-sleep-mode \
+	--gpu-memory-utilization 0.5 \
+	--max-prompt-adapter-token 2048
+
 # vllm serve /home/chwenjun225/Projects/Foxer/notebooks/DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct \
 # 	/home/chwenjun225_laptop/.llama/checkpoints/Phi-3.5-vision-instruct
 vllm serve /home/chwenjun225_laptop/.llama/checkpoints/Phi-3.5-vision-instruct \
@@ -107,7 +120,6 @@ vllm serve /home/chwenjun225_laptop/.llama/checkpoints/Phi-3.5-vision-instruct \
 	--guided-decoding-backend lm-format-enforcer \
 	--dtype auto \
 	--device auto \
-	--enable-sleep-mode \
 	--allow-credentials \
 	--block-size 8 \
 	--device auto \

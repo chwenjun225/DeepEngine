@@ -19,23 +19,23 @@ from langgraph.store.memory import InMemoryStore
 
 
 import prompts
-from state import Conversation, Prompt2JSON
+from state import Conversation, Prompt2JSON, ReAct
 
 
 
-CONNECTION = "postgresql+psycopg://langchain:langchain@localhost:6024/langchain" 
+CONNECTION = "postgresql+psycopg://langchain:langchain@localhost:2028/langchain" 
 COLLECTION_NAME = "foxconn_fulian_b09_ai_research_tranvantuan_v1047876"
 EMBEDDING_FUNC = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
 CHAT_HISTORY_COLLECTION_NAME = "foxconn_fulian_b09_ai_research_tranvantuan_v1047876"
-CHAT_HISTORY_VECTORSTORE = PGVector(embeddings=EMBEDDING_FUNC, connection=CONNECTION, collection_name=COLLECTION_NAME, use_jsonb=True)
+# CHAT_HISTORY_VECTORSTORE = PGVector(embeddings=EMBEDDING_FUNC, connection=CONNECTION, collection_name=COLLECTION_NAME, use_jsonb=True)
 
 
 
 CONVERSATION_TO_JSON_MSG_PROMPT = prompts.CONVERSATION_TO_JSON_PROMPT 
 MGR_SYS_MSG_PROMPT 				= prompts.AGENT_MANAGER_PROMPT
-VER_RELEVANCY_MSG_PROMPT 		= prompts.REQUEST_VERIFY_RELEVANCY
-VER_ADEQUACY_MSG_PROMPT 		= prompts.REQUEST_VERIFY_ADEQUACY
+RELEVANCY_MSG_PROMPT 			= prompts.REQUEST_VERIFY_RELEVANCY
+ADEQUACY_MSG_PROMPT 			= prompts.REQUEST_VERIFY_ADEQUACY
 PROMPT_2_JSON_SYS_MSG_PROMPT 	= prompts.PROMPT_AGENT_PROMPT
 RAP_SYS_MSG_PROMPT 				= prompts.RETRIEVAL_AUGMENTED_PLANNING_PROMPT
 
@@ -57,10 +57,12 @@ STORE = InMemoryStore()
 
 
 
-LLM_HTEMP	=	ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0.8, num_predict=128_000)
-LLM_LTEMP 	= 	ChatOllama(model="llama3.2:1b-instruct-fp16", temperature=0, num_predict=128_000)
-LLM_STRUC_OUT_CONVERSATION 	=	LLM_HTEMP.with_structured_output(schema=Conversation, method="json_schema")
-LLM_STRUC_OUT_AUTOML 		= 	LLM_HTEMP.with_structured_output(schema=Prompt2JSON, method="json_schema")
+LLM_HTEMP =	ChatOllama(model="Llama-3.2-11B-Vision-Instruct.Q4_K_M:latest", temperature=0.8, num_predict=128_000)
+LLM_LTEMP = ChatOllama(model="Llama-3.2-11B-Vision-Instruct.Q4_K_M:latest", temperature=0, num_predict=128_000)
+
+LLM_STRUC_OUT_CONVERSATION = LLM_HTEMP.with_structured_output(schema=Conversation, method="json_schema")
+LLM_STRUC_OUT_AUTOML = LLM_HTEMP.with_structured_output(schema=Prompt2JSON, method="json_schema")
+LLM_STRUC_OUT_AI_VISION = LLM_HTEMP.with_structured_output(schema=ReAct, method="json_schema")
 
 
 

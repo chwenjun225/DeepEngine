@@ -62,7 +62,7 @@ python /home/chwenjun225/projects/DeepEngine/third_3rdparty/MiniCPM-o-main/web_d
 
 
 # Docker pgvector connection
-postgresql+psycopg://langchain:langchain@localhost:6024/langchain
+postgresql+psycopg://langchain:langchain@localhost:2028/langchain
 # Docker run pgvector16
 docker run \
 	--name chat_history_pgvector \

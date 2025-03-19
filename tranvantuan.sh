@@ -2,8 +2,7 @@
 
 
 
-# llama_cpp runserver --support tool call for deepseek-r1 successfully 
-# Either "json_schema" or "grammar" can be specified, but not both'
+# llama_cpp runserver --support tool call for deepseek-r1 successfully. Either "json_schema" or "grammar" can be specified, but not both'
 /home/chwenjun225/projects/DeepEngine/third_3rdparty/llama.cpp-b4641/build/bin/llama-server \
 	--alias tranvantuan_research\
 	--model /home/chwenjun225/.llama/checkpoints/Llama-3.2-1B-Instruct/gguf/Llama-3.2-1B-Instruct-F32.gguf \
@@ -88,6 +87,7 @@ CREATE TABLE chat_messages (
 );
 
 
+
 # lm-eval-harness for finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct
 lm_eval --model hf \
 	--model_args pretrained="/home/chwenjun225/Projects/Foxer/notebooks/DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct" \
@@ -110,9 +110,8 @@ vllm serve /home/chwenjun225/.llama/checkpoints/Qwen2.5-VL-3B-Instruct \
 	--enable-sleep-mode \
 	--gpu-memory-utilization 0.5 \
 	--max-prompt-adapter-token 2048
-
-# vllm serve /home/chwenjun225/Projects/Foxer/notebooks/DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct \
-# 	/home/chwenjun225_laptop/.llama/checkpoints/Phi-3.5-vision-instruct
+vllm serve /home/chwenjun225/Projects/Foxer/notebooks/DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct \
+	/home/chwenjun225_laptop/.llama/checkpoints/Phi-3.5-vision-instruct
 vllm serve /home/chwenjun225_laptop/.llama/checkpoints/Phi-3.5-vision-instruct \
 	--host 127.0.0.1 \
 	--port 2026 \
@@ -149,10 +148,10 @@ python ./third_3rdparty/vllm-0.7.1/benchmarks/benchmark_serving.py \
 
 # chroma_db runserver 
 chroma run \
-	--path "/home/chwenjun225/projects/DeepEngine/src/DeepEngine/chromadb_storage" \
+	--path "/home/chwenjun225/projects/DeepEngine/research/DeepEngine/chromadb_storage" \
 	--host "127.0.0.1" \
 	--port "2027" \
-	--log-path "/home/chwenjun225/projects/DeepEngine/src/DeepEngine/chromadb_storage.log"
+	--log-path "/home/chwenjun225/projects/DeepEngine/research/DeepEngine/chromadb_storage.log"
 
 
 

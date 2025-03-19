@@ -6,8 +6,7 @@ import streamlit as st
 
 
 
-from langchain_core.language_models import LanguageModelInput
-from langchain_core.messages import (HumanMessage, AIMessage, SystemMessage, BaseMessage)
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, BaseMessage
 
 
 
@@ -15,26 +14,24 @@ from langgraph.graph import StateGraph, START, END
 
 
 
-from state import State, Conversation, Prompt2JSON, ReAct, default_messages
-from const_vars import (
-	QUERIES, DEBUG, NAME, SPECIAL_TOKENS_LLAMA_MODELS, 
-	COLLECTION_NAME, EMBEDDING_MODEL_NAME, EMBEDDING_MODEL, 
-	PERSIS_DIRECTORY, VECTOR_DB, 
-	CONVERSATION_2_JSON_MSG_PROMPT, MGR_SYS_MSG_PROMPT, VER_RELEVANCY_MSG_PROMPT, VER_ADEQUACY_MSG_PROMPT, PROMPT_2_JSON_SYS_MSG_PROMPT, RAP_SYS_MSG_PROMPT, 
-	CONFIG, CHECKPOINTER, STORE, LLM_HTEMP, LLM_LTEMP, LLM_STRUC_OUT_AUTOML, LLM_STRUC_OUT_CONVERSATION 
-)
+from langserve import add_routes
+
+
+
+from state import State, default_messages
+from const_vars import QUERIES, DEBUG, CONFIG, CHECKPOINTER, STORE, CHAT_HISTORY_VECTORSTORE
 from nodes import manager_agent, request_verify, prompt_agent, retrieval_augmented_planning_agent, data_agent, model_agent
-from auto_cot.api import cot
+from AutoChainOfThought.api import chain_of_thought
 
 
 
 # TODO: Tích hợp auto-cot.
 
-# TODO: Trước tiên cần tối ưu prompt.
+# TODO: Tối ưu prompt.
 
 # TODO: Build RAG pipeline.
 
-# TODO:  `*state["messages"],` để đưa ngữ cảnh lịch sử trò chuyện vào mô hình.
+# TODO:  `*state["messages"],` tự động đưa ngữ cảnh lịch sử trò chuyện vào mô hình bằng cách pass từng thành phần list vào.
 
 # TODO: Ý tưởng sử dụng Multi-Agent gọi đến Yolov8 API, Yolov8 
 # API sẽ lấy mọi hình ảnh cỡ nhỏ nó phát hiện  được là lỗi và 
@@ -63,6 +60,9 @@ from auto_cot.api import cot
 # x = cot(method="auto_cot", question="", debug=False)
 
 # logging.basicConfig(level=logging.CRITICAL)
+
+
+
 workflow = StateGraph(State)
 
 workflow.add_node("MANAGER_AGENT", manager_agent)
@@ -77,66 +77,39 @@ workflow.add_edge("MANAGER_AGENT", "REQUEST_VERIFY")
 workflow.add_conditional_edges("REQUEST_VERIFY", request_verify, ["PROMPT_AGENT", END])
 workflow.add_edge("PROMPT_AGENT", END)
 
-
-app = workflow.compile(checkpointer=CHECKPOINTER, store=STORE, debug=DEBUG, name=NAME)
+app = workflow.compile(
+	store=STORE, 
+	debug=DEBUG, 
+	checkpointer=CHECKPOINTER, 
+	name="foxconn_fulian_b09_ai_research_tranvantuan_v1047876")
 
 
 
 def main() -> None:
-	"""Xử lý truy vấn của người dùng và hiển thị phản hồi từ AI.
-
-	Workflow:
-		1. Nhận truy vấn từ danh sách `QUERIES`.
-		2. Kiểm tra xem người dùng có nhập "exit" để thoát không.
-		3. Gửi truy vấn đến hệ thống AI thông qua `app.invoke()`.
-		4. Kiểm tra tính hợp lệ của dữ liệu trả về từ `app.invoke()`.
-		5. Trích xuất `messages` và hiển thị kết quả hội thoại.
-
-	Raises:
-		ValueError: Nếu `app.invoke()` không trả về dictionary hoặc không chứa key "messages".
-	"""
+	"""Xử lý truy vấn của người dùng và hiển thị phản hồi từ AI."""
 	for i, user_query in enumerate(QUERIES, 1):
 		print(f"\n👨_query_{i}:")
 		print(user_query)
 		print("\n🤖_response:")
 		user_query = user_query.strip()
-		if user_query.lower() == "exit":
-			print("\n>>> [System Exit] Goodbye! Have a great day! 😊\n")
-			break
-		state_data = app.invoke(
-			input={
-				"human_query": [HumanMessage(user_query)], 
-				"messages": default_messages()}, 
-			config=CONFIG)
-		if not isinstance(state_data, dict): raise ValueError("[ERROR]: app.invoke() không trả về dictionary.")
-		if "messages" not in state_data: raise ValueError("[ERROR]: Key 'messages' không có trong kết quả.")
+		if user_query.lower() == "exit": break
+		state_data = app.invoke(input={"human_query": [
+				HumanMessage(user_query)], "messages": default_messages()
+			}, config=CONFIG
+		)
+		if not isinstance(state_data, dict): 
+			raise ValueError("[ERROR]: app.invoke() không trả về dictionary.")
+		if "messages" not in state_data: 
+			raise ValueError("[ERROR]: Key 'messages' không có trong kết quả.")
 		messages = state_data["messages"]
 		print("\n===== [CONVERSATION RESULTS] =====\n")
 		display_conversation_results(messages)
 		print("\n===== [END OF CONVERSATION] =====\n")
-
+		
 
 
 def display_conversation_results(messages: dict) -> None:
-	"""Hiển thị kết quả hội thoại từ tất cả các agent trong hệ thống.
-
-	Args:
-		messages (dict): Dictionary chứa các tin nhắn được nhóm theo agent và loại tin nhắn.
-			- **Node**: Tên agent (ví dụ: "MANAGER_AGENT", "PROMPT_AGENT").
-			- **Msgs_type**: Dictionary chứa các loại tin nhắn ("HUMAN", "AI", "SYS"), mỗi loại là một danh sách tin nhắn.
-
-	Example:
-		messages = {
-			"MANAGER_AGENT": {
-				"SYS": [],
-				"HUMAN": [HumanMessage(content="Hello!")],
-				"AI": [AIMessage(content="Hi! How can I assist you?")]
-			}
-		}
-
-	Returns:
-		None: Hàm chỉ hiển thị kết quả trên terminal mà không trả về giá trị.
-	"""
+	"""Hiển thị kết quả hội thoại từ tất cả các agent trong hệ thống."""
 	if not messages:
 		print("[INFO]: Không có tin nhắn nào trong hội thoại.")
 		return

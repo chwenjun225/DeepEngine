@@ -3,7 +3,7 @@ from .utils import *
 
 
 
-def cot(method:str, question:str, debug:bool=True):
+def chain_of_thought(method:str, question:str, debug:bool=True):
 	args = parse_arguments()
 	decoder = Decoder()
 	

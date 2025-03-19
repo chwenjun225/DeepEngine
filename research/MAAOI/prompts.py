@@ -386,7 +386,7 @@ Let's begin. Remember, your response must begin with "```json" or "{{" and end w
 
 
 
-CONVERSATION_2_JSON_PROMPT = """You are an AI assistant. Your task is to generate a structured JSON response in a conversational manner. Ensure the response adheres strictly to the following schema:
+CONVERSATION_TO_JSON_PROMPT = """You are an AI assistant. Your task is to generate a structured JSON response in a conversational manner. Ensure the response adheres strictly to the following schema:
 ```json
 {json_schema}
 ```

@@ -148,10 +148,10 @@ python ./third_3rdparty/vllm-0.7.1/benchmarks/benchmark_serving.py \
 
 # chroma_db runserver 
 chroma run \
-	--path "/home/chwenjun225/projects/DeepEngine/research/DeepEngine/chromadb_storage" \
+	--path "/home/chwenjun225/projects/DeepEngine/chromadb_storage" \
 	--host "127.0.0.1" \
 	--port "2027" \
-	--log-path "/home/chwenjun225/projects/DeepEngine/research/DeepEngine/chromadb_storage.log"
+	--log-path "/home/chwenjun225/projects/DeepEngine/chromadb_storage.log"
 
 
 

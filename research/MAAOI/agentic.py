@@ -6,15 +6,7 @@ import streamlit as st
 
 
 
-from pydantic import BaseModel, TypeAdapter
-from typing_extensions import List, Dict, Type
-
-
-
-from langchain_community.chat_message_histories import PostgresChatMessageHistory
 from langchain_core.language_models import LanguageModelInput
-from langchain_core.runnables import Runnable
-from langchain_core.tools import BaseTool
 from langchain_core.messages import (HumanMessage, AIMessage, SystemMessage, BaseMessage)
 
 
@@ -24,7 +16,13 @@ from langgraph.graph import StateGraph, START, END
 
 
 from state import State, Conversation, Prompt2JSON, ReAct, default_messages
-from const_vars import QUERIES, DEBUG, NAME, COLLECTION_NAME, EMBEDDING_MODEL_NAME, EMBEDDING_MODEL, PERSIS_DIRECTORY, VECTOR_DB, CONVERSATION_2_JSON_MSG_PROMPT, MGR_SYS_MSG_PROMPT, VER_RELEVANCY_MSG_PROMPT, VER_ADEQUACY_MSG_PROMPT, PROMPT_2_JSON_SYS_MSG_PROMPT, RAP_SYS_MSG_PROMPT, SPECIAL_TOKENS_LLAMA_MODELS, CONFIG, CHECKPOINTER, STORE, LLM_HTEMP, LLM_LTEMP, LLM_STRUC_OUT_AUTOML, LLM_STRUC_OUT_CONVERSATION
+from const_vars import (
+	QUERIES, DEBUG, NAME, SPECIAL_TOKENS_LLAMA_MODELS, 
+	COLLECTION_NAME, EMBEDDING_MODEL_NAME, EMBEDDING_MODEL, 
+	PERSIS_DIRECTORY, VECTOR_DB, 
+	CONVERSATION_2_JSON_MSG_PROMPT, MGR_SYS_MSG_PROMPT, VER_RELEVANCY_MSG_PROMPT, VER_ADEQUACY_MSG_PROMPT, PROMPT_2_JSON_SYS_MSG_PROMPT, RAP_SYS_MSG_PROMPT, 
+	CONFIG, CHECKPOINTER, STORE, LLM_HTEMP, LLM_LTEMP, LLM_STRUC_OUT_AUTOML, LLM_STRUC_OUT_CONVERSATION 
+)
 from nodes import manager_agent, request_verify, prompt_agent, retrieval_augmented_planning_agent, data_agent, model_agent
 from auto_cot.api import cot
 

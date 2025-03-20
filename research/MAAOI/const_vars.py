@@ -24,7 +24,6 @@ COLLECTION_NAME = "foxconn_fulian_b09_ai_research_tranvantuan_v1047876"
 EMBEDDING_FUNC = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
 CHAT_HISTORY_COLLECTION_NAME = "foxconn_fulian_b09_ai_research_tranvantuan_v1047876"
-# CHAT_HISTORY_VECTORSTORE = PGVector(embeddings=EMBEDDING_FUNC, connection=CONNECTION, collection_name=COLLECTION_NAME, use_jsonb=True)
 
 
 
@@ -64,6 +63,8 @@ LLM_STRUC_OUT_AI_VISION = LLM_HTEMP.with_structured_output(schema=ReAct, method=
 
 QUERIES = [
 	"""Hello, good morning""", 
+	
+	"""You are an engineer working on a production line, responsible for inspecting the visual quality of PCB boards. Your task is to identify any surface defects on the board. If you detect any defects, respond with 'NG'. If there are no defects, respond with 'OK'.""",
 
 	"""Develop a machine learning model, potentially using ResNet or EfficientNet, to inspect industrial products for surface defects (scratches, dents, discoloration). 
 The dataset is provided as 'industrial_defects_images'. The model should achieve at least 0.97 accuracy""", 

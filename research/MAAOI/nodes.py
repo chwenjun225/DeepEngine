@@ -135,11 +135,6 @@ def request_verify_control_flow(state: State) -> State:
 
 
 
-def vision_agent(state: State) -> State:
-	pass 
-
-
-
 def prompt_agent(state: State) -> State:
 	"""Call AI-Vision.
 
@@ -165,7 +160,7 @@ def prompt_agent(state: State) -> State:
 	# 	raise ValueError(f"[ERROR]: JSON có các trường không hợp lệ: {extra_keys}")
 	# ai_msg_json = AIMessage(content=json.dumps(parsed_json, indent=2))
 	# add_unique_msg(state=state, node="PROMPT_AGENT", msgs_type="AI", msg=ai_msg_json)
-	parsed_json = {"tool": "AI_VISION"}
+	parsed_json = {"tool_execution": "AI_VISION"}
 	ai_msg = AIMessage(content=json.dumps(parsed_json, indent=2))
 	add_unique_msg(state=state, node="PROMPT_AGENT", msgs_type="AI", msg=ai_msg)
 	return state
@@ -223,16 +218,4 @@ def retrieval_augmented_planning_agent(state: State) -> State:
 	add_unique_msg(state=state, node="RAP", msgs_type="SYS", msg=sys_msg)
 	add_unique_msg(state=state, node="RAP", msgs_type="HUMAN", msg=HumanMessage(human_msg_content))
 	add_unique_msg(state=state, node="RAP", msgs_type="AI", msg=ai_msg)
-	return state
-
-
-
-def data_agent(state: State) -> State:
-	"Data Agent."
-	return state
-
-
-
-def model_agent(state: State) -> State:
-	"Model Agent."
 	return state

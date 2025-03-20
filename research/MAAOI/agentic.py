@@ -1,4 +1,3 @@
-from langserve import add_routes
 from langgraph.graph import( StateGraph, START, END)
 
 
@@ -15,7 +14,6 @@ from nodes import (
 	model_agent, 
 	vision_agent
 )
-from AutoChainOfThought.api import chain_of_thought
 
 
 
@@ -68,7 +66,7 @@ AGENTIC = WORKFLOW.compile(store=STORE, debug=DEBUG, checkpointer=CHECKPOINTER, 
 # **1. Image-to-Image Generation (CycleGAN, Pix2Pix, StyleGAN)**
 # **2. Data Augmentation (Biến đổi dữ liệu)**
 
-# TODO: Lấy trạng thái, lịch sử bằng cách `app.get_state(CONFIG).values`
+# TODO: Lấy trạng thái, lịch sử bằng cách `AGENTIC.get_state(CONFIG).values`
 
 # TODO: Working on this, build integrate auto chain of thought to multi-agent
 # x = cot(method="auto_cot", question="", debug=False)

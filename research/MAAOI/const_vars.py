@@ -1,4 +1,5 @@
 import uuid
+from queue import Queue
 
 
 
@@ -20,6 +21,11 @@ from langgraph.store.memory import InMemoryStore
 
 import prompts
 from state import Conversation, Prompt2JSON, ReAct
+
+
+
+STATUS_TEXT = "..."
+FRAME_QUEUE = Queue()
 
 
 

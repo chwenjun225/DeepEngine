@@ -2,8 +2,7 @@
 
 
 
-# llama_cpp runserver --support tool call for deepseek-r1 successfully 
-# Either "json_schema" or "grammar" can be specified, but not both'
+# llama_cpp runserver --support tool call for deepseek-r1 successfully. Either "json_schema" or "grammar" can be specified, but not both'
 /home/chwenjun225/projects/DeepEngine/third_3rdparty/llama.cpp-b4641/build/bin/llama-server \
 	--alias tranvantuan_research\
 	--model /home/chwenjun225/.llama/checkpoints/Llama-3.2-1B-Instruct/gguf/Llama-3.2-1B-Instruct-F32.gguf \
@@ -63,15 +62,29 @@ python /home/chwenjun225/projects/DeepEngine/third_3rdparty/MiniCPM-o-main/web_d
 
 
 # Docker pgvector connection
-postgresql+psycopg://langchain:langchain@localhost:6024/langchain
+postgresql+psycopg://langchain:langchain@localhost:2028/langchain
 # Docker run pgvector16
 docker run \
-	--name pgvector-container \
+	--name chat_history_pgvector \
+	-e POSTGRES_USER=tranvantuan \
+	-e POSTGRES_PASSWORD=tranvantuan \
+	-e POSTGRES_DB=tranvantuan \
+	-p 2028:5432 \
+	-d pgvector/pgvector:pg16
+docker run \
+	--name rag_pgvector \
 	-e POSTGRES_USER=langchain \
 	-e POSTGRES_PASSWORD=langchain \
 	-e POSTGRES_DB=langchain \
-	-p 6024:5432 \
+	-p 2029:5432 \
 	-d pgvector/pgvector:pg16
+# Tạo bảng trong PgVector
+CREATE TABLE chat_messages (
+	session_id TEXT NOT NULL,
+	role TEXT NOT NULL CHECK (role IN ('SYS', 'HUMAN', 'AI')),
+	content TEXT NOT NULL,
+	timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
 
 
@@ -85,8 +98,20 @@ lm_eval --model hf \
 
 
 # VLLM runserver 
-# vllm serve /home/chwenjun225/Projects/Foxer/notebooks/DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct \
-# 	/home/chwenjun225_laptop/.llama/checkpoints/Phi-3.5-vision-instruct
+vllm serve /home/chwenjun225/.llama/checkpoints/Qwen2.5-VL-3B-Instruct \
+	--lora-dtype bfloat16 \
+	--host 127.0.0.1 \
+	--port 2029 \
+	--gpu-memory-utilization 0.3 \
+	--dtype bfloat16 \
+	--device auto \
+	--allow-credentials \
+	--enable-prompt-adapter \
+	--enable-sleep-mode \
+	--gpu-memory-utilization 0.5 \
+	--max-prompt-adapter-token 2048
+vllm serve /home/chwenjun225/Projects/Foxer/notebooks/DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/1_finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct \
+	/home/chwenjun225_laptop/.llama/checkpoints/Phi-3.5-vision-instruct
 vllm serve /home/chwenjun225_laptop/.llama/checkpoints/Phi-3.5-vision-instruct \
 	--host 127.0.0.1 \
 	--port 2026 \
@@ -94,7 +119,6 @@ vllm serve /home/chwenjun225_laptop/.llama/checkpoints/Phi-3.5-vision-instruct \
 	--guided-decoding-backend lm-format-enforcer \
 	--dtype auto \
 	--device auto \
-	--enable-sleep-mode \
 	--allow-credentials \
 	--block-size 8 \
 	--device auto \
@@ -124,10 +148,10 @@ python ./third_3rdparty/vllm-0.7.1/benchmarks/benchmark_serving.py \
 
 # chroma_db runserver 
 chroma run \
-	--path "/home/chwenjun225/projects/DeepEngine/src/DeepEngine/chromadb_storage" \
+	--path "/home/chwenjun225/projects/DeepEngine/chromadb_storage" \
 	--host "127.0.0.1" \
 	--port "2027" \
-	--log-path "/home/chwenjun225/projects/DeepEngine/src/DeepEngine/chromadb_storage.log"
+	--log-path "/home/chwenjun225/projects/DeepEngine/chromadb_storage.log"
 
 
 

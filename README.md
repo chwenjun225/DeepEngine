@@ -62,6 +62,3 @@
 20. https://learning.oreilly.com/library/view/generative-ai-with/9781835083468/
 
 21. Cách sử dụng nhiều Agent prompt: https://learning.oreilly.com/library/view/learning-langchain/9781098167271/ch05.html
-
-
-## RETRIEVAL_AUGMENTED_PLANNING

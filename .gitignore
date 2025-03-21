@@ -12,7 +12,8 @@ mamba-2.2.4/
 finetuned_DeepSeek-R1-Distill-Qwen-1.5B_finetune_CoT_ReAct/
 0*/
 1*/
-chromadb_storage/
+pcb_multi_product.mp4
+pcb_defect_2.mp4
 
 
 
@@ -88,7 +89,6 @@ cover/
 
 
 # Django stuff:
-*.log
 local_settings.py
 db.sqlite3
 db.sqlite3-journal

@@ -23,10 +23,13 @@ CONNECTION = "postgresql+psycopg://langchain:langchain@localhost:2028/langchain"
 COLLECTION_NAME = "foxconn_fulian_b09_ai_research_tranvantuan_v1047876"
 EMBEDDING_FUNC = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
+
+
 CHAT_HISTORY_COLLECTION_NAME = "foxconn_fulian_b09_ai_research_tranvantuan_v1047876"
 
 
 
+INST_VIS_PROMPT 				= prompts.INSTRUCT_VISION_PROMPT
 CONVERSATION_TO_JSON_MSG_PROMPT = prompts.CONVERSATION_TO_JSON_PROMPT 
 MGR_SYS_MSG_PROMPT 				= prompts.AGENT_MANAGER_PROMPT
 RELEVANCY_MSG_PROMPT 			= prompts.REQUEST_VERIFY_RELEVANCY
@@ -42,7 +45,8 @@ LLAMA_TOKENS = {
 	"START_HEADER_ID"	:	"<|start_header_id|>",
 	"END_HEADER_ID"		:	"<|end_header_id|>",
 	"END_OF_MESSAGE_ID"	:	"<|eom_id|>",
-	"END_OF_TURN_ID"	:	"<|eot_id|>"}
+	"END_OF_TURN_ID"	:	"<|eot_id|>"
+}
 
 
 

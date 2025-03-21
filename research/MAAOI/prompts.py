@@ -11,7 +11,7 @@ Here is a PCB image and its defect detection results from the Vision Agent.
 ### Instruction ###
 Based on both the detection results and the image, determine if the PCB has any defects.
 
-Remember, only answer NG (defective) or OK (no defects).
+Explain what is the error in image, and answer 'NG' (defective) or 'OK' (no defects)
 """
 
 

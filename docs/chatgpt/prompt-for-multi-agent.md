@@ -1,11 +1,11 @@
-### **🚀 Các loại Prompt cần thiết để xây dựng hệ thống Multi-Agent**
+### Các loại Prompt cần thiết để xây dựng hệ thống Multi-Agent
 Khi xây dựng một hệ thống **Multi-Agent**, mỗi agent sẽ có một nhiệm vụ cụ thể. Điều này đòi hỏi **prompt chuyên biệt cho từng loại agent** để đảm bảo chúng hoạt động hiệu quả trong việc **tương tác, ra quyết định và phối hợp**.
 
 Dưới đây là các loại **prompt chính** cần thiết cho từng **loại agent** trong hệ thống **Multi-Agent**.
 
 ---
 
-## **📌 1. System Agent (Quản lý toàn cục)**
+## 1. System Agent (Quản lý toàn cục)
 🔹 **Vai trò:** Điều phối các agent, quản lý workflow, và đảm bảo tính nhất quán.  
 🔹 **Prompt mẫu:**
 ```plaintext
@@ -27,7 +27,7 @@ Your goal: Maintain workflow efficiency and prevent redundancy.
 
 ---
 
-## **📌 2. Reasoning Agent (Suy luận và Phân tích)**
+## 2. Reasoning Agent (Suy luận và Phân tích)
 🔹 **Vai trò:** Xử lý các bài toán suy luận logic, đánh giá câu trả lời của các agent khác.  
 🔹 **Prompt mẫu:**
 ```plaintext
@@ -44,7 +44,7 @@ Ensure your responses are well-reasoned and justify your conclusions.
 
 ---
 
-## **📌 3. Research Agent (Thu thập thông tin)**
+## 3. Research Agent (Thu thập thông tin)
 🔹 **Vai trò:** Tìm kiếm thông tin từ cơ sở dữ liệu hoặc internet, tổng hợp kiến thức.  
 🔹 **Prompt mẫu:**
 ```plaintext
@@ -61,7 +61,7 @@ If information is unavailable, indicate that clearly instead of making assumptio
 
 ---
 
-## **📌 4. Planning Agent (Lập kế hoạch và ra quyết định)**
+## 4. Planning Agent (Lập kế hoạch và ra quyết định)
 🔹 **Vai trò:** Lập kế hoạch hành động dựa trên đầu vào từ các agent khác.  
 🔹 **Prompt mẫu:**
 ```plaintext
@@ -78,7 +78,7 @@ Your output should be structured and easy to follow.
 
 ---
 
-## **📌 5. Execution Agent (Thực thi hành động)**
+## 5. Execution Agent (Thực thi hành động)
 🔹 **Vai trò:** Thực hiện các hành động cụ thể dựa trên kế hoạch hoặc hướng dẫn.  
 🔹 **Prompt mẫu:**
 ```plaintext
@@ -95,7 +95,7 @@ If an issue arises, report it instead of making assumptions.
 
 ---
 
-## **📌 6. Communication Agent (Tóm tắt và Giao tiếp với Người Dùng)**
+## 6. Communication Agent (Tóm tắt và Giao tiếp với Người Dùng)
 🔹 **Vai trò:** Tóm tắt thông tin từ các agent khác, trình bày rõ ràng cho người dùng.  
 🔹 **Prompt mẫu:**
 ```plaintext
@@ -112,7 +112,7 @@ Ensure clarity and coherence in all communications.
 
 ---
 
-## **📌 7. Evaluation Agent (Đánh giá và Kiểm tra chất lượng)**
+## 7. Evaluation Agent (Đánh giá và Kiểm tra chất lượng)
 🔹 **Vai trò:** Đánh giá độ chính xác và chất lượng của đầu ra từ các agent khác.  
 🔹 **Prompt mẫu:**
 ```plaintext
@@ -129,7 +129,7 @@ Your evaluations help improve overall system reliability.
 
 ---
 
-## **📌 8. Debugging Agent (Kiểm tra và Sửa lỗi)**
+## 8. Debugging Agent (Kiểm tra và Sửa lỗi)
 🔹 **Vai trò:** Kiểm tra lỗi trong hệ thống và đề xuất cách sửa lỗi.  
 🔹 **Prompt mẫu:**
 ```plaintext
@@ -146,7 +146,7 @@ Your goal is to ensure a robust and error-free system.
 
 ---
 
-## **📌 Tổng kết**
+## Tổng kết
 | **Loại Agent**         | **Vai trò chính** |
 |------------------------|------------------|
 | **System Agent**       | Điều phối và quản lý workflow |

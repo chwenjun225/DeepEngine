@@ -10,7 +10,8 @@ from langchain_core.messages import (HumanMessage, AIMessage, SystemMessage, Bas
 MSG_TYPES = {SystemMessage: "SYS", HumanMessage: "HUMAN", AIMessage: "AI"}
 DEFAULT_AGENTS: Dict[str, Dict[str, List[BaseMessage]]] = {
 	agent: {"SYS": [], "HUMAN": [], "AI": []} for agent in [
-		"MANAGER_AGENT", "REQUEST_VERIFY", "PROMPT_AGENT", "RAP"
+		"SYSTEM_AGENT", "REASONING_AGENT", "RESEARCH_AGENT", "PLANNING_AGENT", 
+		"EXECUTION_AGENT", "EVALUATION_AGENT", "DEBUGGING_AGENT"
 	]
 }
 

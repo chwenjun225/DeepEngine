@@ -1,4 +1,3 @@
-import re 
 import json 
 from typing_extensions import List
 
@@ -26,6 +25,54 @@ from const_vars import (
 	RELEVANCY_MSG_PROMPT, 
 )
 from utils import add_unique_msg, get_latest_msg
+
+
+
+def ORCHESTRATE_AGENTS(state: State) -> State: 
+	"""Điều phối, kích hoạt và sắp xếp luồng chạy của các agent."""
+	return state 
+
+
+
+def SYSTEM_AGENT(state: State) -> State:
+	"""Quản lý toàn bộ workflow, đảm bảo tính logic và nhất quán của hệ thống."""
+	return state
+
+
+
+def REASONING_AGENT(state: State) -> State:
+	"""Suy luận và phân tích yêu cầu người dùng để xác định bản chất vấn đề."""
+	return state 
+
+
+
+def RESEARCH_AGENT(state: State) -> State:
+	"""Tìm kiếm thông tin, tài liệu, công cụ hỗ trợ, lập luận sâu để giải quyết bài toán."""
+	return state 
+
+
+
+def PLANNING_AGENT(state: State) -> State: 
+	"""Xây dựng kế hoạch hành động, bao gồm mô hình, dữ liệu, công cụ cần dùng."""
+	return state 
+
+
+
+def EXECUTION_AGENT(state: State) -> State: 
+	"""Thực thi kế hoạch: huấn luyện mô hình, xử lý dữ liệu, chạy pipeline."""
+	return state 
+
+
+
+def EVALUATION_AGENT(state: State) -> State: 
+	"""Đánh giá kết quả đầu ra, hiệu suất mô hình hoặc độ phù hợp của giải pháp."""
+	return state 
+
+
+
+def DEBUGGING_AGENT(state: State) -> State: 
+	"""Kiểm tra, phát hiện và khắc phục lỗi trong quá trình thực thi."""
+	return state
 
 
 

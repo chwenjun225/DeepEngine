@@ -28,15 +28,21 @@ from utils import add_unique_msg, get_latest_msg
 
 
 
+def SYSTEM_AGENT(state: State) -> State:
+	"""Quản lý toàn bộ workflow, đảm bảo tính logic và nhất quán của hệ thống."""
+	if get_latest_msg(
+		state=state, 
+		node="SYSTEM_AGENT", 
+		msgs_type="SYS"
+	):
+		pass 
+	return state
+
+
+
 def ORCHESTRATE_AGENTS(state: State) -> State: 
 	"""Điều phối, kích hoạt và sắp xếp luồng chạy của các agent."""
 	return state 
-
-
-
-def SYSTEM_AGENT(state: State) -> State:
-	"""Quản lý toàn bộ workflow, đảm bảo tính logic và nhất quán của hệ thống."""
-	return state
 
 
 
@@ -61,6 +67,12 @@ def PLANNING_AGENT(state: State) -> State:
 def EXECUTION_AGENT(state: State) -> State: 
 	"""Thực thi kế hoạch: huấn luyện mô hình, xử lý dữ liệu, chạy pipeline."""
 	return state 
+
+
+
+def COMMUNICATION_AGENT(state: State) -> State: 
+	"""Tổng hợp kết quả, suy luận, đưa ra câu trả lời cuối cùng cho người dùng."""
+	return state
 
 
 

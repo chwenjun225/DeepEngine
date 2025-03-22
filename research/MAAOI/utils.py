@@ -17,14 +17,26 @@ from const_vars import (DEBUG, LLAMA_TOKENS, LLM_LTEMP)
 
 
 
+def get_msgs(state: State, node: str, msgs_type) -> List[BaseMessage]:
+	"""Lấy danh sách tin nhắn của một node theo loại tin nhắn."""
+	return state["messages"][node][msgs_type]
+
+
+
+def get_latest_user_query(state: State) -> HumanMessage:
+	"""Lấy truy vấn người dùng mới nhất, O(1)."""
+	return state["user_query"][-1]
+
+
+
 def get_latest_msg(state: State, node: str, msgs_type: str) -> BaseMessage:
-	"""Lấy tin nhắn mới nhất từ một node (agent), đảm bảo tốc độ O(1)."""
+	"""Lấy tin nhắn mới nhất từ một node theo loại tin nhắn, O(1)."""
 	return state["messages"][node][msgs_type][-1]
 
 
 
 def add_unique_msg(state: State, node: str, msgs_type: str, msg: BaseMessage) -> None:
-	"""Thêm tin nhắn nếu chưa có, tối ưu hóa O(1)."""
+	"""Chỉ thêm nếu khác với tin nhắn cuối, O(1)."""
 	if node == "REQUEST_VERIFY":
 		state["messages"][node][msgs_type] = [msg]
 	else:

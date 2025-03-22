@@ -1,7 +1,5 @@
 # Multi AI-Agentics for automated training and inference AI-Narrow
 **Trần Văn Tuấn - Feb. 27, 2025**
-## Workflow
-![Agent System Workflow](images/multi_agent_workflow.jpg)
 ## 1. Introduction 
 ### 1.1 Problem Statement
 - Với tốc độ phát triển nhanh chóng của trí tuệ nhân tạo (AI), hạn chế của các AI-Agent hiện tại là khó khăn trong việc thích nghi và xử lý các tác vụ phức tạp trong môi trường động. Hiện tại, nhiều AI-Agent hoạt động theo các quy tắc tĩnh, khó cải thiện khả năng tư duy, thích nghi nhanh chóng và tự tối ưu hóa.

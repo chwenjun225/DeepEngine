@@ -15,25 +15,29 @@ from const_vars import (
 )
 from nodes import (
 	SYSTEM_AGENT, 
+    ORCHESTRATE_AGENTS, 
 	REASONING_AGENT, 
 	RESEARCH_AGENT, 
 	PLANNING_AGENT, 
 	EXECUTION_AGENT, 
+    COMMUNICATION_AGENT, 
 	EVALUATION_AGENT, 
-	DEBUGGING_AGENT,
+	DEBUGGING_AGENT
 )
 
 
 
 WORKFLOW = StateGraph(State)
 
-WORKFLOW.add_node(	node="SYSTEM_AGENT"			,	action=SYSTEM_AGENT		)
-WORKFLOW.add_node(	node="REASONING_AGENT"		,	action=REASONING_AGENT	)
-WORKFLOW.add_node(	node="RESEARCH_AGENT"		,	action=RESEARCH_AGENT	)
-WORKFLOW.add_node(	node="PLANNING_AGENT"		,	action=PLANNING_AGENT	)
-WORKFLOW.add_node(	node="EXECUTION_AGENT"		,	action=EXECUTION_AGENT	)
-WORKFLOW.add_node(	node="EVALUATION_AGENT"		,	action=EVALUATION_AGENT	)
-WORKFLOW.add_node(	node="DEBUGGING_AGENT"		,	action=DEBUGGING_AGENT	)
+WORKFLOW.add_node(	node="SYSTEM_AGENT"				,		action=SYSTEM_AGENT			)
+WORKFLOW.add_node(	node="ORCHESTRATE_AGENTS"		,		action=ORCHESTRATE_AGENTS	)
+WORKFLOW.add_node(	node="REASONING_AGENT"			,		action=REASONING_AGENT		)
+WORKFLOW.add_node(	node="RESEARCH_AGENT"			,		action=RESEARCH_AGENT		)
+WORKFLOW.add_node(	node="PLANNING_AGENT"			,		action=PLANNING_AGENT		)
+WORKFLOW.add_node(	node="EXECUTION_AGENT"			,		action=EXECUTION_AGENT		)
+WORKFLOW.add_node(	node="COMMUNICATION_AGENT"		,		action=COMMUNICATION_AGENT	)
+WORKFLOW.add_node(	node="EVALUATION_AGENT"			,		action=EVALUATION_AGENT		)
+WORKFLOW.add_node(	node="DEBUGGING_AGENT"			,		action=DEBUGGING_AGENT		)
 
 WORKFLOW.add_edge(start_key=START, end_key="SYSTEM_AGENT")
 WORKFLOW.add_conditional_edges(

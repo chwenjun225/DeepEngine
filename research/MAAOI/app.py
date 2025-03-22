@@ -5,17 +5,14 @@ import gradio as gr
 import cv2 
 import numpy as np 
 import time 
-import threading 
 
 
 
 from io import BytesIO
-from queue import Queue 
 from PIL import Image 
 
 
 
-from ultralytics import YOLO 
 
 
 
@@ -24,18 +21,17 @@ from langchain_core.messages import HumanMessage
 
 
 from agentic import AGENTIC
-from const_vars import LLM_LTEMP, QUERIES, CONFIG, INST_VIS_PROMPT
+from const_vars import (
+	PRODUCT_STATUS, 
+	STATUS_LOCK, 
+	YOLO_MODEL, 
+	LLM_LTEMP, 
+	QUERIES, 
+	CONFIG, 
+	INST_VIS_PROMPT
+)
 from state import default_messages
 from utils import get_latest_msg
-
-
-
-PRODUCT_STATUS = "..."
-FRAME_QUEUE = Queue()
-MESSAGES = []
-STATUS_LOCK = threading.Lock()
-OPEN_VISION_AGENT = False
-YOLO_MODEL = YOLO("/home/chwenjun225/projects/DeepEngine/research/MAAOI/VisionAgent/runs/detect/train/weights/best.pt")
 
 
 
@@ -105,11 +101,11 @@ def detect_pcb_video(video_path: str):
 
 
 def gr_chatbot_resp(user_input: str, history: list) -> str:
-	"""Xử lý truy vấn của người dùng và trả về hội thoại theo OpenAI-style."""
+	"""Xử lý truy vấn của người dùng và trả về hội thoại theo OpenAI-style, trên giao diện Gradio."""
 
 	if not user_input.strip(): return history + [{"role": "assistant", "content": "You have not entered any content."}]
 	state_data = AGENTIC.invoke(
-		input={"human_query": [HumanMessage(user_input)], "messages": default_messages()},
+		input={"user_query": [HumanMessage(user_input)], "messages": default_messages()},
 		config=CONFIG
 	)
 	check_req_ver = get_latest_msg(state=state_data, node="REQUEST_VERIFY", msgs_type="AI")

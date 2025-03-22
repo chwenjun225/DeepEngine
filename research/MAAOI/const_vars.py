@@ -1,4 +1,11 @@
+import os 
 import uuid
+import threading 
+from queue import Queue 
+
+
+
+from ultralytics import YOLO 
 
 
 
@@ -13,17 +20,27 @@ from langgraph.store.memory import InMemoryStore
 
 
 import prompts
-from state import Conversation, Prompt2JSON, ReAct
+
+
+
+PRODUCT_STATUS = "..."
+FRAME_QUEUE = Queue()
+MESSAGES_HISTORY_UI = []
+STATUS_LOCK = threading.Lock()
+YOLO_MODEL = YOLO(f"{os.getcwd()}/research/MAAOI/VisionAgent/runs/detect/train/weights/best.pt")
 
 
 
 PATH_MAP = {
-	"REASONING_AGENT"	:	"REASONING_AGENT"	, 
-	"RESEARCH_AGENT"	: 	"RESEARCH_AGENT"	, 
-	"PLANNING_AGENT"	: 	"PLANNING_AGENT"	, 
-	"EXECUTION_AGENT"	: 	"EXECUTION_AGENT"	, 
-	"EVALUATION_AGENT"	: 	"EVALUATION_AGENT"	, 
-	"DEBUGGING_AGENT"	: 	"DEBUGGING_AGENT"	
+	"SYSTEM_AGENT"			:	"SYSTEM_AGENT"			, 
+	"ORCHESTRATE_AGENTS"	: 	"ORCHESTRATE_AGENTS"	, 
+	"REASONING_AGENT"		:	"REASONING_AGENT"		, 
+	"RESEARCH_AGENT"		: 	"RESEARCH_AGENT"		, 
+	"PLANNING_AGENT"		: 	"PLANNING_AGENT"		, 
+	"EXECUTION_AGENT"		: 	"EXECUTION_AGENT"		, 
+	"COMMUNICATION_AGENT"	: 	"COMMUNICATION_AGENT"	, 
+	"EVALUATION_AGENT"		: 	"EVALUATION_AGENT"		, 
+	"DEBUGGING_AGENT"		: 	"DEBUGGING_AGENT"	
 }
 
 
@@ -38,23 +55,23 @@ CHAT_HISTORY_COLLECTION_NAME = "foxconn_fulian_b09_ai_research_tranvantuan_v1047
 
 
 
-INST_VIS_PROMPT 				= prompts.INSTRUCT_VISION_EXPLAIN_PROMPT
-CONVERSATION_TO_JSON_MSG_PROMPT = prompts.CONVERSATION_TO_JSON_PROMPT 
-MGR_SYS_MSG_PROMPT 				= prompts.AGENT_MANAGER_PROMPT
-RELEVANCY_MSG_PROMPT 			= prompts.REQUEST_VERIFY_RELEVANCY
-ADEQUACY_MSG_PROMPT 			= prompts.REQUEST_VERIFY_ADEQUACY
-PROMPT_2_JSON_SYS_MSG_PROMPT 	= prompts.PROMPT_AGENT_PROMPT
-RAP_SYS_MSG_PROMPT 				= prompts.RETRIEVAL_AUGMENTED_PLANNING_PROMPT
+INST_VIS_PROMPT 					=		prompts.INSTRUCT_VISION_EXPLAIN_PROMPT
+CONVERSATION_TO_JSON_MSG_PROMPT		=		prompts.CONVERSATION_TO_JSON_PROMPT 
+MGR_SYS_MSG_PROMPT 					=		prompts.AGENT_MANAGER_PROMPT
+RELEVANCY_MSG_PROMPT 				=		prompts.REQUEST_VERIFY_RELEVANCY
+ADEQUACY_MSG_PROMPT 				=		prompts.REQUEST_VERIFY_ADEQUACY
+PROMPT_2_JSON_SYS_MSG_PROMPT 		=		prompts.PROMPT_AGENT_PROMPT
+RAP_SYS_MSG_PROMPT 					=		prompts.RETRIEVAL_AUGMENTED_PLANNING_PROMPT
 
 
 
 LLAMA_TOKENS = {
-	"BEGIN_OF_TEXT"		:	"<|begin_of_text|>",
-	"END_OF_TEXT"		:	"<|end_of_text|>",
-	"START_HEADER_ID"	:	"<|start_header_id|>",
-	"END_HEADER_ID"		:	"<|end_header_id|>",
-	"END_OF_MESSAGE_ID"	:	"<|eom_id|>",
-	"END_OF_TURN_ID"	:	"<|eot_id|>"
+	"BEGIN_OF_TEXT"			:	"<|begin_of_text|>"		,
+	"END_OF_TEXT"			:	"<|end_of_text|>"		,
+	"START_HEADER_ID"		:	"<|start_header_id|>"	,
+	"END_HEADER_ID"			:	"<|end_header_id|>"		,
+	"END_OF_MESSAGE_ID"		:	"<|eom_id|>"			,
+	"END_OF_TURN_ID"		:	"<|eot_id|>"
 }
 
 
@@ -67,10 +84,6 @@ STORE = InMemoryStore()
 
 LLM_HTEMP =	ChatOllama(model="Llama-3.2-11B-Vision-Instruct.Q4_K_M:latest", temperature=0.8, num_predict=128_000)
 LLM_LTEMP = ChatOllama(model="Llama-3.2-11B-Vision-Instruct.Q4_K_M:latest", temperature=0, num_predict=128_000)
-
-LLM_STRUC_OUT_CONVERSATION = LLM_HTEMP.with_structured_output(schema=Conversation, method="json_schema")
-LLM_STRUC_OUT_AUTOML = LLM_HTEMP.with_structured_output(schema=Prompt2JSON, method="json_schema")
-LLM_STRUC_OUT_AI_VISION = LLM_HTEMP.with_structured_output(schema=ReAct, method="json_schema")
 
 
 

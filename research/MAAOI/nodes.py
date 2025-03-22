@@ -17,19 +17,15 @@ from langgraph.graph import END
 
 
 
-from state import State, Prompt2JSON, ReAct
+from state import State
 from const_vars import (
 	LLAMA_TOKENS, 
 	MGR_SYS_MSG_PROMPT, 
 	LLM_LTEMP, 
-	# PROMPT_2_JSON_SYS_MSG_PROMPT, 
-	# LLM_STRUC_OUT_AUTOML, 
 	RAP_SYS_MSG_PROMPT, 
 	RELEVANCY_MSG_PROMPT, 
-	# ADEQUACY_MSG_PROMPT, 
-	# LLM_STRUC_OUT_AI_VISION
 )
-from utils import add_unique_msg, get_latest_msg, conversation2json, check_msg_yes_or_no
+from utils import add_unique_msg, get_latest_msg
 
 
 
@@ -46,33 +42,9 @@ def relevancy(state: State) -> List[BaseMessage]:
 
 
 
-# def adequacy(state: State) -> List[BaseMessage]:
-# 	"""Check request verification-adequacy of AIMessage response with JSON object."""
-# 	pattern = r"<\|json\|>(.*?)<\|end_json\|>"
-# 	human_msg = get_latest_msg(state=state, node="MANAGER_AGENT", msgs_type="HUMAN")
-# 	ai_msg = get_latest_msg(state=state, node="MANAGER_AGENT", msgs_type="AI")
-# 	json_obj_from_ai_msg = re.findall(pattern=pattern, string=ai_msg.content, flags=re.DOTALL)[-1]
-# 	sys_msg = SystemMessage(content=ADEQUACY_MSG_PROMPT.format(
-# 		BEGIN_OF_TEXT=LLAMA_TOKENS["BEGIN_OF_TEXT"], 
-# 		START_HEADER_ID=LLAMA_TOKENS["START_HEADER_ID"], 
-# 		END_HEADER_ID=LLAMA_TOKENS["END_HEADER_ID"], 
-# 		parsed_user_requirements=json_obj_from_ai_msg, 
-# 		END_OF_TURN_ID=LLAMA_TOKENS["END_OF_TURN_ID"]
-# 	))
-# 	ai_msg = LLM_LTEMP.invoke([sys_msg])
-# 	if not isinstance(ai_msg, AIMessage): 
-# 		ai_msg = AIMessage(content=ai_msg.strip() if isinstance(ai_msg, str) else "At node_request_verify-REQUEST_VERIFY_ADEQUACY, I'm unable to generate a response.")
-# 	return [sys_msg, human_msg, ai_msg]
-
-
-
 def request_verify_adequacy_or_relevancy(state: State) -> State:
 	"""Request verification output of Agent Manager."""
 	ai_msg_relevancy = relevancy(state=state)[2]
-	# ai_msg_adequacy = adequacy(state=state)[2]
-	# yes_no_relevancy = check_msg_yes_or_no(ai_msg=ai_msg_relevancy.content)
-	# yes_no_adequacy  = check_msg_yes_or_no(ai_msg=ai_msg_adequacy.content )
-	# yes_or_no_answer = "YES" if "YES" in (yes_no_relevancy, yes_no_adequacy) else "NO"
 	yes_or_no_answer = "YES" if "YES" in [ai_msg_relevancy.content.upper()] else "NO"
 	ai_msg = AIMessage(content=yes_or_no_answer)
 	add_unique_msg(state=state, node="REQUEST_VERIFY", msgs_type="AI", msg=ai_msg)
@@ -144,55 +116,11 @@ def prompt_agent(state: State) -> State:
 	Returns:
 		State: Updated state with the parsed JSON response.
 	"""
-	# if "MANAGER_AGENT" not in state["messages"] or "HUMAN" not in state["messages"]["MANAGER_AGENT"]:
-	# 	raise ValueError(">>> [ERROR]: No HUMAN messages found in MANAGER_AGENT.")
 	human_msg = get_latest_msg(state=state, node="MANAGER_AGENT", msgs_type="HUMAN")
-	# parsed_json = conversation2json(
-	# 	msg_prompt=PROMPT_2_JSON_SYS_MSG_PROMPT, 
-	# 	llm_structure_output=LLM_STRUC_OUT_AUTOML,
-	# 	human_msg=human_msg,
-	# 	schema=ReAct
-	# )
-	# expected_keys, received_keys = set(Prompt2JSON.__annotations__), set(parsed_json)
-	# if missing_keys := expected_keys - received_keys: 
-	# 	raise ValueError(f"[ERROR]: JSON thiếu các trường bắt buộc: {missing_keys}")
-	# if extra_keys := received_keys - expected_keys: 
-	# 	raise ValueError(f"[ERROR]: JSON có các trường không hợp lệ: {extra_keys}")
-	# ai_msg_json = AIMessage(content=json.dumps(parsed_json, indent=2))
-	# add_unique_msg(state=state, node="PROMPT_AGENT", msgs_type="AI", msg=ai_msg_json)
 	parsed_json = {"tool_execution": "AI_VISION"}
 	ai_msg = AIMessage(content=json.dumps(parsed_json, indent=2))
 	add_unique_msg(state=state, node="PROMPT_AGENT", msgs_type="AI", msg=ai_msg)
 	return state
-
-
-
-# def prompt_agent(state: State) -> State:
-# 	"""Prompt Agent parses user's requirements into JSON following a TypedDict schema.
-
-# 	Args:
-# 		state (State): The current state of the conversation.
-
-# 	Returns:
-# 		State: Updated state with the parsed JSON response.
-# 	"""
-# 	if "MANAGER_AGENT" not in state["messages"] or "HUMAN" not in state["messages"]["MANAGER_AGENT"]:
-# 		raise ValueError(">>> [ERROR]: No HUMAN messages found in MANAGER_AGENT.")
-# 	human_msg = get_latest_msg(state=state, node="MANAGER_AGENT", msgs_type="HUMAN")
-# 	parsed_json = conversation2json(
-# 		msg_prompt=PROMPT_2_JSON_SYS_MSG_PROMPT, 
-# 		llm_structure_output=LLM_STRUC_OUT_AUTOML,
-# 		human_msg=human_msg,
-# 		schema=Prompt2JSON
-# 	)
-# 	expected_keys, received_keys = set(Prompt2JSON.__annotations__), set(parsed_json)
-# 	if missing_keys := expected_keys - received_keys: 
-# 		raise ValueError(f"[ERROR]: JSON thiếu các trường bắt buộc: {missing_keys}")
-# 	if extra_keys := received_keys - expected_keys: 
-# 		raise ValueError(f"[ERROR]: JSON có các trường không hợp lệ: {extra_keys}")
-# 	ai_msg_json = AIMessage(content=json.dumps(parsed_json, indent=2))
-# 	add_unique_msg(state=state, node="PROMPT_AGENT", msgs_type="AI", msg=ai_msg_json)
-# 	return state
 
 
 

@@ -2,9 +2,7 @@ import uuid
 
 
 
-from langchain_postgres.vectorstores import PGVector 
 from langchain_ollama import ChatOllama
-from langchain_chroma import Chroma
 from langchain_huggingface.embeddings import HuggingFaceEmbeddings
 
 

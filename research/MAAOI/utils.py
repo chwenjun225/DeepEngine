@@ -6,14 +6,14 @@ from pydantic import BaseModel, TypeAdapter
 
 
 from langchain_core.runnables import Runnable
-from langchain_core.messages import BaseMessage, AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langchain_core.tools import BaseTool 
 from langchain_core.language_models import LanguageModelInput
 
 
 
 from state import State 
-from const_vars import (DEBUG, LLAMA_TOKENS, LLM_LTEMP, RELEVANCY_MSG_PROMPT, ADEQUACY_MSG_PROMPT)
+from const_vars import (DEBUG, LLAMA_TOKENS, LLM_LTEMP)
 
 
 

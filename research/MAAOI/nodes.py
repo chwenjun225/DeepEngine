@@ -35,7 +35,7 @@ def SYSTEM_AGENT(state: State) -> State:
 		node="SYSTEM_AGENT", 
 		msgs_type="SYS"
 	):
-		pass 
+		pass # TODO: Làm tiếp ở đây 
 	return state
 
 

@@ -23,11 +23,27 @@ import prompts
 
 
 
+YOLO_OBJECT_DETECTION = YOLO(f"{os.getcwd()}/research/MAAOI/VisionAgent/runs/detect/train/weights/best.pt")
+REASONING_INSTRUCT_LLM = ChatOllama(model="deepseek-r1:1.5b-qwen-distill-fp16", temperature=0.1, num_predict=128_000)
+VISION_INSTRUCT_LLM = ChatOllama(model="minicpm-v:8b-2.6-q2_K", temperature=0.1, num_predict=128_000)
+
+
+
+SYSTEM_AGENT_PROMPT_MSG 		= 	prompts.SYSTEM_AGENT_PROMPT
+REASONING_AGENT_PROMPT_MSG 		= 	prompts.REASONING_AGENT_PROMPT
+RESEARCH_AGENT_PROMPT_MSG 		= 	prompts.RESEARCH_AGENT_PROMPT
+PLANNING_AGENT_PROMPT_MSG 		= 	prompts.PLANNING_AGENT_PROMPT
+EXECUTION_AGENT_PROMPT_MSG 		= 	prompts.EXECUTION_AGENT_PROMPT
+COMMUNICATION_AGENT_PROMPT_MSG 	= 	prompts.COMMUNICATION_AGENT_PROMPT
+EVALUATION_AGENT_PROMPT_MSG		= 	prompts.EVALUATION_AGENT_PROMPT
+DEBUGGING_AGENT_PROMPT_MSG		= 	prompts.DEBUGGING_AGENT_PROMPT
+
+
+
 PRODUCT_STATUS = "..."
 FRAME_QUEUE = Queue()
 MESSAGES_HISTORY_UI = []
 STATUS_LOCK = threading.Lock()
-YOLO_MODEL = YOLO(f"{os.getcwd()}/research/MAAOI/VisionAgent/runs/detect/train/weights/best.pt")
 
 
 
@@ -55,16 +71,6 @@ CHAT_HISTORY_COLLECTION_NAME = "foxconn_fulian_b09_ai_research_tranvantuan_v1047
 
 
 
-INST_VIS_PROMPT 					=		prompts.INSTRUCT_VISION_EXPLAIN_PROMPT
-CONVERSATION_TO_JSON_MSG_PROMPT		=		prompts.CONVERSATION_TO_JSON_PROMPT 
-MGR_SYS_MSG_PROMPT 					=		prompts.AGENT_MANAGER_PROMPT
-RELEVANCY_MSG_PROMPT 				=		prompts.REQUEST_VERIFY_RELEVANCY
-ADEQUACY_MSG_PROMPT 				=		prompts.REQUEST_VERIFY_ADEQUACY
-PROMPT_2_JSON_SYS_MSG_PROMPT 		=		prompts.PROMPT_AGENT_PROMPT
-RAP_SYS_MSG_PROMPT 					=		prompts.RETRIEVAL_AUGMENTED_PLANNING_PROMPT
-
-
-
 LLAMA_TOKENS = {
 	"BEGIN_OF_TEXT"			:	"<|begin_of_text|>"		,
 	"END_OF_TEXT"			:	"<|end_of_text|>"		,
@@ -79,11 +85,6 @@ LLAMA_TOKENS = {
 CONFIG = {"configurable": {"thread_id": str(uuid.uuid4()), "recursion_limit": 100}}
 CHECKPOINTER = MemorySaver()
 STORE = InMemoryStore()
-
-
-
-LLM_HTEMP =	ChatOllama(model="Llama-3.2-11B-Vision-Instruct.Q4_K_M:latest", temperature=0.8, num_predict=128_000)
-LLM_LTEMP = ChatOllama(model="Llama-3.2-11B-Vision-Instruct.Q4_K_M:latest", temperature=0, num_predict=128_000)
 
 
 

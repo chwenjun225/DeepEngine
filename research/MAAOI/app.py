@@ -13,9 +13,6 @@ from PIL import Image
 
 
 
-
-
-
 from langchain_core.messages import HumanMessage
 
 
@@ -46,7 +43,6 @@ def image_to_base64(pil_img):
 	"""Convert image (PIL or NumPy) to base64 string."""
 	if isinstance(pil_img, np.ndarray):
 		pil_img = Image.fromarray(cv2.cvtColor(pil_img, cv2.COLOR_BGR2RGB))
-
 	buffered = BytesIO()
 	try:
 		pil_img.save(buffered, format="PNG")
@@ -100,22 +96,22 @@ def detect_pcb_video(video_path: str):
 
 
 
-def gr_chatbot_resp(user_input: str, history: list) -> str:
-	"""Xử lý truy vấn của người dùng và trả về hội thoại theo OpenAI-style, trên giao diện Gradio."""
-
-	if not user_input.strip(): return history + [{"role": "assistant", "content": "You have not entered any content."}]
+def user_interface_chatbot_resp(user_input: str, history: list) -> str:
+	"""Xử lý truy vấn của người dùng và trả về hội thoại theo OpenAI-style, trên giao diện người dùng."""
+	if not user_input.strip(): 
+		return history + [{"role": "assistant", "content": "You have not entered any content."}]
 	state_data = AGENTIC.invoke(
-		input={"user_query": [HumanMessage(user_input)], "messages": default_messages()},
-		config=CONFIG
+		input={
+			"user_query": {"role": "user", "content": user_input},
+			"messages": default_messages()
+		}, config=CONFIG
 	)
 	check_req_ver = get_latest_msg(state=state_data, node="REQUEST_VERIFY", msgs_type="AI")
-
 	if check_req_ver.content == "NO":
 		ai_resp = get_latest_msg(state=state_data, node="MANAGER_AGENT", msgs_type="AI")
 		history.append({"role": "user", "content": user_input})
 		history.append({"role": "assistant", "content": ai_resp.content})
 		return history
-
 	ai_resp = get_latest_msg(state=state_data, node="PROMPT_AGENT", msgs_type="AI")
 	history.append({"role": "user", "content": user_input})
 	history.append({
@@ -137,7 +133,11 @@ def main() -> None:
 				chatbot_input = gr.Textbox(label="Type a messages...")
 				chatbot_button = gr.Button("Submit")
 
-				chatbot_button.click(fn=gr_chatbot_resp, inputs=[chatbot_input, chatbot], outputs=chatbot)
+				chatbot_button.click(
+					fn=user_interface_chatbot_resp, 
+					inputs=[chatbot_input, chatbot], 
+					outputs=chatbot
+				)
 			### Vision Agent
 			with gr.Column():
 				gr.Markdown("### Vision Agent")
@@ -158,7 +158,7 @@ def main() -> None:
 
 
 
-if "On Terminal":
+if "Hiển thị kết quả trên Terminal":
 	def display_conversation_results_terminal(messages: dict) -> None:
 		"""Hiển thị kết quả hội thoại từ tất cả các agent trong hệ thống."""
 		if not messages:

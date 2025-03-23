@@ -3,39 +3,40 @@ from typing_extensions import List
 
 
 
-from langchain_core.messages import (
-	HumanMessage, 
-	AIMessage, 
-	SystemMessage, 
-	BaseMessage
-)
-
-
-
 from langgraph.graph import END
 
 
 
 from state import State
 from const_vars import (
-	LLAMA_TOKENS, 
-	MGR_SYS_MSG_PROMPT, 
-	LLM_LTEMP, 
-	RAP_SYS_MSG_PROMPT, 
-	RELEVANCY_MSG_PROMPT, 
+	REASONING_INSTRUCT_LLM			, 
+	SYSTEM_AGENT_PROMPT_MSG			,
+	REASONING_AGENT_PROMPT_MSG		,
+	RESEARCH_AGENT_PROMPT_MSG		,
+	PLANNING_AGENT_PROMPT_MSG		,
+	EXECUTION_AGENT_PROMPT_MSG		,
+	COMMUNICATION_AGENT_PROMPT_MSG	,
+	EVALUATION_AGENT_PROMPT_MSG		,
+	DEBUGGING_AGENT_PROMPT_MSG
 )
-from utils import add_unique_msg, get_latest_msg
+from utils import (
+	get_msgs				, 				
+	add_unique_msg			, 
+	get_latest_msg			,	 
+	get_latest_user_query	 
+)
 
 
 
 def SYSTEM_AGENT(state: State) -> State:
 	"""Quản lý toàn bộ workflow, đảm bảo tính logic và nhất quán của hệ thống."""
-	if get_latest_msg(
-		state=state, 
-		node="SYSTEM_AGENT", 
-		msgs_type="SYS"
-	):
-		pass # TODO: Làm tiếp ở đây 
+	user_query = get_latest_user_query(state=state)
+	existing_sys_msgs = get_latest_msg(state=state, node="SYSTEM_AGENT", msgs_type="SYS")
+	if not existing_sys_msgs:
+		sys_msg = {"role": "user", "content": SYSTEM_AGENT_PROMPT_MSG}
+	instruct = [sys_msg, user_query]
+	ai_msg = REASONING_INSTRUCT_LLM.invoke(instruct)
+	add_unique_msg(state=state, node="SYSTEM_AGENT", type_msgs="")
 	return state
 
 

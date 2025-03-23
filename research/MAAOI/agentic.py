@@ -56,6 +56,14 @@ AGENTIC = WORKFLOW.compile(
 )
 
 
+# TODO: Ta sẽ truyền ngữ cảnh nghĩa là toán lịch sử cuộc trò chuyện vào cho mô hình ngôn ngữ lớn, để làm được như vậy, ta cũng cần tính toán 
+# số lượng max_token mà mô hình cho phép xử lý, nếu vượt quá số đó thì ta cần gọi đến AGENT_SUMZATION để tổng hợp lại toàn bộ ngữ cảnh cuộc trò 
+# chuyện sau đó lại nhắc lại system_prompt cho agent. 
+
+
+# Cần phải có một thuật toán để tính được độ dài ngữ cảnh của lịch sử trò chuyện, nếu đạt đến quá đủ thì cần phải nhắc lại prompt cho agent.
+
+
 # Vấn đề khi xây dựng hệ thống ai-agent: làm sao để xây dựng intent-classfication 
 
 

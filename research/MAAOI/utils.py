@@ -6,43 +6,41 @@ from pydantic import BaseModel, TypeAdapter
 
 
 from langchain_core.runnables import Runnable
-from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langchain_core.tools import BaseTool 
 from langchain_core.language_models import LanguageModelInput
 
 
 
 from state import State 
-from const_vars import (DEBUG, LLAMA_TOKENS, LLM_LTEMP)
+from const_vars import (DEBUG, LLAMA_TOKENS)
 
 
 
-def get_msgs(state: State, node: str, msgs_type) -> List[BaseMessage]:
-	"""Lấy danh sách tin nhắn của một node theo loại tin nhắn."""
-	return state["messages"][node][msgs_type]
-
-
-
-def get_latest_user_query(state: State) -> HumanMessage:
+def get_latest_user_query(state: State) -> Dict:
 	"""Lấy truy vấn người dùng mới nhất, O(1)."""
-	return state["user_query"][-1]
+	return state["user_query"]
 
 
 
-def get_latest_msg(state: State, node: str, msgs_type: str) -> BaseMessage:
+def get_msgs(state: State, node: str, type_msgs) -> List[Dict]:
+	"""Lấy danh sách tin nhắn của một node theo loại tin nhắn."""
+	return state["messages"][node][type_msgs]
+
+
+
+def get_latest_msg(state: State, node: str, type_msgs: str) -> Dict|None:
 	"""Lấy tin nhắn mới nhất từ một node theo loại tin nhắn, O(1)."""
-	return state["messages"][node][msgs_type][-1]
+	return state["messages"][node][type_msgs][-1] if \
+		get_msgs(state=state, node=node, type_msgs=type_msgs) \
+			else None 
 
 
 
-def add_unique_msg(state: State, node: str, msgs_type: str, msg: BaseMessage) -> None:
+def add_unique_msg(state: State, node: str, type_msgs: str, msg: Dict) -> None:
 	"""Chỉ thêm nếu khác với tin nhắn cuối, O(1)."""
-	if node == "REQUEST_VERIFY":
-		state["messages"][node][msgs_type] = [msg]
-	else:
-		existing_msgs = state["messages"][node][msgs_type] 
-		if not existing_msgs or existing_msgs[-1].content != msg.content:
-			existing_msgs.append(msg)
+	existing_msgs = get_msgs(state=state, node=node, type_msgs=type_msgs)
+	if not existing_msgs or existing_msgs[-1]["content"] != msg["content"]:
+		existing_msgs.append(msg)
 
 
 
@@ -83,7 +81,7 @@ def build_react_sys_msg_prompt(tool_desc_prompt: str, react_prompt: str, tools: 
 def conversation2json(
 		msg_prompt: str, 
 		llm_structure_output: Runnable[LanguageModelInput, Dict | BaseModel], 
-		human_msg: HumanMessage, 
+		human_msg: Dict, 
 		schema: Type[Dict]
 	) -> json:
 	"""Parses user's query into structured JSON for manager_agent.

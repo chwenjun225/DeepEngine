@@ -17,9 +17,9 @@ from const_vars import (DEBUG, LLAMA_TOKENS, ENCODING, MAX_TOKENS)
 
 
 
-def trim_context(messages: list[dict], max_tokens: int = MAX_TOKENS) -> list[dict]:
+def trim_context(messages: list[dict]) -> list[dict]:
 	"""Cắt bớt context nếu vượt token limit (cắt từ đầu)."""
-	while count_tokens(messages) > max_tokens and len(messages) > 1:
+	while count_tokens(messages) > MAX_TOKENS and len(messages) > 1:
 		messages = messages[1:]
 	return messages
 

@@ -10,8 +10,9 @@ from langgraph.graph import END
 from state import State
 from const_vars import (
 	MANGER_AGENT_PROMPT_MSG			,
-	SYSTEM_AGENT_PROMPT_MSG			,
 	ROUTER_AGENT_PROMPT_MSG			,
+	SYSTEM_AGENT_PROMPT_MSG			,
+	ORCHESTRATE_AGENT_PROMPT_MSG	,
 	REASONING_AGENT_PROMPT_MSG		, 
 	RESEARCH_AGENT_PROMPT_MSG		,
 	PLANNING_AGENT_PROMPT_MSG		,
@@ -37,76 +38,188 @@ from utils import (
 
 def MANAGER_AGENT(state: State) -> State:
 	"""Tiếp nhận truy vấn người dùng và phản hồi theo ngữ cảnh."""
-	messages = cast(list[dict], state["messages"])
-	if not has_system_prompt(messages=messages, agent_name="MANAGER_AGENT"):
-		system_msg = {
+	msgs = cast(list[dict], state["messages"])
+
+	if not has_system_prompt(
+		messages=msgs, 
+		agent_name="MANAGER_AGENT"
+	):
+		sys_msg = {
 			"role": "system", 
 			"name": "MANAGER_AGENT", 
 			"content": MANGER_AGENT_PROMPT_MSG
 		}
-		messages = [system_msg] + messages
-	messages = trim_context(messages)
-	response = REASONING_INSTRUCT_LLM.invoke(messages)
-	response["name"] = "MANAGER_AGENT"
-	return {"messages": [response]}
+		msgs = [sys_msg] + msgs
+
+	ctx = trim_context(messages=msgs)
+	resp = REASONING_INSTRUCT_LLM.invoke(input=ctx)
+
+	resp["name"] = "MANAGER_AGENT"
+	return {"messages": [resp]}
 
 
 
 def ROUTER_AGENT(state: State) -> State:
 	"""Phân loại truy vấn có thuộc domain AI/ML không."""
-	messages = cast(List[dict], state["messages"])
+	msgs = cast(list[dict], state["messages"])
 
-	if not has_system_prompt(messages, "ROUTER_AGENT"):
-		messages.insert(0, {
-			"role": "system",
-			"name": "ROUTER_AGENT",
+	if not has_system_prompt(
+		messages=msgs, 
+		agent_name="ROUTER_AGENT"
+	):
+		sys_msg = {
+			"role": "system", 
+			"name": "ROUTER_AGENT", 
 			"content": ROUTER_AGENT_PROMPT_MSG
-		})
+		}
+		msgs = msgs + [sys_msg]
 
-	context = trim_context(messages)
-	response = REASONING_INSTRUCT_LLM.invoke(context)
-	response["name"] = "ROUTER_AGENT"
+	ctx = trim_context(messages=msgs)
+	resp = REASONING_INSTRUCT_LLM.invoke(input=ctx)
+	resp["name"] = "ROUTER_AGENT"
 
-	if "no" in response["content"].lower():
+	if "no" in str(resp["content"]).lower():
 		return END
 
-	return {"messages": [response]}
+	return {"messages": [resp]}
 
 
 
 def SYSTEM_AGENT(state: State) -> State:
-	"""Quản lý toàn bộ workflow, đảm bảo tính logic của hệ thống."""
-	return 
+	"""Chuẩn hóa đầu vào và đảm bảo logic yêu cầu người dùng."""
+	msgs = cast(List[dict], state["messages"])
+
+	if not has_system_prompt(
+		messages=msgs, 
+		agent_name="SYSTEM_AGENT"
+	):
+		sys_msg = {
+			"role": "system", 
+			"name": "SYSTEM_AGENT", 
+			"content": SYSTEM_AGENT_PROMPT_MSG
+		}
+		msgs = msgs + [sys_msg]
+
+	ctx = trim_context(messages=msgs)
+	resp = REASONING_INSTRUCT_LLM.invoke(input=ctx)
+	resp["name"] = "SYSTEM_AGENT"
+
+	return {"messages": [resp]}
 
 
 
-def ORCHESTRATE_AGENTS(state: State) -> State: 
-	"""Điều phối, kích hoạt và sắp xếp luồng chạy của các agent."""
-	return  
+def ORCHESTRATE_AGENT(state: State) -> State: 
+	"""Xác định các agent cần thiết cho luồng hiện tại."""
+	msgs = cast(List[dict], state["messages"])
+
+	if not has_system_prompt(
+		messages=msgs, 
+		agent_name="ORCHESTRATE_AGENT"
+	):
+		sys_msg = {
+			"role": "system", 
+			"name": "ORCHESTRATE_AGENT", 
+			"content": ORCHESTRATE_AGENT_PROMPT_MSG 
+		}
+		messages = messages + [sys_msg]
+
+	ctx = trim_context(messages=msgs)
+	resp = REASONING_INSTRUCT_LLM.invoke(input=ctx)
+	resp["name"] = "ORCHESTRATE_AGENT"
+
+	return {"messages": [resp]}
 
 
 
 def REASONING_AGENT(state: State) -> State:
-	"""Suy luận và phân tích yêu cầu người dùng để xác định bản chất vấn đề."""
-	return state 
+	"""Phân tích yêu cầu để hiểu bản chất vấn đề và mục tiêu."""
+	msgs = cast(List[dict], state["messages"])
+
+	if not has_system_prompt(
+		messages=msgs, 
+		agent_name="REASONING_AGENT"
+	):
+		sys_msg = {
+			"role": "system", 
+			"name": "REASONING_AGENT", 
+			"content": REASONING_AGENT_PROMPT_MSG 
+		}
+		msgs = msgs + [sys_msg]
+
+	ctx = trim_context(msgs)
+	resp = REASONING_INSTRUCT_LLM.invoke(input=ctx)
+	resp["name"] = "REASONING_AGENT"
+
+	return {"messages": [resp]}
 
 
 
 def RESEARCH_AGENT(state: State) -> State:
-	"""Tìm kiếm thông tin, tài liệu, công cụ hỗ trợ, lập luận sâu để giải quyết bài toán."""
-	return state 
+	"""Tìm kiếm kiến thức, tài liệu, hoặc công cụ phục vụ bài toán."""
+	msgs = cast(List[dict], state["messages"])
+
+	if not has_system_prompt(
+		messages=msgs, 
+		agent_name="RESEARCH_AGENT"
+	):
+		sys_msg = {
+			"role": "system", 
+			"name": "RESEARCH_AGENT", 
+			"content": RESEARCH_AGENT_PROMPT_MSG 
+		}
+		msgs = msgs + [sys_msg]
+
+	ctx = trim_context(sys_msg)
+	resp = REASONING_INSTRUCT_LLM.invoke(input=ctx)
+	resp["name"] = "RESEARCH_AGENT"
+
+	return {"messages": [resp]}
 
 
 
 def PLANNING_AGENT(state: State) -> State: 
-	"""Xây dựng kế hoạch hành động, bao gồm mô hình, dữ liệu, công cụ cần dùng."""
-	return state 
+	"""Xây dựng kế hoạch chi tiết cho các bước tiếp theo."""
+	msgs = cast(List[dict], state["messages"])
+
+	if not has_system_prompt(
+		messages=msgs, 
+		agent_name="PLANNING_AGENT"
+	):
+		sys_msg = {
+			"role": "system", 
+			"name": "PLANNING_AGENT", 
+			"content": PLANNING_AGENT_PROMPT_MSG 
+		}
+		msgs = msgs + [sys_msg]
+
+	ctx = trim_context(msgs)
+	resp = REASONING_INSTRUCT_LLM.invoke(input=ctx)
+	resp["name"] = "PLANNING_AGENT"
+
+	return {"messages": [resp]}
 
 
 
 def EXECUTION_AGENT(state: State) -> State: 
-	"""Thực thi kế hoạch: huấn luyện mô hình, xử lý dữ liệu, chạy pipeline."""
-	return state 
+	"""Thực thi kế hoạch đã lên bằng mô hình, pipeline hoặc thao tác logic."""
+	msgs = cast(List[dict], state["messages"])
+
+	if not has_system_prompt(
+		messages=msgs, 
+		agent_name="EXECUTION_AGENT"
+	):
+		sys_msg = {
+			"role": "system", 
+			"name": "EXECUTION_AGENT", 
+			"content": EXECUTION_AGENT_PROMPT_MSG 
+		}
+		msgs = msgs + [sys_msg]
+
+	ctx = trim_context(msgs)
+	resp = REASONING_INSTRUCT_LLM.invoke(ctx)
+	resp["name"] = "EXECUTION_AGENT"
+
+	return {"messages": [resp]}
 
 
 

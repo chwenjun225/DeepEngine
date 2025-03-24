@@ -39,9 +39,10 @@ VISION_INSTRUCT_LLM = ChatOllama(model="Llama-3.2-11B-Vision-Instruct.Q4_K_M:lat
 
 
 
-MANGER_AGENT_PROMPT_MSG 					= 		prompts.AGENT_MANAGER_PROMPT
-SYSTEM_AGENT_PROMPT_MSG 					= 		prompts.SYSTEM_AGENT_PROMPT
+MANGER_AGENT_PROMPT_MSG 					= 		prompts.MANAGER_AGENT_PROMPT
 ROUTER_AGENT_PROMPT_MSG 					= 		prompts.ROUTER_AGENT_PROMPT
+SYSTEM_AGENT_PROMPT_MSG 					= 		prompts.SYSTEM_AGENT_PROMPT
+ORCHESTRATE_AGENT_PROMPT_MSG				=	 	prompts.ORCHESTRATE_AGENT_PROMPT
 REASONING_AGENT_PROMPT_MSG 					= 		prompts.REASONING_AGENT_PROMPT
 RESEARCH_AGENT_PROMPT_MSG 					= 		prompts.RESEARCH_AGENT_PROMPT
 PLANNING_AGENT_PROMPT_MSG 					= 		prompts.PLANNING_AGENT_PROMPT
@@ -111,36 +112,3 @@ LLAMA_TOKENS = {
 	"END_OF_MESSAGE_ID"		:	"<|eom_id|>"			,
 	"END_OF_TURN_ID"		:	"<|eot_id|>"			,
 }
-
-
-
-CONTEXT = [
-	{"role": "system", "name": "MANAGER_AGENT", "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, 
-	{"role": "user", "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, 
-	{"role": "assistant", "name": "MANAGER_AGENT", "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, 
-    
-
-
-	{"role": "system", "name": "ROUTER", "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, 
-	{"role": "assistant", "name": "ROUTER", "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
-    
-
-	{"role": "system", "name": "SYSTEM_AGENT", "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, 
-	{"role": "assistant", "name": "SYSTEM_AGENT", "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
-    
-
-	{"role": "system", "name": "ORCHESTRATE_AGENTS", "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, 
-	{"role": "assistant", "name": "ORCHESTRATE_AGENTS", "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
-
-	{"role": "system", "name": "REASONING_AGENT", "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, 
-	{"role": "assistant", "name": "REASONING_AGENT", "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
-
-	{"role": "system", "name": "RESEARCH_AGENT", "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, 
-	{"role": "assistant", "name": "RESEARCH_AGENT", "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
-
-	{"role": "system", "name": "PLANNING_AGENT", "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, 
-	{"role": "assistant", "name": "PLANNING_AGENT", "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
-    
-	{"role": "system", "name": "EXECUTION_AGENT", "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, 
-	{"role": "assistant", "name": "EXECUTION_AGENT", "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
-]

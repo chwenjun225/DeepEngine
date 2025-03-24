@@ -1,5 +1,5 @@
 import json 
-from typing_extensions import List
+from typing_extensions import cast, List
 
 
 
@@ -9,53 +9,80 @@ from langgraph.graph import END
 
 from state import State
 from const_vars import (
-	REASONING_INSTRUCT_LLM			, 
+	MANGER_AGENT_PROMPT_MSG			,
 	SYSTEM_AGENT_PROMPT_MSG			,
-	REASONING_AGENT_PROMPT_MSG		,
+	ROUTER_AGENT_PROMPT_MSG			,
+	REASONING_AGENT_PROMPT_MSG		, 
 	RESEARCH_AGENT_PROMPT_MSG		,
 	PLANNING_AGENT_PROMPT_MSG		,
 	EXECUTION_AGENT_PROMPT_MSG		,
 	COMMUNICATION_AGENT_PROMPT_MSG	,
 	EVALUATION_AGENT_PROMPT_MSG		,
 	DEBUGGING_AGENT_PROMPT_MSG		, 
+
+	REASONING_INSTRUCT_LLM			,
 )
 from utils import (
-	get_msgs				, 				
+	trim_context			,
+	has_system_prompt		,
+	estimate_tokens			, 
+	get_safe_num_predict	,
 	add_unique_msg			, 
 	get_latest_msg			,	 
 	get_latest_user_query	,
+	get_msgs				, 		
 )
 
 
 
 def MANAGER_AGENT(state: State) -> State:
-	"""Trò chuyện giao tiếp với người dùng."""
-	return state
+	"""Tiếp nhận truy vấn người dùng và phản hồi theo ngữ cảnh."""
+	messages = cast(list[dict], state["messages"])
+	if not has_system_prompt(messages=messages, agent_name="MANAGER_AGENT"):
+		system_msg = {
+			"role": "system", 
+			"name": "MANAGER_AGENT", 
+			"content": MANGER_AGENT_PROMPT_MSG
+		}
+		messages = [system_msg] + messages
+	messages = trim_context(messages)
+	response = REASONING_INSTRUCT_LLM.invoke(messages)
+	response["name"] = "MANAGER_AGENT"
+	return {"messages": [response]}
 
 
 
 def ROUTER_AGENT(state: State) -> State:
-	"""Kiểm tra xem truy vấn người dùng có liên quan đến AI hoặc ML không."""
-	return state
+	"""Phân loại truy vấn có thuộc domain AI/ML không."""
+	messages = cast(List[dict], state["messages"])
+
+	if not has_system_prompt(messages, "ROUTER_AGENT"):
+		messages.insert(0, {
+			"role": "system",
+			"name": "ROUTER_AGENT",
+			"content": ROUTER_AGENT_PROMPT_MSG
+		})
+
+	context = trim_context(messages)
+	response = REASONING_INSTRUCT_LLM.invoke(context)
+	response["name"] = "ROUTER_AGENT"
+
+	if "no" in response["content"].lower():
+		return END
+
+	return {"messages": [response]}
 
 
 
 def SYSTEM_AGENT(state: State) -> State:
 	"""Quản lý toàn bộ workflow, đảm bảo tính logic của hệ thống."""
-	user_query = get_latest_user_query(state=state)
-	existing_sys_msgs = get_latest_msg(state=state, node="SYSTEM_AGENT", msgs_type="SYS")
-	if not existing_sys_msgs:
-		sys_msg = {"role": "user", "content": SYSTEM_AGENT_PROMPT_MSG}
-	instruct = [sys_msg, user_query]
-	ai_msg = REASONING_INSTRUCT_LLM.invoke(instruct)
-	add_unique_msg(state=state, node="SYSTEM_AGENT", type_msgs="")
-	return state
+	return 
 
 
 
 def ORCHESTRATE_AGENTS(state: State) -> State: 
 	"""Điều phối, kích hoạt và sắp xếp luồng chạy của các agent."""
-	return state 
+	return  
 
 
 

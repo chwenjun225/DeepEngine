@@ -1,46 +1,59 @@
 from langgraph.graph import(
-	StateGraph										, 
-	START											, 
-	END												,
+	StateGraph					, 
+	START						, 
+	END							,
 )
 
 
 
 from state import State 
 from const_vars import (
-	DEBUG											, 
-	CHECKPOINTER									, 
-	STORE											,
+	DEBUG						, 
+	CHECKPOINTER				, 
+	STORE						,
 )
 from nodes import (
-	MANAGER_AGENT									,
-	ROUTER_AGENT									,
-	SYSTEM_AGENT									,
-	ORCHESTRATE_AGENTS								,
-	REASONING_AGENT									,
-	RESEARCH_AGENT									,
-	PLANNING_AGENT									,
-	EXECUTION_AGENT									,
-	COMMUNICATION_AGENT								,
-	EVALUATION_AGENT								,
-	DEBUGGING_AGENT									,
+	MANAGER_AGENT				,
+	ROUTER_AGENT				,
+	SYSTEM_AGENT				,
+	ORCHESTRATE_AGENTS			,
+	REASONING_AGENT				,
+	RESEARCH_AGENT				,
+	PLANNING_AGENT				,
+	EXECUTION_AGENT				,
+	COMMUNICATION_AGENT			,
+	EVALUATION_AGENT			,
+	DEBUGGING_AGENT				,
 )
 
 
 
 WORKFLOW = StateGraph(State)
 
-WORKFLOW.add_node(	node="MANAGER_AGENT"			,	action=MANAGER_AGENT			)
-WORKFLOW.add_node(	node="ROUTER_AGENT"				,	action=ROUTER_AGENT				)
-WORKFLOW.add_node(	node="SYSTEM_AGENT"				,	action=SYSTEM_AGENT				)
-WORKFLOW.add_node(	node="ORCHESTRATE_AGENTS"		,	action=ORCHESTRATE_AGENTS		)
-WORKFLOW.add_node(	node="REASONING_AGENT"			,	action=REASONING_AGENT			)
-WORKFLOW.add_node(	node="RESEARCH_AGENT"			,	action=RESEARCH_AGENT			)
-WORKFLOW.add_node(	node="PLANNING_AGENT"			,	action=PLANNING_AGENT			)
-WORKFLOW.add_node(	node="EXECUTION_AGENT"			,	action=EXECUTION_AGENT			)
-WORKFLOW.add_node(	node="DEBUGGING_AGENT"			,	action=DEBUGGING_AGENT			)
-WORKFLOW.add_node(	node="EVALUATION_AGENT"			,	action=EVALUATION_AGENT			)
-WORKFLOW.add_node(	node="COMMUNICATION_AGENT"		,	action=COMMUNICATION_AGENT		)
+AGENTS = [
+	(	"MANAGER_AGENT"			, MANAGER_AGENT			, "Giao tiếp với người dùng"	, "core"		),
+	(	"ROUTER_AGENT"			, ROUTER_AGENT			, "Định tuyến theo chủ đề"		, "logic"		),
+	(	"SYSTEM_AGENT"			, SYSTEM_AGENT			, "Đảm bảo logic hệ thống"		, "control"		),
+	(	"ORCHESTRATE_AGENTS"	, ORCHESTRATE_AGENTS	, "Điều phối agent"				, "control"		),
+	(	"REASONING_AGENT"		, REASONING_AGENT		, "Suy luận yêu cầu"			, "core"		),
+	(	"RESEARCH_AGENT"		, RESEARCH_AGENT		, "Tìm kiếm & hỗ trợ"			, "core"		),
+	(	"PLANNING_AGENT"		, PLANNING_AGENT		, "Lập kế hoạch"				, "core"		),
+	(	"EXECUTION_AGENT"		, EXECUTION_AGENT		, "Thực thi tác vụ"				, "exec"		),
+	(	"DEBUGGING_AGENT"		, DEBUGGING_AGENT		, "Kiểm lỗi"					, "verify"		),
+	(	"EVALUATION_AGENT"		, EVALUATION_AGENT		, "Đánh giá kết quả"			, "verify"		),
+	(	"COMMUNICATION_AGENT"	, COMMUNICATION_AGENT	, "Tổng hợp phản hồi"			, "output"		),
+]
+
+for name, func, desc, group in AGENTS:
+	WORKFLOW.add_node(
+		node=name,
+		action=func,
+		metadata={
+			"description": desc,
+			"group": group,
+			"tags": [group, "agent"]
+		}
+	)
 
 WORKFLOW.add_edge(	start_key=START					, 	end_key="MANAGER_AGENT"			)
 WORKFLOW.add_edge(	start_key="MANAGER_AGENT"		, 	end_key="ROUTER_AGENT"			)
@@ -82,11 +95,15 @@ AGENTIC = WORKFLOW.compile(
 
 
 
+# từ giao diện người dùng, ta truyền tin nhắn vào theo chuẩn openai, 
+
+
+
 # quy trình thực thi agent này được viết ra nhằm đối phó với những vấn đề người dùng đặt ra.
 
 
 
-# TODO: Ta sẽ truyền ngữ cảnh nghĩa là toán lịch sử cuộc trò chuyện vào cho mô hình ngôn ngữ lớn, để làm được như vậy, ta cũng cần tính toán 
+# Ta sẽ truyền ngữ cảnh nghĩa là toàn bộ lịch sử cuộc trò chuyện vào cho mô hình ngôn ngữ lớn, để làm được như vậy, ta cũng cần tính toán 
 # số lượng max_token mà mô hình cho phép xử lý, nếu vượt quá số đó thì ta cần gọi đến AGENT_SUMZATION để tổng hợp lại toàn bộ ngữ cảnh cuộc trò 
 # chuyện sau đó lại nhắc lại system_prompt cho agent. 
 

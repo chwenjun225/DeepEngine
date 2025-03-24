@@ -1,3 +1,4 @@
+
 import re 
 import json 
 from typing_extensions import Type, List, Dict
@@ -12,7 +13,57 @@ from langchain_core.language_models import LanguageModelInput
 
 
 from state import State 
-from const_vars import (DEBUG, LLAMA_TOKENS)
+from const_vars import (DEBUG, LLAMA_TOKENS, ENCODING, MAX_TOKENS)
+
+
+
+def trim_context(messages: list[dict], max_tokens: int = MAX_TOKENS) -> list[dict]:
+	"""Cắt bớt context nếu vượt token limit (cắt từ đầu)."""
+	while count_tokens(messages) > max_tokens and len(messages) > 1:
+		messages = messages[1:]
+	return messages
+
+
+
+def has_system_prompt(messages: list[dict], agent_name: str) -> bool:
+	"""Kiểm tra đã có system message cho agent này chưa."""
+	return any(
+		msg.get("role") == "system" and msg.get("name") == agent_name
+		for msg in messages
+	)
+
+
+
+def count_tokens(messages: list[dict]) -> int:
+	"""Đếm tổng số tokens trong messages theo model."""
+	num_tokens = 0
+	for msg in messages:
+		num_tokens += 4
+		for _, value in msg.items():
+			num_tokens += len(ENCODING.encode(str(value)))
+	num_tokens += 2
+	return num_tokens
+
+
+
+def estimate_tokens(text: str) -> int:
+	"""Ước lượng token trong prompt."""
+	return len(ENCODING.encode(text))
+
+
+
+def get_safe_num_predict(prompt: str, max_context: int = 131072, buffer: int = 512) -> int:
+	"""Hàm tự động tính num_predict
+
+	Args:
+		prompt: nội dung bạn muốn gửi vào mô hình
+		max_context: tổng context window của model (token)
+		model_name: để chọn đúng tokenizer
+		buffer: token chừa ra để tránh cắt hoặc lỗi
+	"""
+	prompt_tokens = estimate_tokens(prompt)
+	available_tokens = max_context - prompt_tokens - buffer
+	return max(256, min(available_tokens, 128000))
 
 
 
@@ -78,60 +129,44 @@ def build_react_sys_msg_prompt(tool_desc_prompt: str, react_prompt: str, tools: 
 
 
 
-def conversation2json(
-		msg_prompt: str, 
-		llm_structure_output: Runnable[LanguageModelInput, Dict | BaseModel], 
-		human_msg: Dict, 
-		schema: Type[Dict]
-	) -> json:
-	"""Parses user's query into structured JSON for manager_agent.
-
-	Args:
-		llm_structure_output (Runnable[LanguageModelInput, Dict | BaseModel]): LLM function to generate structured output.
-		human_msg (HumanMessage): User's input message.
-		schema (Type[Dict]): TypedDict schema to validate JSON.
-
-	Returns:
-		Dict: Validated JSON containing:
-			{
-				"response": "A conversational response to the user's query.",
-				"justification": "A brief explanation or reasoning behind the response."
-			}
-
-	Raises:
-		ValueError: If the response does not contain valid JSON or is missing required fields.
-	"""
-	json_data = llm_structure_output.invoke([human_msg])
-	if not json_data:
-		json_schema = json.dumps(TypeAdapter(schema).json_schema()["properties"], indent=2).strip()
-		sys_msg = SystemMessage(content=msg_prompt.format(
-			BEGIN_OF_TEXT=LLAMA_TOKENS["BEGIN_OF_TEXT"], 
-			START_HEADER_ID=LLAMA_TOKENS["START_HEADER_ID"], 
-			END_HEADER_ID=LLAMA_TOKENS["END_HEADER_ID"], 
-			json_schema=json_schema, 
-			human_msg=human_msg.content, 
-			END_OF_TURN_ID=LLAMA_TOKENS["END_OF_TURN_ID"]
-		))
-		ai_msg_json = LLM_LTEMP.invoke([sys_msg])
-		pattern = r"```json\n(.*?)\n```"
-		match = re.search(pattern=pattern, string=ai_msg_json.content, flags=re.DOTALL)
-		if not match: 
-			raise ValueError(">>> Không tìm thấy JSON hợp lệ trong phản hồi của mô hình.")
-		json_string = match.group(1).strip()
-		try:
-			json_data = json.loads(json_string)
-			if DEBUG: 
-				print(">>> JSON hợp lệ:")
-				print(json.dumps(json_data, indent=2, ensure_ascii=False))
-		except json.JSONDecodeError as e:
-			raise ValueError(f">>> JSON không hợp lệ (DecodeError): {e}")
-	missing_keys = set(schema.__annotations__.keys()) - json_data.keys()
-	extra_keys = json_data.keys() - set(schema.__annotations__.keys())
-	if missing_keys:
-		raise ValueError(f">>> JSON thiếu các trường bắt buộc: {missing_keys}")
-	if extra_keys: 
-		raise ValueError(f">>> JSON có các trường không hợp lệ: {extra_keys}")
-	return json_data
+# def conversation2json(
+# 		msg_prompt: str, 
+# 		llm_structure_output: Runnable[LanguageModelInput, Dict | BaseModel], 
+# 		human_msg: Dict, 
+# 		schema: Type[Dict]
+# 	) -> json:
+# 	"""Parses user's query into structured JSON for manager_agent."""
+# 	json_data = llm_structure_output.invoke([human_msg])
+# 	if not json_data:
+# 		json_schema = json.dumps(TypeAdapter(schema).json_schema()["properties"], indent=2).strip()
+# 		sys_msg = SystemMessage(content=msg_prompt.format(
+# 			BEGIN_OF_TEXT=LLAMA_TOKENS["BEGIN_OF_TEXT"], 
+# 			START_HEADER_ID=LLAMA_TOKENS["START_HEADER_ID"], 
+# 			END_HEADER_ID=LLAMA_TOKENS["END_HEADER_ID"], 
+# 			json_schema=json_schema, 
+# 			human_msg=human_msg.content, 
+# 			END_OF_TURN_ID=LLAMA_TOKENS["END_OF_TURN_ID"]
+# 		))
+# 		ai_msg_json = LLM_LTEMP.invoke([sys_msg])
+# 		pattern = r"```json\n(.*?)\n```"
+# 		match = re.search(pattern=pattern, string=ai_msg_json.content, flags=re.DOTALL)
+# 		if not match: 
+# 			raise ValueError(">>> Không tìm thấy JSON hợp lệ trong phản hồi của mô hình.")
+# 		json_string = match.group(1).strip()
+# 		try:
+# 			json_data = json.loads(json_string)
+# 			if DEBUG: 
+# 				print(">>> JSON hợp lệ:")
+# 				print(json.dumps(json_data, indent=2, ensure_ascii=False))
+# 		except json.JSONDecodeError as e:
+# 			raise ValueError(f">>> JSON không hợp lệ (DecodeError): {e}")
+# 	missing_keys = set(schema.__annotations__.keys()) - json_data.keys()
+# 	extra_keys = json_data.keys() - set(schema.__annotations__.keys())
+# 	if missing_keys:
+# 		raise ValueError(f">>> JSON thiếu các trường bắt buộc: {missing_keys}")
+# 	if extra_keys: 
+# 		raise ValueError(f">>> JSON có các trường không hợp lệ: {extra_keys}")
+# 	return json_data
 
 
 

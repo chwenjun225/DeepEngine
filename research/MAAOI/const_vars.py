@@ -5,6 +5,7 @@ from queue import Queue
 
 
 
+import tiktoken
 from ultralytics import YOLO 
 
 
@@ -23,29 +24,34 @@ import prompts
 
 
 
-YOLO_OBJECT_DETECTION = YOLO(f"{os.getcwd()}/research/MAAOI/VisionAgent/runs/detect/train/weights/best.pt")
-REASONING_INSTRUCT_LLM = ChatOllama(model="deepseek-r1:1.5b-qwen-distill-fp16", temperature=0.1, num_predict=128_000)
-VISION_INSTRUCT_LLM = ChatOllama(model="minicpm-v:8b-2.6-q2_K", temperature=0.1, num_predict=128_000)
-
-
-
-MANGER_AGENT_PROMPT_MSG 		= 	prompts.AGENT_MANAGER_PROMPT
-SYSTEM_AGENT_PROMPT_MSG 		= 	prompts.SYSTEM_AGENT_PROMPT
-ROUTER_AGENT_PROMPT_MSG 		= 	prompts.ROUTER_AGENT_PROMPT
-REASONING_AGENT_PROMPT_MSG 		= 	prompts.REASONING_AGENT_PROMPT
-RESEARCH_AGENT_PROMPT_MSG 		= 	prompts.RESEARCH_AGENT_PROMPT
-PLANNING_AGENT_PROMPT_MSG 		= 	prompts.PLANNING_AGENT_PROMPT
-EXECUTION_AGENT_PROMPT_MSG 		= 	prompts.EXECUTION_AGENT_PROMPT
-COMMUNICATION_AGENT_PROMPT_MSG 	= 	prompts.COMMUNICATION_AGENT_PROMPT
-EVALUATION_AGENT_PROMPT_MSG		= 	prompts.EVALUATION_AGENT_PROMPT
-DEBUGGING_AGENT_PROMPT_MSG		= 	prompts.DEBUGGING_AGENT_PROMPT
-
-
-
+MAX_TOKENS = 32_000
 PRODUCT_STATUS = "..."
 FRAME_QUEUE = Queue()
 MESSAGES_HISTORY_UI = []
 STATUS_LOCK = threading.Lock()
+
+
+
+ENCODING = tiktoken.get_encoding("cl100k_base") 
+YOLO_OBJECT_DETECTION = YOLO(f"{os.getcwd()}/research/MAAOI/VisionAgent/runs/detect/train/weights/best.pt")
+REASONING_INSTRUCT_LLM = ChatOllama(model="DeepSeek-R1-Distill-Qwen-7B-Q4_K_M:latest", num_predict=32_000)
+VISION_INSTRUCT_LLM = ChatOllama(model="Llama-3.2-11B-Vision-Instruct.Q4_K_M:latest", num_predict=32_000)
+
+
+
+MANGER_AGENT_PROMPT_MSG 					= 		prompts.AGENT_MANAGER_PROMPT
+SYSTEM_AGENT_PROMPT_MSG 					= 		prompts.SYSTEM_AGENT_PROMPT
+ROUTER_AGENT_PROMPT_MSG 					= 		prompts.ROUTER_AGENT_PROMPT
+REASONING_AGENT_PROMPT_MSG 					= 		prompts.REASONING_AGENT_PROMPT
+RESEARCH_AGENT_PROMPT_MSG 					= 		prompts.RESEARCH_AGENT_PROMPT
+PLANNING_AGENT_PROMPT_MSG 					= 		prompts.PLANNING_AGENT_PROMPT
+EXECUTION_AGENT_PROMPT_MSG 					= 		prompts.EXECUTION_AGENT_PROMPT
+COMMUNICATION_AGENT_PROMPT_MSG 				= 		prompts.COMMUNICATION_AGENT_PROMPT
+EVALUATION_AGENT_PROMPT_MSG					= 		prompts.EVALUATION_AGENT_PROMPT
+DEBUGGING_AGENT_PROMPT_MSG					= 		prompts.DEBUGGING_AGENT_PROMPT
+
+INSTRUCT_VISISON_AGENT_PROMPT_MSG			=		prompts.INSTRUCT_VISION_AGENT_PROMPT
+INSTRUCT_VISION_EXPLAIN_AGENT_PROMPT_MSG 	= 		prompts.INSTRUCT_VISION_EXPLAIN_AGENT_PROMPT
 
 
 
@@ -56,17 +62,6 @@ EMBEDDING_FUNC = HuggingFaceEmbeddings(model_name="sentence-transformers/all-Min
 
 
 CHAT_HISTORY_COLLECTION_NAME = "maaoi"
-
-
-
-LLAMA_TOKENS = {
-	"BEGIN_OF_TEXT"			:	"<|begin_of_text|>"		,
-	"END_OF_TEXT"			:	"<|end_of_text|>"		,
-	"START_HEADER_ID"		:	"<|start_header_id|>"	,
-	"END_HEADER_ID"			:	"<|end_header_id|>"		,
-	"END_OF_MESSAGE_ID"		:	"<|eom_id|>"			,
-	"END_OF_TURN_ID"		:	"<|eot_id|>"
-}
 
 
 
@@ -105,3 +100,47 @@ The model should achieve at least 0.95 (95%) accuracy on the test set and be imp
 
 
 DEBUG = False
+
+
+
+LLAMA_TOKENS = {
+	"BEGIN_OF_TEXT"			:	"<|begin_of_text|>"		,
+	"END_OF_TEXT"			:	"<|end_of_text|>"		,
+	"START_HEADER_ID"		:	"<|start_header_id|>"	,
+	"END_HEADER_ID"			:	"<|end_header_id|>"		,
+	"END_OF_MESSAGE_ID"		:	"<|eom_id|>"			,
+	"END_OF_TURN_ID"		:	"<|eot_id|>"			,
+}
+
+
+
+CONTEXT = [
+	{"role": "system", "name": "MANAGER_AGENT", "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, 
+	{"role": "user", "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, 
+	{"role": "assistant", "name": "MANAGER_AGENT", "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, 
+    
+
+
+	{"role": "system", "name": "ROUTER", "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, 
+	{"role": "assistant", "name": "ROUTER", "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+    
+
+	{"role": "system", "name": "SYSTEM_AGENT", "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, 
+	{"role": "assistant", "name": "SYSTEM_AGENT", "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+    
+
+	{"role": "system", "name": "ORCHESTRATE_AGENTS", "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, 
+	{"role": "assistant", "name": "ORCHESTRATE_AGENTS", "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+
+	{"role": "system", "name": "REASONING_AGENT", "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, 
+	{"role": "assistant", "name": "REASONING_AGENT", "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+
+	{"role": "system", "name": "RESEARCH_AGENT", "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, 
+	{"role": "assistant", "name": "RESEARCH_AGENT", "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+
+	{"role": "system", "name": "PLANNING_AGENT", "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, 
+	{"role": "assistant", "name": "PLANNING_AGENT", "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+    
+	{"role": "system", "name": "EXECUTION_AGENT", "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, 
+	{"role": "assistant", "name": "EXECUTION_AGENT", "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+]

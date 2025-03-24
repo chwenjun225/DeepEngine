@@ -29,7 +29,9 @@ VISION_INSTRUCT_LLM = ChatOllama(model="minicpm-v:8b-2.6-q2_K", temperature=0.1,
 
 
 
+MANGER_AGENT_PROMPT_MSG 		= 	prompts.AGENT_MANAGER_PROMPT
 SYSTEM_AGENT_PROMPT_MSG 		= 	prompts.SYSTEM_AGENT_PROMPT
+ROUTER_AGENT_PROMPT_MSG 		= 	prompts.ROUTER_AGENT_PROMPT
 REASONING_AGENT_PROMPT_MSG 		= 	prompts.REASONING_AGENT_PROMPT
 RESEARCH_AGENT_PROMPT_MSG 		= 	prompts.RESEARCH_AGENT_PROMPT
 PLANNING_AGENT_PROMPT_MSG 		= 	prompts.PLANNING_AGENT_PROMPT
@@ -47,27 +49,13 @@ STATUS_LOCK = threading.Lock()
 
 
 
-PATH_MAP = {
-	"SYSTEM_AGENT"			:	"SYSTEM_AGENT"			, 
-	"ORCHESTRATE_AGENTS"	: 	"ORCHESTRATE_AGENTS"	, 
-	"REASONING_AGENT"		:	"REASONING_AGENT"		, 
-	"RESEARCH_AGENT"		: 	"RESEARCH_AGENT"		, 
-	"PLANNING_AGENT"		: 	"PLANNING_AGENT"		, 
-	"EXECUTION_AGENT"		: 	"EXECUTION_AGENT"		, 
-	"COMMUNICATION_AGENT"	: 	"COMMUNICATION_AGENT"	, 
-	"EVALUATION_AGENT"		: 	"EVALUATION_AGENT"		, 
-	"DEBUGGING_AGENT"		: 	"DEBUGGING_AGENT"	
-}
-
-
-
 CONNECTION = "postgresql+psycopg://langchain:langchain@localhost:2028/langchain" 
-COLLECTION_NAME = "foxconn_fulian_b09_ai_research_tranvantuan_v1047876"
+COLLECTION_NAME = "maaoi"
 EMBEDDING_FUNC = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
 
 
-CHAT_HISTORY_COLLECTION_NAME = "foxconn_fulian_b09_ai_research_tranvantuan_v1047876"
+CHAT_HISTORY_COLLECTION_NAME = "maaoi"
 
 
 

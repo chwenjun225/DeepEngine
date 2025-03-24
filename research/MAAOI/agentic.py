@@ -1,59 +1,89 @@
 from langgraph.graph import(
-    StateGraph, 
-    START, 
-    END
+	StateGraph										, 
+	START											, 
+	END												,
 )
 
 
 
 from state import State 
 from const_vars import (
-    PATH_MAP, 
-    DEBUG, 
-    CHECKPOINTER, 
-    STORE
+	DEBUG											, 
+	CHECKPOINTER									, 
+	STORE											,
 )
 from nodes import (
-	SYSTEM_AGENT, 
-    ORCHESTRATE_AGENTS, 
-	REASONING_AGENT, 
-	RESEARCH_AGENT, 
-	PLANNING_AGENT, 
-	EXECUTION_AGENT, 
-    COMMUNICATION_AGENT, 
-	EVALUATION_AGENT, 
-	DEBUGGING_AGENT
+	MANAGER_AGENT									,
+	ROUTER_AGENT									,
+	SYSTEM_AGENT									,
+	ORCHESTRATE_AGENTS								,
+	REASONING_AGENT									,
+	RESEARCH_AGENT									,
+	PLANNING_AGENT									,
+	EXECUTION_AGENT									,
+	COMMUNICATION_AGENT								,
+	EVALUATION_AGENT								,
+	DEBUGGING_AGENT									,
 )
 
 
 
 WORKFLOW = StateGraph(State)
 
-WORKFLOW.add_node(	node="SYSTEM_AGENT"				,		action=SYSTEM_AGENT			)
-WORKFLOW.add_node(	node="ORCHESTRATE_AGENTS"		,		action=ORCHESTRATE_AGENTS	)
-WORKFLOW.add_node(	node="REASONING_AGENT"			,		action=REASONING_AGENT		)
-WORKFLOW.add_node(	node="RESEARCH_AGENT"			,		action=RESEARCH_AGENT		)
-WORKFLOW.add_node(	node="PLANNING_AGENT"			,		action=PLANNING_AGENT		)
-WORKFLOW.add_node(	node="EXECUTION_AGENT"			,		action=EXECUTION_AGENT		)
-WORKFLOW.add_node(	node="COMMUNICATION_AGENT"		,		action=COMMUNICATION_AGENT	)
-WORKFLOW.add_node(	node="EVALUATION_AGENT"			,		action=EVALUATION_AGENT		)
-WORKFLOW.add_node(	node="DEBUGGING_AGENT"			,		action=DEBUGGING_AGENT		)
+WORKFLOW.add_node(	node="MANAGER_AGENT"			,	action=MANAGER_AGENT			)
+WORKFLOW.add_node(	node="ROUTER_AGENT"				,	action=ROUTER_AGENT				)
+WORKFLOW.add_node(	node="SYSTEM_AGENT"				,	action=SYSTEM_AGENT				)
+WORKFLOW.add_node(	node="ORCHESTRATE_AGENTS"		,	action=ORCHESTRATE_AGENTS		)
+WORKFLOW.add_node(	node="REASONING_AGENT"			,	action=REASONING_AGENT			)
+WORKFLOW.add_node(	node="RESEARCH_AGENT"			,	action=RESEARCH_AGENT			)
+WORKFLOW.add_node(	node="PLANNING_AGENT"			,	action=PLANNING_AGENT			)
+WORKFLOW.add_node(	node="EXECUTION_AGENT"			,	action=EXECUTION_AGENT			)
+WORKFLOW.add_node(	node="DEBUGGING_AGENT"			,	action=DEBUGGING_AGENT			)
+WORKFLOW.add_node(	node="EVALUATION_AGENT"			,	action=EVALUATION_AGENT			)
+WORKFLOW.add_node(	node="COMMUNICATION_AGENT"		,	action=COMMUNICATION_AGENT		)
 
-WORKFLOW.add_edge(start_key=START, end_key="SYSTEM_AGENT")
-WORKFLOW.add_conditional_edges(
-	source="SYSTEM_AGENT", 
-	path_map=PATH_MAP, 
-	then="cleanup"
+WORKFLOW.add_edge(	start_key=START					, 	end_key="MANAGER_AGENT"			)
+WORKFLOW.add_edge(	start_key="MANAGER_AGENT"		, 	end_key="ROUTER_AGENT"			)
+WORKFLOW.add_conditional_edges(	
+	source="ROUTER_AGENT"							, 
+	path={
+		END: END									, 
+		"SYSTEM_AGENT": "SYSTEM_AGENT"				, 
+	}												, 
+	then="cleanup"									, 
 )
+WORKFLOW.add_edge(	start_key="SYSTEM_AGENT"		, 	end_key="ROUTER_AGENT"			)
+WORKFLOW.add_edge(	start_key="SYSTEM_AGENT"		, 	end_key="ORCHESTRATE_AGENTS"	)
+WORKFLOW.add_edge(	start_key="ORCHESTRATE_AGENTS"	,	end_key="REASONING_AGENT"		)
+WORKFLOW.add_edge(	start_key="REASONING_AGENT"		, 	end_key="RESEARCH_AGENT"		)
+WORKFLOW.add_edge(	start_key="RESEARCH_AGENT"		,	end_key="PLANNING_AGENT"		)
+WORKFLOW.add_edge(	start_key="PLANNING_AGENT"		,	end_key="EXECUTION_AGENT"		)
 
-
+WORKFLOW.add_conditional_edges(
+	source="EXECUTION_AGENT"						,
+	path={
+		"DEBUGGING_AGENT": "DEBUGGING_AGENT"		, 
+		"EVALUATION_AGENT": "EVALUATION_AGENT"		, 
+	}, 
+	then="cleanup"									,
+)
+WORKFLOW.add_edge(	start_key="DEBUGGING_AGENT"		, 	end_key="EXECUTION_AGENT"		)
+WORKFLOW.add_edge(	start_key="EVALUATION_AGENT"	, 	end_key="EXECUTION_AGENT"		)
+WORKFLOW.add_edge(	start_key="DEBUGGING_AGENT"		, 	end_key="EVALUATION_AGENT"		)
+WORKFLOW.add_edge(	start_key="EVALUATION_AGENT"	, 	end_key="COMMUNICATION_AGENT"	)
+WORKFLOW.add_edge(	start_key="COMMUNICATION_AGENT"	, 	end_key=END						)
 
 AGENTIC = WORKFLOW.compile(
 	store=STORE, 
-    debug=DEBUG, 
+	debug=DEBUG, 
 	checkpointer=CHECKPOINTER,
-	name="foxconn_fulian_b09_ai_research_tranvantuan_v1047876"
+	name="maaoi"
 )
+
+
+
+# quy trình thực thi agent này được viết ra nhằm đối phó với những vấn đề người dùng đặt ra.
+
 
 
 # TODO: Ta sẽ truyền ngữ cảnh nghĩa là toán lịch sử cuộc trò chuyện vào cho mô hình ngôn ngữ lớn, để làm được như vậy, ta cũng cần tính toán 

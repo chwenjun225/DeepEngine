@@ -17,19 +17,31 @@ from const_vars import (
 	EXECUTION_AGENT_PROMPT_MSG		,
 	COMMUNICATION_AGENT_PROMPT_MSG	,
 	EVALUATION_AGENT_PROMPT_MSG		,
-	DEBUGGING_AGENT_PROMPT_MSG
+	DEBUGGING_AGENT_PROMPT_MSG		, 
 )
 from utils import (
 	get_msgs				, 				
 	add_unique_msg			, 
 	get_latest_msg			,	 
-	get_latest_user_query	 
+	get_latest_user_query	,
 )
 
 
 
+def MANAGER_AGENT(state: State) -> State:
+	"""Trò chuyện giao tiếp với người dùng."""
+	return state
+
+
+
+def ROUTER_AGENT(state: State) -> State:
+	"""Kiểm tra xem truy vấn người dùng có liên quan đến AI hoặc ML không."""
+	return state
+
+
+
 def SYSTEM_AGENT(state: State) -> State:
-	"""Quản lý toàn bộ workflow, đảm bảo tính logic và nhất quán của hệ thống."""
+	"""Quản lý toàn bộ workflow, đảm bảo tính logic của hệ thống."""
 	user_query = get_latest_user_query(state=state)
 	existing_sys_msgs = get_latest_msg(state=state, node="SYSTEM_AGENT", msgs_type="SYS")
 	if not existing_sys_msgs:

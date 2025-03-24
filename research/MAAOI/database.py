@@ -447,7 +447,7 @@ python database.py \
 EXPORT_COLLECTIONS_DATA = """
 python database.py \
 	--action export_collections_data \
-	--collection_name foxconn_fulian_b09_ai_research_tranvantuan_v1047876 \
+	--collection_name maaoi \
 	--persist_directory /home/chwenjun225/projects/DeepEngine/src/DeepEngine/chromadb_storage \
 	--output_file /home/chwenjun225/projects/DeepEngine/src/DeepEngine/output_file.json
 """
@@ -457,7 +457,7 @@ python database.py \
 UPLOAD_DATA_TO_SERVER = """
 python database.py \
 	--action upload_data_to_server \
-	--collection_name foxconn_fulian_b09_ai_research_tranvantuan_v1047876 \
+	--collection_name maaoi \
 	--persist_directory /home/chwenjun225/projects/DeepEngine/src/DeepEngine/chromadb_storage \
 	--chunk_size 500 \
 	--chunk_overlap 50 \
@@ -473,6 +473,6 @@ python database.py \
 REMOVE_COLLECTION = """
 python database.py \
 	--action remove_collection \
-	--collection_name foxconn_fulian_b09_ai_research_tranvantuan_v1047876 \
+	--collection_name maaoi \
 	--persist_directory /home/chwenjun225/projects/DeepEngine/src/DeepEngine/chromadb_storage
 """

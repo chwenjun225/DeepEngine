@@ -95,9 +95,17 @@ def user_interface_chatbot_resp(user_input: str, history: list[dict]) -> list[di
 	"""Xử lý truy vấn của người dùng và trả về hội thoại theo OpenAI-style, trên giao diện người dùng."""
 	if not user_input.strip(): 
 		return history + [{"role": "assistant", "content": "You have not entered any content."}]
+
+
+
+	# TODO: Bug HERE #################################################################
+	# Viết code sử dụng command, điều khiển luồng trong langgraph 
 	state_data = AGENTIC.invoke(
 		input={"messages": [{"role": "user", "content": user_input}]}, config=CONFIG
 	)
+
+
+
 	check_req_ver = get_latest_msg(state=state_data, node="REQUEST_VERIFY", msgs_type="AI")
 	if check_req_ver["content"] == "NO":
 		ai_resp = get_latest_msg(state=state_data, node="MANAGER_AGENT", msgs_type="AI")

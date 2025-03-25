@@ -1,19 +1,30 @@
 
 import re 
 import json 
-from typing_extensions import Type, List, Dict
-from pydantic import BaseModel, TypeAdapter
 
 
 
-from langchain_core.runnables import Runnable
+from langchain_core.runnables import RunnableLambda
 from langchain_core.tools import BaseTool 
-from langchain_core.language_models import LanguageModelInput
+
+
+
+from langchain_core.messages import BaseMessage, BaseMessage, SystemMessage, AIMessage
 
 
 
 from state import State 
-from const_vars import (DEBUG, LLAMA_TOKENS, ENCODING, MAX_TOKENS)
+from const_vars import (
+	LLAMA_TOKENS, 
+	ENCODING, 
+	MAX_TOKENS
+)
+
+
+
+def passthrough() -> RunnableLambda:
+	"""Trả về một Runnable không thay đổi state."""
+	return RunnableLambda(lambda x: x)
 
 
 
@@ -26,11 +37,15 @@ def trim_context(messages: list[dict]) -> list[dict]:
 
 
 def has_system_prompt(messages: list[dict], agent_name: str) -> bool:
-	"""Kiểm tra đã có system message cho agent này chưa."""
-	return any(
-		msg.get("role") == "system" and msg.get("name") == agent_name
-		for msg in messages
-	)
+	"""Kiểm tra đã có system message cho agent này chưa, hỗ trợ OpenAI format và BaseMessage."""
+	for msg in messages:
+		if isinstance(msg, dict):
+			if msg.get("role") == "system" and msg.get("name") == agent_name:
+				return True
+		elif isinstance(msg, SystemMessage):
+			if getattr(msg, "name", None) == agent_name:
+				return True
+	return False
 
 
 
@@ -67,19 +82,19 @@ def get_safe_num_predict(prompt: str, max_context: int = 131072, buffer: int = 5
 
 
 
-def get_latest_user_query(state: State) -> Dict:
+def get_latest_user_query(state: State) -> dict:
 	"""Lấy truy vấn người dùng mới nhất, O(1)."""
 	return state["user_query"]
 
 
 
-def get_msgs(state: State, node: str, type_msgs) -> List[Dict]:
+def get_msgs(state: State, node: str, type_msgs) -> list[dict]:
 	"""Lấy danh sách tin nhắn của một node theo loại tin nhắn."""
 	return state["messages"][node][type_msgs]
 
 
 
-def get_latest_msg(state: State, node: str, type_msgs: str) -> Dict|None:
+def get_latest_msg(state: State, node: str, type_msgs: str) -> dict|None:
 	"""Lấy tin nhắn mới nhất từ một node theo loại tin nhắn, O(1)."""
 	return state["messages"][node][type_msgs][-1] if \
 		get_msgs(state=state, node=node, type_msgs=type_msgs) \
@@ -87,7 +102,7 @@ def get_latest_msg(state: State, node: str, type_msgs: str) -> Dict|None:
 
 
 
-def add_unique_msg(state: State, node: str, type_msgs: str, msg: Dict) -> None:
+def add_unique_msg(state: State, node: str, type_msgs: str, msg: dict) -> None:
 	"""Chỉ thêm nếu khác với tin nhắn cuối, O(1)."""
 	existing_msgs = get_msgs(state=state, node=node, type_msgs=type_msgs)
 	if not existing_msgs or existing_msgs[-1]["content"] != msg["content"]:
@@ -95,7 +110,7 @@ def add_unique_msg(state: State, node: str, type_msgs: str, msg: Dict) -> None:
 
 
 
-def build_react_sys_msg_prompt(tool_desc_prompt: str, react_prompt: str, tools: List[BaseTool]) -> str:
+def build_react_sys_msg_prompt(tool_desc_prompt: str, react_prompt: str, tools: list[BaseTool]) -> str:
 	"""Builds a formatted system prompt with tool descriptions.
 
 	Args:

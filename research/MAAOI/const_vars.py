@@ -33,13 +33,13 @@ STATUS_LOCK = threading.Lock()
 
 
 ENCODING = tiktoken.get_encoding("cl100k_base") 
-YOLO_OBJECT_DETECTION = YOLO(f"{os.getcwd()}/research/MAAOI/VisionAgent/runs/detect/train/weights/best.pt")
-REASONING_INSTRUCT_LLM = ChatOllama(model="DeepSeek-R1-Distill-Qwen-7B-Q4_K_M:latest", num_predict=32_000)
-VISION_INSTRUCT_LLM = ChatOllama(model="Llama-3.2-11B-Vision-Instruct.Q4_K_M:latest", num_predict=32_000)
+YOLO_OBJECT_DETECTION = YOLO("/home/chwenjun225/projects/DeepEngine/research/MAAOI/VisionAgent/runs/detect/train/weights/best.pt")
+REASONING_INSTRUCT_LLM = ChatOllama(model="DeepSeek-R1-Distill-Qwen-7B-Q4_K_M:latest", num_predict=128_000)
+VISION_INSTRUCT_LLM = ChatOllama(model="Llama-3.2-11B-Vision-Instruct.Q4_K_M:latest", num_predict=128_000)
 
 
 
-MANGER_AGENT_PROMPT_MSG 					= 		prompts.MANAGER_AGENT_PROMPT
+MANAGER_AGENT_PROMPT_MSG 					= 		prompts.MANAGER_AGENT_PROMPT
 ROUTER_AGENT_PROMPT_MSG 					= 		prompts.ROUTER_AGENT_PROMPT
 SYSTEM_AGENT_PROMPT_MSG 					= 		prompts.SYSTEM_AGENT_PROMPT
 ORCHESTRATE_AGENT_PROMPT_MSG				=	 	prompts.ORCHESTRATE_AGENT_PROMPT

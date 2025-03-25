@@ -1,15 +1,18 @@
-import json 
-from typing_extensions import cast, List
+from typing_extensions import cast, Literal
+
+
+from langchain_core.messages import convert_to_openai_messages
 
 
 
 from langgraph.graph import END
+from langgraph.types import Command
 
 
 
 from state import State
 from const_vars import (
-	MANGER_AGENT_PROMPT_MSG			,
+	MANAGER_AGENT_PROMPT_MSG		,
 	ROUTER_AGENT_PROMPT_MSG			,
 	SYSTEM_AGENT_PROMPT_MSG			,
 	ORCHESTRATE_AGENT_PROMPT_MSG	,
@@ -38,8 +41,7 @@ from utils import (
 
 def MANAGER_AGENT(state: State) -> State:
 	"""Tiếp nhận truy vấn người dùng và phản hồi theo ngữ cảnh."""
-	msgs = cast(list[dict], state["messages"])
-
+	msgs = cast(list[dict], state["messages"]) # Sửa lại sử dụng theo chuẩn của Langgraph
 	if not has_system_prompt(
 		messages=msgs, 
 		agent_name="MANAGER_AGENT"
@@ -47,22 +49,21 @@ def MANAGER_AGENT(state: State) -> State:
 		sys_msg = {
 			"role": "system", 
 			"name": "MANAGER_AGENT", 
-			"content": MANGER_AGENT_PROMPT_MSG
+			"content": MANAGER_AGENT_PROMPT_MSG
 		}
 		msgs = [sys_msg] + msgs
-
 	ctx = trim_context(messages=msgs)
 	resp = REASONING_INSTRUCT_LLM.invoke(input=ctx)
-
 	resp["name"] = "MANAGER_AGENT"
 	return {"messages": [resp]}
 
 
 
-def ROUTER_AGENT(state: State) -> State:
+def ROUTER_AGENT(state: State) -> Command[Literal["SYSTEM_AGENT", "__end__"]]:
 	"""Phân loại truy vấn có thuộc domain AI/ML không."""
-	msgs = cast(list[dict], state["messages"])
-
+	msgs = convert_to_openai_messages(
+		messages=cast(list[dict], state["messages"])
+	)
 	if not has_system_prompt(
 		messages=msgs, 
 		agent_name="ROUTER_AGENT"
@@ -73,22 +74,18 @@ def ROUTER_AGENT(state: State) -> State:
 			"content": ROUTER_AGENT_PROMPT_MSG
 		}
 		msgs = msgs + [sys_msg]
-
 	ctx = trim_context(messages=msgs)
-	resp = REASONING_INSTRUCT_LLM.invoke(input=ctx)
+	resp = convert_to_openai_messages(messages=REASONING_INSTRUCT_LLM.invoke(input=ctx))
 	resp["name"] = "ROUTER_AGENT"
-
-	if "no" in str(resp["content"]).lower():
-		return END
-
 	return {"messages": [resp]}
 
 
 
 def SYSTEM_AGENT(state: State) -> State:
 	"""Chuẩn hóa đầu vào và đảm bảo logic yêu cầu người dùng."""
-	msgs = cast(List[dict], state["messages"])
-
+	msgs = convert_to_openai_messages(
+		messages=cast(list[dict], state["messages"])
+	)
 	if not has_system_prompt(
 		messages=msgs, 
 		agent_name="SYSTEM_AGENT"
@@ -99,19 +96,18 @@ def SYSTEM_AGENT(state: State) -> State:
 			"content": SYSTEM_AGENT_PROMPT_MSG
 		}
 		msgs = msgs + [sys_msg]
-
 	ctx = trim_context(messages=msgs)
 	resp = REASONING_INSTRUCT_LLM.invoke(input=ctx)
 	resp["name"] = "SYSTEM_AGENT"
-
 	return {"messages": [resp]}
 
 
 
 def ORCHESTRATE_AGENT(state: State) -> State: 
 	"""Xác định các agent cần thiết cho luồng hiện tại."""
-	msgs = cast(List[dict], state["messages"])
-
+	msgs = convert_to_openai_messages(
+		messages=cast(list[dict], state["messages"])
+	)
 	if not has_system_prompt(
 		messages=msgs, 
 		agent_name="ORCHESTRATE_AGENT"
@@ -122,19 +118,18 @@ def ORCHESTRATE_AGENT(state: State) -> State:
 			"content": ORCHESTRATE_AGENT_PROMPT_MSG 
 		}
 		messages = messages + [sys_msg]
-
 	ctx = trim_context(messages=msgs)
 	resp = REASONING_INSTRUCT_LLM.invoke(input=ctx)
 	resp["name"] = "ORCHESTRATE_AGENT"
-
 	return {"messages": [resp]}
 
 
 
 def REASONING_AGENT(state: State) -> State:
 	"""Phân tích yêu cầu để hiểu bản chất vấn đề và mục tiêu."""
-	msgs = cast(List[dict], state["messages"])
-
+	msgs = convert_to_openai_messages(
+		messages=cast(list[dict], state["messages"])
+	)	
 	if not has_system_prompt(
 		messages=msgs, 
 		agent_name="REASONING_AGENT"
@@ -145,19 +140,18 @@ def REASONING_AGENT(state: State) -> State:
 			"content": REASONING_AGENT_PROMPT_MSG 
 		}
 		msgs = msgs + [sys_msg]
-
 	ctx = trim_context(msgs)
 	resp = REASONING_INSTRUCT_LLM.invoke(input=ctx)
 	resp["name"] = "REASONING_AGENT"
-
 	return {"messages": [resp]}
 
 
 
 def RESEARCH_AGENT(state: State) -> State:
 	"""Tìm kiếm kiến thức, tài liệu, hoặc công cụ phục vụ bài toán."""
-	msgs = cast(List[dict], state["messages"])
-
+	msgs = convert_to_openai_messages(
+		messages=cast(list[dict], state["messages"])
+	)
 	if not has_system_prompt(
 		messages=msgs, 
 		agent_name="RESEARCH_AGENT"
@@ -172,15 +166,15 @@ def RESEARCH_AGENT(state: State) -> State:
 	ctx = trim_context(sys_msg)
 	resp = REASONING_INSTRUCT_LLM.invoke(input=ctx)
 	resp["name"] = "RESEARCH_AGENT"
-
 	return {"messages": [resp]}
 
 
 
 def PLANNING_AGENT(state: State) -> State: 
 	"""Xây dựng kế hoạch chi tiết cho các bước tiếp theo."""
-	msgs = cast(List[dict], state["messages"])
-
+	msgs = convert_to_openai_messages(
+		messages=cast(list[dict], state["messages"])
+	)
 	if not has_system_prompt(
 		messages=msgs, 
 		agent_name="PLANNING_AGENT"
@@ -191,19 +185,18 @@ def PLANNING_AGENT(state: State) -> State:
 			"content": PLANNING_AGENT_PROMPT_MSG 
 		}
 		msgs = msgs + [sys_msg]
-
 	ctx = trim_context(msgs)
 	resp = REASONING_INSTRUCT_LLM.invoke(input=ctx)
 	resp["name"] = "PLANNING_AGENT"
-
 	return {"messages": [resp]}
 
 
 
 def EXECUTION_AGENT(state: State) -> State: 
 	"""Thực thi kế hoạch đã lên bằng mô hình, pipeline hoặc thao tác logic."""
-	msgs = cast(List[dict], state["messages"])
-
+	msgs = convert_to_openai_messages(
+		messages=cast(list[dict], state["messages"])
+	)
 	if not has_system_prompt(
 		messages=msgs, 
 		agent_name="EXECUTION_AGENT"
@@ -214,148 +207,188 @@ def EXECUTION_AGENT(state: State) -> State:
 			"content": EXECUTION_AGENT_PROMPT_MSG 
 		}
 		msgs = msgs + [sys_msg]
-
 	ctx = trim_context(msgs)
 	resp = REASONING_INSTRUCT_LLM.invoke(ctx)
 	resp["name"] = "EXECUTION_AGENT"
+	return {"messages": [resp]}
 
+
+
+def DEBUGGING_AGENT(state: State) -> State: 
+	"""Chẩn đoán và khắc phục lỗi phát sinh trong quá trình thực thi."""
+	msgs = convert_to_openai_messages(
+		messages=cast(list[dict], state["messages"])
+	)
+	if not has_system_prompt(msgs, "DEBUGGING_AGENT"):
+		sys_msg = {
+			"role": "system", 
+			"name": "DEBUGGING_AGENT", 
+			"content": DEBUGGING_AGENT_PROMPT_MSG 
+		}
+		msgs = msgs + [sys_msg]
+	ctx = trim_context(msgs)
+	resp = REASONING_INSTRUCT_LLM.invoke(ctx)
+	resp["name"] = "DEBUGGING_AGENT"
+	return {"messages": [resp]}
+
+
+
+def EVALUATION_AGENT(state: State) -> State: 
+	"""Đánh giá chất lượng kết quả sau bước thực thi."""
+	msgs = convert_to_openai_messages(
+		messages=cast(list[dict], state["messages"])
+	)
+	if not has_system_prompt(msgs, "EVALUATION_AGENT"):
+		sys_msg = {
+			"role": "system", 
+			"name": "EVALUATION_AGENT", 
+			"content": EVALUATION_AGENT_PROMPT_MSG 
+		}
+		msgs = msgs + [sys_msg]
+	ctx = trim_context(msgs)
+	resp = REASONING_INSTRUCT_LLM.invoke(ctx)
+	resp["name"] = "EVALUATION_AGENT"
 	return {"messages": [resp]}
 
 
 
 def COMMUNICATION_AGENT(state: State) -> State: 
-	"""Tổng hợp kết quả, suy luận, đưa ra câu trả lời cuối cùng cho người dùng."""
-	return state
+	"""Tổng hợp kết quả và phản hồi cuối cùng tới người dùng."""
+	msgs = convert_to_openai_messages(
+		messages=cast(list[dict], state["messages"])
+	)
+	if not has_system_prompt(
+		messages=msgs, 
+		agent_name="COMMUNICATION_AGENT"
+	):
+		sys_msg = {
+			"role": "system", 
+			"name": "COMMUNICATION_AGENT", 
+			"content": COMMUNICATION_AGENT_PROMPT_MSG 
+		}
+		msgs = msgs + [sys_msg]
+	ctx = trim_context(msgs)
+	resp = REASONING_INSTRUCT_LLM.invoke(ctx)
+	resp["name"] = "COMMUNICATION_AGENT"
+	return {"messages": [resp]}
 
 
 
-def EVALUATION_AGENT(state: State) -> State: 
-	"""Đánh giá kết quả đầu ra, hiệu suất mô hình hoặc độ phù hợp của giải pháp."""
-	return state 
+# def relevancy(state: State) -> List[BaseMessage]:
+# 	"""Check request verification-relevancy of human_query."""
+# 	human_msg = get_latest_msg(state=state, node="MANAGER_AGENT", msgs_type="HUMAN")
+# 	sys_msg = SystemMessage(RELEVANCY_MSG_PROMPT.format(instruction=human_msg.content))
+# 	ai_msg = LLM_LTEMP.invoke([sys_msg])
+# 	if not isinstance(ai_msg, AIMessage): 
+# 		ai_msg = AIMessage(content=ai_msg.strip() \
+# 			if isinstance(ai_msg, str) \
+# 			else "At node_request_verify-REQUEST_VERIFY_RELEVANCY, I'm unable to generate a response.")
+# 	return [sys_msg, human_msg, ai_msg]
 
 
 
-def DEBUGGING_AGENT(state: State) -> State: 
-	"""Kiểm tra, phát hiện và khắc phục lỗi trong quá trình thực thi."""
-	return state
+# def request_verify_adequacy_or_relevancy(state: State) -> State:
+# 	"""Request verification output of Agent Manager."""
+# 	ai_msg_relevancy = relevancy(state=state)[2]
+# 	yes_or_no_answer = "YES" if "YES" in [ai_msg_relevancy.content.upper()] else "NO"
+# 	ai_msg = AIMessage(content=yes_or_no_answer)
+# 	add_unique_msg(state=state, node="REQUEST_VERIFY", msgs_type="AI", msg=ai_msg)
+# 	return state
 
 
 
-def relevancy(state: State) -> List[BaseMessage]:
-	"""Check request verification-relevancy of human_query."""
-	human_msg = get_latest_msg(state=state, node="MANAGER_AGENT", msgs_type="HUMAN")
-	sys_msg = SystemMessage(RELEVANCY_MSG_PROMPT.format(instruction=human_msg.content))
-	ai_msg = LLM_LTEMP.invoke([sys_msg])
-	if not isinstance(ai_msg, AIMessage): 
-		ai_msg = AIMessage(content=ai_msg.strip() \
-			if isinstance(ai_msg, str) \
-			else "At node_request_verify-REQUEST_VERIFY_RELEVANCY, I'm unable to generate a response.")
-	return [sys_msg, human_msg, ai_msg]
+# def manager_agent(state: State) -> State:
+# 	"""Manager Agent.
+
+# 	Example:
+# 		>>> Human query: I need a very accurate model to classify images in the 
+# 				Butterfly Image Classification dataset into their respective 
+# 				categories. The dataset has been uploaded with its label 
+# 				information in the labels.csv file.
+# 		>>> AI response: Here is a sample code that uses the Keras library to develop and train a convolutional neural network (CNN) model for ...
+# 	"""
+# 	sys_msg = SystemMessage(content=MGR_SYS_MSG_PROMPT)
+# 	human_msg = HumanMessage(content=state["human_query"][-1].content)
+# 	ai_msg = LLM_LTEMP.invoke([sys_msg, human_msg])
+# 	if not isinstance(ai_msg, AIMessage): 
+# 		ai_msg = AIMessage( 
+# 			content=ai_msg.strip() 
+# 			if isinstance(ai_msg, str) 
+# 			else "At node_manager_agent, I'm unable to generate a response."
+# 		)
+# 	add_unique_msg(state=state, node="MANAGER_AGENT", msgs_type="SYS", msg=sys_msg)
+# 	add_unique_msg(state=state, node="MANAGER_AGENT", msgs_type="HUMAN", msg=human_msg)
+# 	add_unique_msg(state=state, node="MANAGER_AGENT", msgs_type="AI", msg=AIMessage(ai_msg.content))
+# 	return state
 
 
 
-def request_verify_adequacy_or_relevancy(state: State) -> State:
-	"""Request verification output of Agent Manager."""
-	ai_msg_relevancy = relevancy(state=state)[2]
-	yes_or_no_answer = "YES" if "YES" in [ai_msg_relevancy.content.upper()] else "NO"
-	ai_msg = AIMessage(content=yes_or_no_answer)
-	add_unique_msg(state=state, node="REQUEST_VERIFY", msgs_type="AI", msg=ai_msg)
-	return state
+# def request_verify_control_flow(state: State) -> State:
+# 	"""Determines the next step based on the AI response from REQUEST_VERIFY.
+
+# 	Args:
+# 		state (State): The current conversation state.
+
+# 	Returns:
+# 		str: The next agent ("PROMPT_AGENT" or END).
+
+# 	Raises:
+# 		ValueError: If there is no valid AI response or an unexpected response.
+# 	"""
+
+# 	if "REQUEST_VERIFY" not in state["messages"] or "AI" not in state["messages"]["REQUEST_VERIFY"]:
+# 		raise ValueError("[ERROR]: No AI message found in REQUEST_VERIFY.")
+# 	ai_msgs = state["messages"]["REQUEST_VERIFY"]["AI"]
+# 	if not ai_msgs:
+# 		raise ValueError("[ERROR]: AI message list is empty in REQUEST_VERIFY.")
+# 	ai_msg = ai_msgs[-1]
+# 	if not hasattr(ai_msg, "content"):
+# 		raise ValueError("[ERROR]: AI message has no content.")
+# 	resp = ai_msg.content.strip().upper()
+# 	next_step_map = {"YES": "PROMPT_AGENT", "NO": END}
+# 	if resp in next_step_map:
+# 		return next_step_map[resp]
+# 	raise ValueError(f">>> [ERROR]: Unexpected response '{resp}'")
 
 
 
-def manager_agent(state: State) -> State:
-	"""Manager Agent.
+# def prompt_agent(state: State) -> State:
+# 	"""Call AI-Vision.
 
-	Example:
-		>>> Human query: I need a very accurate model to classify images in the 
-				Butterfly Image Classification dataset into their respective 
-				categories. The dataset has been uploaded with its label 
-				information in the labels.csv file.
-		>>> AI response: Here is a sample code that uses the Keras library to develop and train a convolutional neural network (CNN) model for ...
-	"""
-	sys_msg = SystemMessage(content=MGR_SYS_MSG_PROMPT)
-	human_msg = HumanMessage(content=state["human_query"][-1].content)
-	ai_msg = LLM_LTEMP.invoke([sys_msg, human_msg])
-	if not isinstance(ai_msg, AIMessage): 
-		ai_msg = AIMessage( 
-			content=ai_msg.strip() 
-			if isinstance(ai_msg, str) 
-			else "At node_manager_agent, I'm unable to generate a response."
-		)
-	add_unique_msg(state=state, node="MANAGER_AGENT", msgs_type="SYS", msg=sys_msg)
-	add_unique_msg(state=state, node="MANAGER_AGENT", msgs_type="HUMAN", msg=human_msg)
-	add_unique_msg(state=state, node="MANAGER_AGENT", msgs_type="AI", msg=AIMessage(ai_msg.content))
-	return state
+# 	Args:
+# 		state (State): The current state of the conversation.
+
+# 	Returns:
+# 		State: Updated state with the parsed JSON response.
+# 	"""
+# 	human_msg = get_latest_msg(state=state, node="MANAGER_AGENT", msgs_type="HUMAN")
+# 	parsed_json = {"tool_execution": "AI_VISION"}
+# 	ai_msg = AIMessage(content=json.dumps(parsed_json, indent=2))
+# 	add_unique_msg(state=state, node="PROMPT_AGENT", msgs_type="AI", msg=ai_msg)
+# 	return state
 
 
 
-def request_verify_control_flow(state: State) -> State:
-	"""Determines the next step based on the AI response from REQUEST_VERIFY.
-
-	Args:
-		state (State): The current conversation state.
-
-	Returns:
-		str: The next agent ("PROMPT_AGENT" or END).
-
-	Raises:
-		ValueError: If there is no valid AI response or an unexpected response.
-	"""
-
-	if "REQUEST_VERIFY" not in state["messages"] or "AI" not in state["messages"]["REQUEST_VERIFY"]:
-		raise ValueError("[ERROR]: No AI message found in REQUEST_VERIFY.")
-	ai_msgs = state["messages"]["REQUEST_VERIFY"]["AI"]
-	if not ai_msgs:
-		raise ValueError("[ERROR]: AI message list is empty in REQUEST_VERIFY.")
-	ai_msg = ai_msgs[-1]
-	if not hasattr(ai_msg, "content"):
-		raise ValueError("[ERROR]: AI message has no content.")
-	resp = ai_msg.content.strip().upper()
-	next_step_map = {"YES": "PROMPT_AGENT", "NO": END}
-	if resp in next_step_map:
-		return next_step_map[resp]
-	raise ValueError(f">>> [ERROR]: Unexpected response '{resp}'")
-
-
-
-def prompt_agent(state: State) -> State:
-	"""Call AI-Vision.
-
-	Args:
-		state (State): The current state of the conversation.
-
-	Returns:
-		State: Updated state with the parsed JSON response.
-	"""
-	human_msg = get_latest_msg(state=state, node="MANAGER_AGENT", msgs_type="HUMAN")
-	parsed_json = {"tool_execution": "AI_VISION"}
-	ai_msg = AIMessage(content=json.dumps(parsed_json, indent=2))
-	add_unique_msg(state=state, node="PROMPT_AGENT", msgs_type="AI", msg=ai_msg)
-	return state
-
-
-
-def retrieval_augmented_planning_agent(state: State) -> State:
-	"Retrieval-Augmented Planning Agent."
-	human_msg_content = get_latest_msg(state=state, node="PROMPT_AGENT", msgs_type="AI").content
-	plan_knowledge = """This is RAG steps""" 
-	sys_msg = SystemMessage(content=RAP_SYS_MSG_PROMPT.format(
-		BEGIN_OF_TEXT=LLAMA_TOKENS["BEGIN_OF_TEXT"], 
-		START_HEADER_ID=LLAMA_TOKENS["START_HEADER_ID"], 
-		END_HEADER_ID=LLAMA_TOKENS["END_HEADER_ID"], 
-		user_requirements=human_msg_content, 
-		plan_knowledge=plan_knowledge,
-		END_OF_TURN_ID=LLAMA_TOKENS["END_OF_TURN_ID"]
-	))
-	ai_msg = LLM_LTEMP.invoke([sys_msg])
-	if not isinstance(ai_msg, AIMessage): 
-		ai_msg = AIMessage(
-			content=ai_msg.strip() 
-			if isinstance(ai_msg, str) 
-			else "At node_manager_agent, I'm unable to generate a response."
-		)
-	add_unique_msg(state=state, node="RAP", msgs_type="SYS", msg=sys_msg)
-	add_unique_msg(state=state, node="RAP", msgs_type="HUMAN", msg=HumanMessage(human_msg_content))
-	add_unique_msg(state=state, node="RAP", msgs_type="AI", msg=ai_msg)
-	return state
+# def retrieval_augmented_planning_agent(state: State) -> State:
+# 	"Retrieval-Augmented Planning Agent."
+# 	human_msg_content = get_latest_msg(state=state, node="PROMPT_AGENT", msgs_type="AI").content
+# 	plan_knowledge = """This is RAG steps""" 
+# 	sys_msg = SystemMessage(content=RAP_SYS_MSG_PROMPT.format(
+# 		BEGIN_OF_TEXT=LLAMA_TOKENS["BEGIN_OF_TEXT"], 
+# 		START_HEADER_ID=LLAMA_TOKENS["START_HEADER_ID"], 
+# 		END_HEADER_ID=LLAMA_TOKENS["END_HEADER_ID"], 
+# 		user_requirements=human_msg_content, 
+# 		plan_knowledge=plan_knowledge,
+# 		END_OF_TURN_ID=LLAMA_TOKENS["END_OF_TURN_ID"]
+# 	))
+# 	ai_msg = LLM_LTEMP.invoke([sys_msg])
+# 	if not isinstance(ai_msg, AIMessage): 
+# 		ai_msg = AIMessage(
+# 			content=ai_msg.strip() 
+# 			if isinstance(ai_msg, str) 
+# 			else "At node_manager_agent, I'm unable to generate a response."
+# 		)
+# 	add_unique_msg(state=state, node="RAP", msgs_type="SYS", msg=sys_msg)
+# 	add_unique_msg(state=state, node="RAP", msgs_type="HUMAN", msg=HumanMessage(human_msg_content))
+# 	add_unique_msg(state=state, node="RAP", msgs_type="AI", msg=ai_msg)
+# 	return state

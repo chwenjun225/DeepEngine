@@ -69,7 +69,7 @@ WORKFLOW.add_conditional_edges(
 	}												, 
 )
 WORKFLOW.add_edge(	start_key="SYSTEM_AGENT"		, 	end_key="ROUTER_AGENT"			)
-WORKFLOW.add_edge(	start_key="SYSTEM_AGENT"		, 	end_key="ORCHESTRATE_AGENT"	)
+WORKFLOW.add_edge(	start_key="SYSTEM_AGENT"		, 	end_key="ORCHESTRATE_AGENT"		)
 WORKFLOW.add_edge(	start_key="ORCHESTRATE_AGENT"	,	end_key="REASONING_AGENT"		)
 WORKFLOW.add_edge(	start_key="REASONING_AGENT"		, 	end_key="RESEARCH_AGENT"		)
 WORKFLOW.add_edge(	start_key="RESEARCH_AGENT"		,	end_key="PLANNING_AGENT"		)

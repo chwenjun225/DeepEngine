@@ -1,83 +1,70 @@
 from typing_extensions import cast, Literal
 
 
-from langchain_core.messages import convert_to_openai_messages
+from langchain_core.messages import ( 
+	convert_to_openai_messages,
+	BaseMessage, 
+	SystemMessage, 
+	HumanMessage,
+	AIMessage, 
+)
 
 
 
-from langgraph.graph import END
 from langgraph.types import Command
 
 
 
 from state import State
 from const_vars import (
-	MANAGER_AGENT_PROMPT_MSG		,
-	ROUTER_AGENT_PROMPT_MSG			,
-	SYSTEM_AGENT_PROMPT_MSG			,
-	ORCHESTRATE_AGENT_PROMPT_MSG	,
-	REASONING_AGENT_PROMPT_MSG		, 
-	RESEARCH_AGENT_PROMPT_MSG		,
-	PLANNING_AGENT_PROMPT_MSG		,
-	EXECUTION_AGENT_PROMPT_MSG		,
-	COMMUNICATION_AGENT_PROMPT_MSG	,
-	EVALUATION_AGENT_PROMPT_MSG		,
-	DEBUGGING_AGENT_PROMPT_MSG		, 
+	MANAGER_AGENT_PROMPT_MSG									,
+	ROUTER_AGENT_PROMPT_MSG										,
+	SYSTEM_AGENT_PROMPT_MSG										,
+	ORCHESTRATE_AGENT_PROMPT_MSG								,
+	REASONING_AGENT_PROMPT_MSG									, 
+	RESEARCH_AGENT_PROMPT_MSG									,
+	PLANNING_AGENT_PROMPT_MSG									,
+	EXECUTION_AGENT_PROMPT_MSG									,
+	COMMUNICATION_AGENT_PROMPT_MSG								,
+	EVALUATION_AGENT_PROMPT_MSG									,
+	DEBUGGING_AGENT_PROMPT_MSG									, 
 
-	REASONING_INSTRUCT_LLM			,
+	REASONING_INSTRUCT_LLM										,
 )
 from utils import (
-	trim_context			,
-	has_system_prompt		,
-	estimate_tokens			, 
-	get_safe_num_predict	,
-	add_unique_msg			, 
-	get_latest_msg			,	 
-	get_latest_user_query	,
-	get_msgs				, 		
+	trim_context												,
+	has_system_prompt											,
+	estimate_tokens												, 
+	get_safe_num_predict										,
+	get_latest_msg												,	 
+	get_msgs													, 		
+	has_name_attr												,
+	replace_message_content										,
+	prepare_context												,
 )
 
 
 
 def MANAGER_AGENT(state: State) -> State:
 	"""Tiếp nhận truy vấn người dùng và phản hồi theo ngữ cảnh."""
-	msgs = cast(list[dict], state["messages"]) # Sửa lại sử dụng theo chuẩn của Langgraph
-	if not has_system_prompt(
-		messages=msgs, 
-		agent_name="MANAGER_AGENT"
-	):
-		sys_msg = {
-			"role": "system", 
-			"name": "MANAGER_AGENT", 
-			"content": MANAGER_AGENT_PROMPT_MSG
-		}
-		msgs = [sys_msg] + msgs
-	ctx = trim_context(messages=msgs)
-	resp = REASONING_INSTRUCT_LLM.invoke(input=ctx)
-	resp["name"] = "MANAGER_AGENT"
-	return {"messages": [resp]}
+	ctx, sys_msg = prepare_context(state, "MANAGER_AGENT", MANAGER_AGENT_PROMPT_MSG)
+	ai_msg = has_name_attr(REASONING_INSTRUCT_LLM.invoke(ctx), "MANAGER_AGENT")
+	return {"messages": [msg for msg in (sys_msg, ai_msg) if msg]}
 
 
 
-def ROUTER_AGENT(state: State) -> Command[Literal["SYSTEM_AGENT", "__end__"]]:
+def ROUTER_AGENT(state: State) -> Command[Literal["__end__", "SYSTEM_AGENT"]]:
 	"""Phân loại truy vấn có thuộc domain AI/ML không."""
-	msgs = convert_to_openai_messages(
-		messages=cast(list[dict], state["messages"])
+	ctx, sys_msg = prepare_context(state, "ROUTER_AGENT", MANAGER_AGENT_PROMPT_MSG)
+	ai_msg = has_name_attr(REASONING_INSTRUCT_LLM.invoke(ctx), "ROUTER_AGENT")
+
+	goto = "SYSTEM_AGENT" if ai_msg.content == "SYSTEM_AGENT" else "__end__"
+	final_msg = replace_message_content(ai_msg, goto) if goto == "SYSTEM_AGENT" else ai_msg
+
+	return Command(
+		update={"messages": [msg for msg in (sys_msg, final_msg) if msg]},
+		goto=goto,
 	)
-	if not has_system_prompt(
-		messages=msgs, 
-		agent_name="ROUTER_AGENT"
-	):
-		sys_msg = {
-			"role": "system", 
-			"name": "ROUTER_AGENT", 
-			"content": ROUTER_AGENT_PROMPT_MSG
-		}
-		msgs = msgs + [sys_msg]
-	ctx = trim_context(messages=msgs)
-	resp = convert_to_openai_messages(messages=REASONING_INSTRUCT_LLM.invoke(input=ctx))
-	resp["name"] = "ROUTER_AGENT"
-	return {"messages": [resp]}
 
 
 

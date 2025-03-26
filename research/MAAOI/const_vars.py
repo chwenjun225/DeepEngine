@@ -24,7 +24,7 @@ import prompts
 
 
 
-MAX_TOKENS = 32_000
+MAX_TOKENS = 128_000
 PRODUCT_STATUS = "..."
 FRAME_QUEUE = Queue()
 MESSAGES_HISTORY_UI = []
@@ -34,7 +34,7 @@ STATUS_LOCK = threading.Lock()
 
 ENCODING = tiktoken.get_encoding("cl100k_base") 
 YOLO_OBJECT_DETECTION = YOLO("/home/chwenjun225/projects/DeepEngine/research/MAAOI/VisionAgent/runs/detect/train/weights/best.pt")
-REASONING_INSTRUCT_LLM = ChatOllama(model="DeepSeek-R1-Distill-Qwen-7B-Q4_K_M:latest", num_predict=128_000)
+REASONING_INSTRUCT_LLM = ChatOllama(model="DeepSeek-R1-Distill-Qwen-14B-Q4_K_M:latest", num_predict=128_000)
 VISION_INSTRUCT_LLM = ChatOllama(model="Llama-3.2-11B-Vision-Instruct.Q4_K_M:latest", num_predict=128_000)
 
 

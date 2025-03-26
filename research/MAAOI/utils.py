@@ -9,16 +9,29 @@ from langchain_core.tools import BaseTool
 
 
 
-from langchain_core.messages import BaseMessage, BaseMessage, SystemMessage, AIMessage
+from langchain_core.messages import BaseMessage, SystemMessage
 
 
 
 from state import State 
 from const_vars import (
-	LLAMA_TOKENS, 
-	ENCODING, 
-	MAX_TOKENS
+	LLAMA_TOKENS			, 
+	ENCODING				, 
+	MAX_TOKENS				, 
 )
+
+
+
+def prepare_context(
+		state: State, agent: str, prompt: str
+	) -> tuple[list[BaseMessage], SystemMessage | None]:
+	"""Thêm system message nếu chưa có và trả về context đã trim."""
+	msgs = get_msgs(state)
+	sys_msg = None
+	if not has_system_prompt(msgs, agent):
+		sys_msg = SystemMessage(content=prompt, name=agent)
+		msgs.append(sys_msg)
+	return trim_context(msgs), sys_msg
 
 
 
@@ -28,34 +41,75 @@ def passthrough() -> RunnableLambda:
 
 
 
-def trim_context(messages: list[dict]) -> list[dict]:
+def trim_context(messages: list[BaseMessage]) -> list[BaseMessage]:
 	"""Cắt bớt context nếu vượt token limit (cắt từ đầu)."""
-	while count_tokens(messages) > MAX_TOKENS and len(messages) > 1:
+	while count_tokens(messages)>MAX_TOKENS \
+			and len(messages)>1:
 		messages = messages[1:]
 	return messages
 
 
 
-def has_system_prompt(messages: list[dict], agent_name: str) -> bool:
-	"""Kiểm tra đã có system message cho agent này chưa, hỗ trợ OpenAI format và BaseMessage."""
+def replace_message_content(msg: BaseMessage, new_content: str) -> BaseMessage:
+	"""Chỉnh sửa content của một BaseMessage."""
+	return type(msg)(
+		content=new_content + f"Forwarded to `{msg.content}`.",
+		name=getattr(msg, "name", None),
+		additional_kwargs=msg.additional_kwargs,
+		response_metadata=msg.response_metadata,
+	)
+
+
+
+def has_name_attr(response: dict|BaseMessage, agent_name: str) -> dict|BaseMessage:
+	"""Gán thuộc tính name cho phản hồi của AI nếu chưa có."""
+	if isinstance(response, dict):
+		if "name" not in response:
+			response["name"] = agent_name
+		return response 
+
+	elif isinstance(response, BaseMessage):
+		if not hasattr(response, "name") \
+			or getattr(response, "name") is None:
+			setattr(response, "name", agent_name)
+
+		return response 
+	raise TypeError(f">>> [has_name_attr] Không hỗ trợ kiểu dữ liệu: {type(response)} ")
+
+
+
+def has_system_prompt(messages: list[dict|BaseMessage], agent_name: str) -> bool:
+	"""Kiểm tra xem đã có system message cho agent được chỉ định chưa."""
 	for msg in messages:
+		role = name = None
+
 		if isinstance(msg, dict):
-			if msg.get("role") == "system" and msg.get("name") == agent_name:
-				return True
-		elif isinstance(msg, SystemMessage):
-			if getattr(msg, "name", None) == agent_name:
-				return True
+			role = msg.get("role")
+			name = msg.get("name")
+		elif isinstance(msg, BaseMessage):
+			role = getattr(msg, "type", None)
+			name = getattr(msg, "name", None)
+
+		if role == "system" and name == agent_name:
+			return True
 	return False
 
 
 
-def count_tokens(messages: list[dict]) -> int:
+def count_tokens(messages: list[BaseMessage]) -> int:
 	"""Đếm tổng số tokens trong messages theo model."""
-	num_tokens = 0
+	num_tokens = 0 
 	for msg in messages:
-		num_tokens += 4
-		for _, value in msg.items():
-			num_tokens += len(ENCODING.encode(str(value)))
+		role = getattr(msg, "type", "user")
+		content = getattr(msg, "content", "")
+		name = getattr(msg, "name", None)
+		### Token structure theo chuẩn OpenAI ChatML
+		num_tokens += 4 
+		num_tokens += len(ENCODING.encode(role))
+		num_tokens += len(ENCODING.encode(content))
+		if name: 
+			num_tokens += len(ENCODING.encode(name))
+
 	num_tokens += 2
 	return num_tokens
 
@@ -82,31 +136,15 @@ def get_safe_num_predict(prompt: str, max_context: int = 131072, buffer: int = 5
 
 
 
-def get_latest_user_query(state: State) -> dict:
-	"""Lấy truy vấn người dùng mới nhất, O(1)."""
-	return state["user_query"]
+def get_msgs(state: State) -> list[BaseMessage]:
+	"""Lấy danh sách tin nhắn từ State."""
+	return state["messages"]
 
 
 
-def get_msgs(state: State, node: str, type_msgs) -> list[dict]:
-	"""Lấy danh sách tin nhắn của một node theo loại tin nhắn."""
-	return state["messages"][node][type_msgs]
-
-
-
-def get_latest_msg(state: State, node: str, type_msgs: str) -> dict|None:
-	"""Lấy tin nhắn mới nhất từ một node theo loại tin nhắn, O(1)."""
-	return state["messages"][node][type_msgs][-1] if \
-		get_msgs(state=state, node=node, type_msgs=type_msgs) \
-			else None 
-
-
-
-def add_unique_msg(state: State, node: str, type_msgs: str, msg: dict) -> None:
-	"""Chỉ thêm nếu khác với tin nhắn cuối, O(1)."""
-	existing_msgs = get_msgs(state=state, node=node, type_msgs=type_msgs)
-	if not existing_msgs or existing_msgs[-1]["content"] != msg["content"]:
-		existing_msgs.append(msg)
+def get_latest_msg(state: State) -> BaseMessage:
+	"""Lấy tin nhắn mới nhất, O(1)."""
+	return state["messages"][-1]
 
 
 

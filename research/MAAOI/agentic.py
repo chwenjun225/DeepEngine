@@ -12,6 +12,10 @@ from const_vars import (
 	CHECKPOINTER				, 
 	STORE						,
 )
+
+from utils import (
+	passthrough
+)
 from nodes import (
 	MANAGER_AGENT				,
 	ROUTER_AGENT				,
@@ -25,13 +29,8 @@ from nodes import (
 	EVALUATION_AGENT			,
 	DEBUGGING_AGENT				,
 )
-from utils import (
-	passthrough
-)
 
 
-
-WORKFLOW = StateGraph(State)
 
 AGENTS = [
 	(	"MANAGER_AGENT"			, MANAGER_AGENT			, "Giao tiếp với người dùng"	, "core"	),
@@ -47,6 +46,10 @@ AGENTS = [
 	(	"COMMUNICATION_AGENT"	, COMMUNICATION_AGENT	, "Tổng hợp phản hồi"			, "output"	),
 ]
 
+
+
+WORKFLOW = StateGraph(State)
+
 for name, func, desc, group in AGENTS:
 	WORKFLOW.add_node(
 		node=name,
@@ -60,15 +63,14 @@ for name, func, desc, group in AGENTS:
 
 WORKFLOW.add_edge(	start_key=START					, 	end_key="MANAGER_AGENT"			)
 WORKFLOW.add_edge(	start_key="MANAGER_AGENT"		, 	end_key="ROUTER_AGENT"			)
-
-WORKFLOW.add_conditional_edges(	
-	source="ROUTER_AGENT"							, 
+WORKFLOW.add_conditional_edges(
+	source="ROUTER_AGENT",
 	path={
-		"END": passthrough()						, 
-		"SYSTEM_AGENT": passthrough()				, 
-	}												, 
+		"__end__": END,
+		"SYSTEM_AGENT": SYSTEM_AGENT # BUG HERE
+	}
 )
-WORKFLOW.add_edge(	start_key="SYSTEM_AGENT"		, 	end_key="ROUTER_AGENT"			)
+
 WORKFLOW.add_edge(	start_key="SYSTEM_AGENT"		, 	end_key="ORCHESTRATE_AGENT"		)
 WORKFLOW.add_edge(	start_key="ORCHESTRATE_AGENT"	,	end_key="REASONING_AGENT"		)
 WORKFLOW.add_edge(	start_key="REASONING_AGENT"		, 	end_key="RESEARCH_AGENT"		)

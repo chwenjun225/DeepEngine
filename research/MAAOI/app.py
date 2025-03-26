@@ -20,7 +20,6 @@ from const_vars import (
 	PRODUCT_STATUS								, 
 	YOLO_OBJECT_DETECTION						, 
 	VISION_INSTRUCT_LLM							,
-	QUERIES										, 
 	CONFIG										, 
 )
 from utils import get_latest_msg
@@ -91,33 +90,18 @@ def detect_pcb_video(video_path: str):
 
 
 
-def user_interface_chatbot_resp(user_input: str, history: list[dict]) -> list[dict]:
+def user_interface_chatbot_resp(user_query: str, history: list[dict]) -> list[dict]:
 	"""Xử lý truy vấn của người dùng và trả về hội thoại theo OpenAI-style, trên giao diện người dùng."""
-	if not user_input.strip(): 
+	if not user_query.strip(): 
 		return history + [{"role": "assistant", "content": "You have not entered any content."}]
-
-
-
-	# TODO: Bug HERE #################################################################
-	# Viết code sử dụng command, điều khiển luồng trong langgraph 
 	state_data = AGENTIC.invoke(
-		input={"messages": [{"role": "user", "content": user_input}]}, config=CONFIG
+		input={"messages": [{"role": "user", "content": user_query}]}, config=CONFIG
 	)
+	ai_msg = get_latest_msg(state=state_data)
 
+	history.append({"role": "user", "content": user_query})
+	history.append({"role": "assistant", "content": ai_msg.content})
 
-
-	check_req_ver = get_latest_msg(state=state_data, node="REQUEST_VERIFY", msgs_type="AI")
-	if check_req_ver["content"] == "NO":
-		ai_resp = get_latest_msg(state=state_data, node="MANAGER_AGENT", msgs_type="AI")
-		history.append({"role": "user", "content": user_input})
-		history.append({"role": "assistant", "content": ai_resp["content"]})
-		return history
-	ai_resp = get_latest_msg(state=state_data, node="PROMPT_AGENT", msgs_type="AI")
-	tool = json.loads(ai_resp["content"])["tool_execution"]
-	history.append({"role": "user", "content": user_input})
-	history.append({
-		"role": "assistant", 
-		"content": f"I understood! To ensure higher accuracy, I will collaborate with the {tool} to analyze the PCB defects together. The result of output will be OK or NG."})
 	return history
 
 
@@ -154,47 +138,6 @@ def main() -> None:
 						outputs=[video_output, status_box, reasoning_output]
 					)
 	ui.launch()
-
-
-
-if "Hiển thị kết quả trên Terminal":
-	def display_conversation_results_terminal(messages: dict) -> None:
-		"""Hiển thị kết quả hội thoại từ tất cả các agent trong hệ thống."""
-		if not messages:
-			print("[INFO]: Không có tin nhắn nào trong hội thoại.")
-			return
-		for node, msgs in messages.items():
-			print(f"\n[{node}]")
-			if isinstance(msgs, dict):
-				for msg_category, msg_list in msgs.items():
-					if msg_list:
-						print(f"  {msg_category}:")
-						for msg in msg_list:
-							content = getattr(msg, "content", "[No content]")
-							print(f"\t- {content}")
-			else:
-				raise ValueError(f"msgs phải là một dictionary chứa danh sách tin nhắn, msgs hiện tại là: {msgs}")
-
-
-
-	def chatbot_resp_terminal() -> str:
-		"""Xử lý truy vấn của người dùng và hiển thị phản hồi từ AI."""
-		for i, user_query in enumerate(QUERIES, 1):
-			print(f"\n👨_query_{i}:")
-			print(user_query)
-			print("\n🤖_response:")
-			user_query = user_query.strip()
-			if user_query.lower() == "exit": 
-				break
-			state_data = AGENTIC.invoke(input={
-				"messages": [{"role": "user", "content": user_query}]}, config=CONFIG
-			)
-			if not isinstance(state_data, dict): raise ValueError("[ERROR]: app.invoke() không trả về dictionary.")
-			if "messages" not in state_data: raise ValueError("[ERROR]: Key 'messages' không có trong kết quả.")
-			messages = state_data["messages"]
-			print("\n===== [CONVERSATION RESULTS] =====\n")
-			display_conversation_results_terminal(messages)
-			print("\n===== [END OF CONVERSATION] =====\n")
 
 
 

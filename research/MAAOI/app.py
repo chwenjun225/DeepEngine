@@ -15,25 +15,25 @@ from PIL import Image
 
 from agentic import AGENTIC
 from const_vars import (
-	INSTRUCT_VISION_EXPLAIN_AGENT_PROMPT_MSG	,
-	STATUS_LOCK									,
-	PRODUCT_STATUS								, 
-	YOLO_OBJECT_DETECTION						, 
-	VISION_INSTRUCT_LLM							,
-	CONFIG										, 
+	VISISON_AGENT_PROMPT_MSG	,
+	STATUS_LOCK					,
+	PRODUCT_STATUS				, 
+	YOLO_OBJECT_DETECTION		, 
+	VISION_INSTRUCT_LLM			,
+	CONFIG						, 
 )
 from utils import get_latest_msg
 
 
 
-def get_status():
+def get_status() -> str:
 	"""Trả về trạng thái lỗi hiện tại của sản phẩm."""
 	with STATUS_LOCK:
 		return PRODUCT_STATUS
 
 
 
-def image_to_base64(pil_img):
+def image_to_base64(pil_img) -> base64:
 	"""Convert image (PIL or NumPy) to base64 string."""
 	if isinstance(pil_img, np.ndarray):
 		pil_img = Image.fromarray(cv2.cvtColor(pil_img, cv2.COLOR_BGR2RGB))
@@ -46,44 +46,60 @@ def image_to_base64(pil_img):
 
 
 
-def gr_detect_pcb_video(video_path: str):
-	"""Kiểm tra lỗi từ video, tạo prompt + gửi vào LLaMA Vision, trả về cả kết quả reasoning."""
+def process_frame(image: Image.Image) -> list[Image.Image, str, str]:
+	"""Xử lý ảnh YOLO detect + LLM reasoning."""
+	resize_pil_img = image.resize((200, 200))
+	results = YOLO_OBJECT_DETECTION.predict(resize_pil_img)
+	processed_img = Image.fromarray(results[0].plot(pil=True)[..., ::-1])
+	### Extract detection info
+	detected_data = []
+	for box in results[0].boxes:
+		label = YOLO_OBJECT_DETECTION.names[int(box.cls)]
+		conf = float(box.conf)
+		bbox = tuple(map(int, box.xyxy[0]))
+		detected_data.append({
+			"label": label,
+			"confidence": round(conf, 2),
+			"bbox": bbox
+		})
+	product_status = "NG" if detected_data else "OK"
+	### Tạo prompt + gọi LLM
+	json_str = json.dumps(detected_data, indent=2)
+	image_base64 = image_to_base64(resize_pil_img)
+	### Tạo instruction
+	instruction = VISISON_AGENT_PROMPT_MSG.format(
+		json_str=json_str, image_base64=image_base64
+	)
+	llm_resp = VISION_INSTRUCT_LLM.invoke(instruction)
+	return [processed_img.resize(image.size), product_status, llm_resp.content]
+
+
+
+def gr_detect_pcb_image(image: Image.Image) -> list[Image.Image, str, str]:
+	"""Nhận ảnh (PIL), xử lý bằng YOLO + LLM."""
+	return process_frame(image)
+
+
+
+def gr_detect_pcb_video(video_path: str) -> any:
+	"""Kiểm tra lỗi từ video hoặc ảnh, tạo prompt + gửi vào LLaMA Vision, trả về cả kết quả reasoning."""
 	cap = cv2.VideoCapture(video_path)
 	if not cap.isOpened():
-		return None, "Can not open video.", ""
+		yield None, "Can not open video.", ""
+		return
 
 	fps = int(cap.get(cv2.CAP_PROP_FPS))
 	delay = 1 / fps if fps > 0 else 0.03 
 
 	while cap.isOpened():
 		ret, frame = cap.read()
-		if not ret: break 
-		### Chuyển sang PIL và dự đoán bằng YOLO
-		frame_pil 			= 	Image.fromarray(frame[..., ::-1])
-		frame_pil_rs 		= 	frame_pil.resize((200, 200))
-		results				= 	YOLO_OBJECT_DETECTION.predict(frame_pil_rs)
-		processed_frame 	= 	results[0].plot(pil=True)
-		### Lấy kết quả từ YOLO
-		detected_data = []
-		for box in results[0].boxes:
-			label 	= 	YOLO_OBJECT_DETECTION.names[int(box.cls)]
-			conf 	= 	float(box.conf)
-			bbox 	= 	tuple(map(int, box.xyxy[0]))
-			detected_data.append({
-				"label"			: 	label,
-				"confidence"	: 	round(conf, 3),
-				"bbox"			:	bbox
-			})
-		product_status = "NG" if detected_data else "OK"
-		### Tạo prompt cho LLaMA
-		json_str = json.dumps(detected_data, indent=2)
-		image_base64 = image_to_base64(frame_pil_rs)
-		inst = INSTRUCT_VISION_EXPLAIN_AGENT_PROMPT_MSG.format(json_str=json_str, image_base64=image_base64)
-		### Gửi prompt vào LLM
-		llm_resp = VISION_INSTRUCT_LLM.invoke(input=inst)
+		if not ret: break
+		pil_frame = Image.fromarray(frame[..., ::-1])
+		processed_frame, product_status, reasoning = \
+			process_frame(pil_frame)
 
 		time.sleep(delay)
-		yield processed_frame, product_status, llm_resp.content
+		yield processed_frame, product_status, reasoning
 
 	cap.release()
 	yield None, "Video ended.", ""
@@ -91,15 +107,19 @@ def gr_detect_pcb_video(video_path: str):
 
 
 def gr_chatbot(user_query: str, history: list[dict]) -> list[dict]:
-	"""Xử lý truy vấn của người dùng và trả về hội thoại theo OpenAI-style, trên giao diện người dùng."""
+	"""Handle user input and return assistant reply in OpenAI-style format."""
+	if not user_query.strip():
+		return history + [{"role": "assistant", "content": "You haven't entered a message."}]
 	state_data = AGENTIC.invoke(
-		input={"messages": [{"role": "user", "content": user_query}]}, config=CONFIG
+		input={"messages": [{"role": "user", "content": user_query}]}, 
+		config=CONFIG
 	)
 	ai_msg = get_latest_msg(state=state_data)
 
-	history.append({"role": "user", "content": user_query})
-	history.append({"role": "assistant", "content": ai_msg.content})
-
+	history.extend([
+		{"role": "user", "content": user_query},
+		{"role": "assistant", "content": ai_msg.content}
+	])
 	return history
 
 
@@ -117,22 +137,36 @@ def main() -> None:
 					height=400, 
 					type="messages"
 				)
-				chatbot_input = gr.Textbox(label="Type a messages...")
+				chatbot_input = gr.Textbox(
+					label="Type a messages...", 
+					placeholder="Ask me anything..."
+				)
 				chatbot_button = gr.Button("Submit")
-
 				chatbot_button.click(
-					fn=gr_chatbot, inputs=[chatbot_input, chatbot], outputs=chatbot
+					fn=gr_chatbot, 
+					inputs=[chatbot_input, chatbot], 
+					outputs=chatbot
 				)
 			### Vision Agent
 			with gr.Column():
 				gr.Markdown("### Vision Agent")
+				### Image predict
+				with gr.Tab("Image Predict"):
+					image_input = gr.Image(label="Upload Image", type="pil")
+					image_output = gr.Image(label="Processed Image")
+					status_box_img = gr.Textbox(label="Product Status", interactive=False)
+					reasoning_output_img = gr.Textbox(label="Reasoning", lines=6)
+					gr.Button("Analyze Image").click(
+						fn=gr_detect_pcb_image, 
+						inputs=image_input,
+						outputs=[image_output, status_box_img, reasoning_output_img]
+					)
+				### Video predict
 				with gr.Tab("Video Predict"):
 					video_input = gr.File(label="Upload Video", file_types=[".mp4", ".avi"], height=120)
 					video_output = gr.Image(label="Predicted Frame", streaming=True) 
 					status_box = gr.Textbox(label="Product Status", value=PRODUCT_STATUS, interactive=False)
-
 					reasoning_output = gr.Textbox(label="LLaMA3.2 Reasoning Result", lines=8)
-
 					process_video_button = gr.Button("Start Video Inspection")
 					process_video_button.click(
 						fn=gr_detect_pcb_video,

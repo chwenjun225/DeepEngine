@@ -34,10 +34,6 @@ from const_vars import (
 from utils import (
 	trim_context					,
 	has_agent_got_sys_prompt		,
-	estimate_tokens					, 
-	get_safe_num_predict			,
-	get_latest_msg					,
-	get_msgs						, 
 	has_agent_got_name_attr			,
 	replace_message_content			,
 	prepare_context					,
@@ -91,7 +87,7 @@ def ORCHESTRATE_AGENT(state: State) -> State:
 	msgs = convert_to_openai_messages(
 		messages=cast(list[dict], state["messages"])
 	)
-	if not has_system_prompt(
+	if not has_agent_got_sys_prompt(
 		messages=msgs, 
 		agent_name="ORCHESTRATE_AGENT"
 	):
@@ -113,7 +109,7 @@ def REASONING_AGENT(state: State) -> State:
 	msgs = convert_to_openai_messages(
 		messages=cast(list[dict], state["messages"])
 	)	
-	if not has_system_prompt(
+	if not has_agent_got_sys_prompt(
 		messages=msgs, 
 		agent_name="REASONING_AGENT"
 	):
@@ -135,7 +131,7 @@ def RESEARCH_AGENT(state: State) -> State:
 	msgs = convert_to_openai_messages(
 		messages=cast(list[dict], state["messages"])
 	)
-	if not has_system_prompt(
+	if not has_agent_got_sys_prompt(
 		messages=msgs, 
 		agent_name="RESEARCH_AGENT"
 	):
@@ -158,7 +154,7 @@ def PLANNING_AGENT(state: State) -> State:
 	msgs = convert_to_openai_messages(
 		messages=cast(list[dict], state["messages"])
 	)
-	if not has_system_prompt(
+	if not has_agent_got_sys_prompt(
 		messages=msgs, 
 		agent_name="PLANNING_AGENT"
 	):
@@ -180,7 +176,7 @@ def EXECUTION_AGENT(state: State) -> State:
 	msgs = convert_to_openai_messages(
 		messages=cast(list[dict], state["messages"])
 	)
-	if not has_system_prompt(
+	if not has_agent_got_sys_prompt(
 		messages=msgs, 
 		agent_name="EXECUTION_AGENT"
 	):
@@ -202,7 +198,7 @@ def DEBUGGING_AGENT(state: State) -> State:
 	msgs = convert_to_openai_messages(
 		messages=cast(list[dict], state["messages"])
 	)
-	if not has_system_prompt(msgs, "DEBUGGING_AGENT"):
+	if not has_agent_got_sys_prompt(msgs, "DEBUGGING_AGENT"):
 		sys_msg = {
 			"role": "system", 
 			"name": "DEBUGGING_AGENT", 
@@ -221,7 +217,7 @@ def EVALUATION_AGENT(state: State) -> State:
 	msgs = convert_to_openai_messages(
 		messages=cast(list[dict], state["messages"])
 	)
-	if not has_system_prompt(msgs, "EVALUATION_AGENT"):
+	if not has_agent_got_sys_prompt(msgs, "EVALUATION_AGENT"):
 		sys_msg = {
 			"role": "system", 
 			"name": "EVALUATION_AGENT", 
@@ -240,7 +236,7 @@ def COMMUNICATION_AGENT(state: State) -> State:
 	msgs = convert_to_openai_messages(
 		messages=cast(list[dict], state["messages"])
 	)
-	if not has_system_prompt(
+	if not has_agent_got_sys_prompt(
 		messages=msgs, 
 		agent_name="COMMUNICATION_AGENT"
 	):

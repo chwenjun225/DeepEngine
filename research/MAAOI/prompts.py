@@ -7,7 +7,7 @@ Receive user queries and respond clearly, briefly, and helpfully.
 
 ROUTER_AGENT_PROMPT = """If the query is about AI or Machine Learning, reply with "SYSTEM_AGENT". 
 
-Otherwise, reply with "__end__".
+Otherwise, respond clearly, briefly, and helpfully.
 """
 
 
@@ -99,7 +99,7 @@ Debugging Agent: The error indicates something was null at line 45, meaning a va
 
 
 
-INSTRUCT_VISION_EXPLAIN_AGENT_PROMPT = """You are an electronics quality control engineer.
+VISION_EXPLAIN_AGENT_PROMPT = """You are an electronics quality control engineer.
 
 Here is a PCB image and its defect detection results from the Vision Agent.
 
@@ -117,7 +117,7 @@ Explain what is the error in image, and answer 'NG' (defective) or 'OK' (no defe
 
 
 
-INSTRUCT_VISION_AGENT_PROMPT = """You are an electronics quality engineer.
+VISION_AGENT_PROMPT = """You are an electronics quality engineer.
 
 Below is the defect detection result provided by the Vision Agent. 
 

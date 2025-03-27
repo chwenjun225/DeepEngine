@@ -71,8 +71,16 @@ def describe_defect_from_bbox(full_image: Image.Image, bbox: tuple[int, int, int
 
 def process_frame(image: Image.Image) -> list[Image.Image, str, str]:
 	"""Xử lý ảnh YOLO detect + LLM reasoning."""
-	resize_pil_img = image.resize((224, 224))
-	results = YOLO_OBJECT_DETECTION.predict(resize_pil_img)
+	# resize_pil_img = image.resize((224, 224))
+	resize_pil_img = image
+	results = YOLO_OBJECT_DETECTION.predict(
+		resize_pil_img,
+		conf=0.,  			# phát hiện nhạy hơn, cần chỉnh cho yolo bắt được càng nhiều box nhỏ càng tốt, sau đó cắt các box nhỏ đưa vào trong LLM
+		iou=0.1, 			# ít bbox trùng
+		max_det=50,  		# nhiều vật thể
+		imgsz=640, 			# ảnh to hơn
+		vid_stride=4
+	)
 	processed_img = Image.fromarray(results[0].plot(pil=True)[..., ::-1])
 	### Extract detection info
 	detections = []
@@ -93,6 +101,8 @@ def process_frame(image: Image.Image) -> list[Image.Image, str, str]:
 	instruction = VISISON_AGENT_PROMPT_MSG.format(
 		json_str=json_str, image_base64=img_b64
 	)
+	###################### Cần cắt các ảnh nhỏ predict được ở đây
+	describe_defect_from_bbox
 	llm_resp = VISION_INSTRUCT_LLM.invoke(instruction)
 	return processed_img.resize(image.size), product_status, llm_resp.content
 

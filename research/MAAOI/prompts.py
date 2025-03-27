@@ -99,37 +99,20 @@ Debugging Agent: The error indicates something was null at line 45, meaning a va
 
 
 
-VISION_EXPLAIN_AGENT_PROMPT = """You are an electronics quality control engineer.
+VISION_AGENT_PROMPT = """You are a helpful assistant working as a quality inspector for electronic products.
 
-Here is a PCB image and its defect detection results from the Vision Agent.
+The image below shows a part of a PCB (Printed Circuit Board). It was analyzed by a Yolov11 object detection, and here are the detection results:
 
-### Detection Results ###
+### Detection Results 
 {json_str}
 
-### Image ###
-![processed_frame](data:image/png;base64,{image_base64})
+### Image
+<|image|>![processed_frame](data:image/png;base64,{image_base64})
 
-### Instruction ###
-Based on both the detection results and the image, determine if the PCB has any defects.
-
-Explain what is the error in image, and answer 'NG' (defective) or 'OK' (no defects)
-"""
-
-
-
-VISION_AGENT_PROMPT = """You are an electronics quality engineer.
-
-Below is the defect detection result provided by the Vision Agent. 
-
-### Inference Result ###
-{json_str}
-
-### Image ###
-![processed_frame](data:image/png;base64,{image_base64})
-
-### Task ###
-Please analyze the image with the results from Vision Agent and decide if the PCB has defects.
-Then give your final answer: 'NG' or 'OK'.
+### Task
+Look at the image and the detection results. Describe clearly what you see in the image. 
+Focus on any visual defects, strange parts, or anything that looks incorrect or damaged.
+Use simple words and be specific.
 """
 
 

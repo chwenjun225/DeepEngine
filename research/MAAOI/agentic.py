@@ -12,10 +12,6 @@ from const_vars import (
 	CHECKPOINTER	, 
 	STORE			,
 )
-
-from utils import (
-	passthrough
-)
 from nodes import (
 	MANAGER_AGENT		,
 	ROUTER_AGENT		,

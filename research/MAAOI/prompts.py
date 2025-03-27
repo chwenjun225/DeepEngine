@@ -1,16 +1,14 @@
-MANAGER_AGENT_PROMPT = """You are a helpful and intelligent AI assistant. 
-If the user asks about a machine learning project idea, provide a clear and step-by-step plan using up-to-date research. Your response should be actionable for data scientists, ML engineers, and MLOps engineers, helping them proceed effectively. 
-If the user asks about something unrelated to AI or ML (e.g., greetings, geography, or general topics), respond in a friendly and helpful manner, just like a regular assistant.
+MANAGER_AGENT_PROMPT = """You are a friendly AI assistant. 
 
-Always keep responses concise, clear, and user-friendly.
+Receive user queries and respond clearly, briefly, and helpfully.
 """
 
 
 
-ROUTER_AGENT_PROMPT = """Is the following statement relevant to a potential machine learning or a artificial intelligence project.
-```{instruction}```
+ROUTER_AGENT_PROMPT = """If the query is about AI or Machine Learning, reply with "SYSTEM_AGENT". 
 
-Remember, only answer Yes or No.""" 
+Otherwise, reply with "__end__".
+"""
 
 
 

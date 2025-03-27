@@ -22,38 +22,45 @@ from const_vars import (
 
 
 
-def prepare_context(
-		state: State, agent: str, prompt: str
-	) -> tuple[list[BaseMessage], SystemMessage | None]:
-	"""Thêm system message nếu chưa có và trả về context đã trim."""
-	msgs = get_msgs(state)
-	sys_msg = None
-	if not has_system_prompt(msgs, agent):
-		sys_msg = SystemMessage(content=prompt, name=agent)
-		msgs.append(sys_msg)
-	return trim_context(msgs), sys_msg
-
-
-
 def passthrough() -> RunnableLambda:
 	"""Trả về một Runnable không thay đổi state."""
 	return RunnableLambda(lambda x: x)
 
 
 
-def trim_context(messages: list[BaseMessage]) -> list[BaseMessage]:
-	"""Cắt bớt context nếu vượt token limit (cắt từ đầu)."""
-	while count_tokens(messages)>MAX_TOKENS \
-			and len(messages)>1:
-		messages = messages[1:]
-	return messages
+def prepare_context(
+		state: State, 
+		agent: str, 
+		system_prompt: str
+	) -> tuple[list[BaseMessage], SystemMessage | None]:
+	"""Thêm system message nếu chưa có và trả về context đã trim."""
+	ctx = get_msgs(state)
+	sys_msg = None
+	if not has_agent_got_sys_prompt(ctx, agent):
+		sys_msg = SystemMessage(content=system_prompt, name=agent)
+		ctx.append(sys_msg)
+	return trim_context(ctx), sys_msg
 
 
 
-def replace_message_content(msg: BaseMessage, new_content: str) -> BaseMessage:
+def trim_context(
+		context: list[BaseMessage]
+	) -> list[BaseMessage]:
+	"""Cắt context từ đầu nếu vượt token limit, nhưng luôn giữ system message cuối cùng (nếu có)."""
+	while (count_tokens(context)>MAX_TOKENS) \
+			and (len(context)>1):
+		context = context[1:]
+	return context
+
+
+
+def replace_message_content(
+		msg: BaseMessage, 
+		new_content: str
+	) -> BaseMessage:
 	"""Chỉnh sửa content của một BaseMessage."""
 	return type(msg)(
-		content=new_content + f"Forwarded to `{msg.content}`.",
+		content=f"Forwarded to `{new_content}`.", # Sai logic rồi đm
 		name=getattr(msg, "name", None),
 		additional_kwargs=msg.additional_kwargs,
 		response_metadata=msg.response_metadata,
@@ -61,7 +68,9 @@ def replace_message_content(msg: BaseMessage, new_content: str) -> BaseMessage:
 
 
 
-def has_name_attr(response: dict|BaseMessage, agent_name: str) -> dict|BaseMessage:
+def has_agent_got_name_attr(
+		response: dict|BaseMessage, agent_name: str
+	) -> dict|BaseMessage:
 	"""Gán thuộc tính name cho phản hồi của AI nếu chưa có."""
 	if isinstance(response, dict):
 		if "name" not in response:
@@ -78,17 +87,17 @@ def has_name_attr(response: dict|BaseMessage, agent_name: str) -> dict|BaseMessa
 
 
 
-def has_system_prompt(messages: list[dict|BaseMessage], agent_name: str) -> bool:
+def has_agent_got_sys_prompt(context: list[dict|BaseMessage], agent_name: str) -> bool:
 	"""Kiểm tra xem đã có system message cho agent được chỉ định chưa."""
-	for msg in messages:
+	for c in context:
 		role = name = None
 
-		if isinstance(msg, dict):
-			role = msg.get("role")
-			name = msg.get("name")
-		elif isinstance(msg, BaseMessage):
-			role = getattr(msg, "type", None)
-			name = getattr(msg, "name", None)
+		if isinstance(c, dict):
+			role = c.get("role")
+			name = c.get("name")
+		elif isinstance(c, BaseMessage):
+			role = getattr(c, "type", None) # type==role
+			name = getattr(c, "name", None)
 
 		if role == "system" and name == agent_name:
 			return True

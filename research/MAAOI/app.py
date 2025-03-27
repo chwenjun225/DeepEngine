@@ -46,7 +46,7 @@ def image_to_base64(pil_img):
 
 
 
-def detect_pcb_video(video_path: str):
+def gr_detect_pcb_video(video_path: str):
 	"""Kiểm tra lỗi từ video, tạo prompt + gửi vào LLaMA Vision, trả về cả kết quả reasoning."""
 	cap = cv2.VideoCapture(video_path)
 	if not cap.isOpened():
@@ -90,10 +90,8 @@ def detect_pcb_video(video_path: str):
 
 
 
-def user_interface_chatbot_resp(user_query: str, history: list[dict]) -> list[dict]:
+def gr_chatbot(user_query: str, history: list[dict]) -> list[dict]:
 	"""Xử lý truy vấn của người dùng và trả về hội thoại theo OpenAI-style, trên giao diện người dùng."""
-	if not user_query.strip(): 
-		return history + [{"role": "assistant", "content": "You have not entered any content."}]
 	state_data = AGENTIC.invoke(
 		input={"messages": [{"role": "user", "content": user_query}]}, config=CONFIG
 	)
@@ -114,12 +112,16 @@ def main() -> None:
 			### Reasoning Agent
 			with gr.Column():
 				gr.Markdown("### Reasoning Agent")
-				chatbot = gr.Chatbot(label="Reasoning Agent", height=400, type="messages")
+				chatbot = gr.Chatbot(
+					label="Reasoning Agent", 
+					height=400, 
+					type="messages"
+				)
 				chatbot_input = gr.Textbox(label="Type a messages...")
 				chatbot_button = gr.Button("Submit")
 
 				chatbot_button.click(
-					fn=user_interface_chatbot_resp, inputs=[chatbot_input, chatbot], outputs=chatbot
+					fn=gr_chatbot, inputs=[chatbot_input, chatbot], outputs=chatbot
 				)
 			### Vision Agent
 			with gr.Column():
@@ -133,7 +135,7 @@ def main() -> None:
 
 					process_video_button = gr.Button("Start Video Inspection")
 					process_video_button.click(
-						fn=detect_pcb_video,
+						fn=gr_detect_pcb_video,
 						inputs=video_input,
 						outputs=[video_output, status_box, reasoning_output]
 					)

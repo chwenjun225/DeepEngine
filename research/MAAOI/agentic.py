@@ -1,33 +1,33 @@
 from langgraph.graph import(
-	StateGraph					, 
-	START						, 
-	END							,
+	StateGraph	, 
+	START		, 
+	END			,
 )
 
 
 
 from state import State 
 from const_vars import (
-	DEBUG						, 
-	CHECKPOINTER				, 
-	STORE						,
+	DEBUG			, 
+	CHECKPOINTER	, 
+	STORE			,
 )
 
 from utils import (
 	passthrough
 )
 from nodes import (
-	MANAGER_AGENT				,
-	ROUTER_AGENT				,
-	SYSTEM_AGENT				,
-	ORCHESTRATE_AGENT			,
-	REASONING_AGENT				,
-	RESEARCH_AGENT				,
-	PLANNING_AGENT				,
-	EXECUTION_AGENT				,
-	COMMUNICATION_AGENT			,
-	EVALUATION_AGENT			,
-	DEBUGGING_AGENT				,
+	MANAGER_AGENT		,
+	ROUTER_AGENT		,
+	SYSTEM_AGENT		,
+	ORCHESTRATE_AGENT	,
+	REASONING_AGENT		,
+	RESEARCH_AGENT		,
+	PLANNING_AGENT		,
+	EXECUTION_AGENT		,
+	COMMUNICATION_AGENT	,
+	EVALUATION_AGENT	,
+	DEBUGGING_AGENT		,
 )
 
 
@@ -54,41 +54,20 @@ for name, func, desc, group in AGENTS:
 	WORKFLOW.add_node(
 		node=name,
 		action=func,
-		metadata={
-			"description": desc,
-			"group": group,
-			"tags": [group, "agent"]
-		}
+		metadata={"description": desc, "group": group, "tags": [group, "agent"]}
 	)
 
-WORKFLOW.add_edge(	start_key=START					, 	end_key="MANAGER_AGENT"			)
-WORKFLOW.add_edge(	start_key="MANAGER_AGENT"		, 	end_key="ROUTER_AGENT"			)
-WORKFLOW.add_conditional_edges(
-	source="ROUTER_AGENT",
-	path={
-		"__end__": END,
-		"SYSTEM_AGENT": SYSTEM_AGENT # BUG HERE
-	}
-)
-
-WORKFLOW.add_edge(	start_key="SYSTEM_AGENT"		, 	end_key="ORCHESTRATE_AGENT"		)
-WORKFLOW.add_edge(	start_key="ORCHESTRATE_AGENT"	,	end_key="REASONING_AGENT"		)
-WORKFLOW.add_edge(	start_key="REASONING_AGENT"		, 	end_key="RESEARCH_AGENT"		)
-WORKFLOW.add_edge(	start_key="RESEARCH_AGENT"		,	end_key="PLANNING_AGENT"		)
-WORKFLOW.add_edge(	start_key="PLANNING_AGENT"		,	end_key="EXECUTION_AGENT"		)
-
-WORKFLOW.add_conditional_edges(
-	source="EXECUTION_AGENT"						,
-	path={
-		"DEBUGGING_AGENT": passthrough()			, 
-		"EVALUATION_AGENT": passthrough()			, 
-	}
-)
-WORKFLOW.add_edge(	start_key="DEBUGGING_AGENT"		, 	end_key="EXECUTION_AGENT"		)
-WORKFLOW.add_edge(	start_key="EVALUATION_AGENT"	, 	end_key="EXECUTION_AGENT"		)
-WORKFLOW.add_edge(	start_key="DEBUGGING_AGENT"		, 	end_key="EVALUATION_AGENT"		)
-WORKFLOW.add_edge(	start_key="EVALUATION_AGENT"	, 	end_key="COMMUNICATION_AGENT"	)
-WORKFLOW.add_edge(	start_key="COMMUNICATION_AGENT"	, 	end_key=END						)
+WORKFLOW.add_edge(	START					, 	"MANAGER_AGENT"			)
+WORKFLOW.add_edge(	"MANAGER_AGENT"			,	"ROUTER_AGENT"			)
+### Router -> (END | SYSTEM_AGENT) 
+WORKFLOW.add_edge(	"SYSTEM_AGENT"			, 	"ORCHESTRATE_AGENT"		)
+WORKFLOW.add_edge(	"ORCHESTRATE_AGENT"		,	"REASONING_AGENT"		)
+WORKFLOW.add_edge(	"REASONING_AGENT"		, 	"RESEARCH_AGENT"		)
+WORKFLOW.add_edge(	"RESEARCH_AGENT"		,	"PLANNING_AGENT"		)
+WORKFLOW.add_edge(	"PLANNING_AGENT"		,	"EXECUTION_AGENT"		)
+WORKFLOW.add_edge(	"DEBUGGING_AGENT"		, 	"EVALUATION_AGENT"		)
+WORKFLOW.add_edge(	"EVALUATION_AGENT"		, 	"COMMUNICATION_AGENT"	)
+WORKFLOW.add_edge(	"COMMUNICATION_AGENT"	, 	END						)
 
 AGENTIC = WORKFLOW.compile(
 	store=STORE, 

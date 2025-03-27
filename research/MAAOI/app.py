@@ -6,21 +6,18 @@ import fire
 import gradio as gr 
 import time 
 from io import BytesIO
-
-
-
 from PIL import Image 
 
 
 
 from agentic import AGENTIC
 from const_vars import (
-	VISISON_AGENT_PROMPT_MSG	,
-	STATUS_LOCK					,
-	PRODUCT_STATUS				, 
-	YOLO_OBJECT_DETECTION		, 
-	VISION_INSTRUCT_LLM			,
-	CONFIG						, 
+    VISISON_AGENT_PROMPT_MSG,
+    YOLO_OBJECT_DETECTION,
+    VISION_INSTRUCT_LLM,
+    CONFIG,
+    PRODUCT_STATUS,
+    STATUS_LOCK
 )
 from utils import get_latest_msg
 
@@ -33,80 +30,101 @@ def get_status() -> str:
 
 
 
-def image_to_base64(pil_img) -> base64:
-	"""Convert image (PIL or NumPy) to base64 string."""
+def image_to_base64(pil_img: Image.Image | np.ndarray) -> base64:
+	"""Convert PIL or NumPy image to base64 string (PNG format), optimized for real-time usage."""
 	if isinstance(pil_img, np.ndarray):
 		pil_img = Image.fromarray(cv2.cvtColor(pil_img, cv2.COLOR_BGR2RGB))
-	buffered = BytesIO()
-	try:
-		pil_img.save(buffered, format="PNG")
-		return base64.b64encode(buffered.getvalue()).decode("utf-8")
-	finally:
-		buffered.close() 
+	with BytesIO() as buffer:
+		pil_img.save(buffer, format="PNG")
+		return base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+
+
+def crop_from_bbox(
+		image: Image.Image, 
+		bbox: tuple[int, int, int, int]
+	) -> Image.Image:
+	"""Crop ảnh theo bounding box (x1, y1, x2, y2)."""
+	x1, y1, x2, y2 = bbox
+	return image.crop((x1, y1, x2, y2))
+
+
+
+def resize_or_pad_img_cut_from_bbox(image: Image.Image, size=(52, 52)) -> Image.Image:
+	"""Resize ảnh cắt từ bounding box theo kích thước cho trước."""
+	return image.resize(size)
+
+
+
+def describe_defect_from_bbox(full_image: Image.Image, bbox: tuple[int, int, int, int]) -> str:
+	"""Mô tả ảnh cắt bởi bounding-box và gửi vào Llama-3.2-11b-Vision-Instruct."""
+	cropped = crop_from_bbox(full_image, bbox)
+	resized = resize_or_pad_img_cut_from_bbox(cropped, size=(224, 224))
+	base64_img = image_to_base64(resized)
+	### System prompt
+	prompt = f"""You are a visual inspector. Please describe the defect in the following image region:
+<image>{base64_img}</image>
+"""
+	return VISION_INSTRUCT_LLM.invoke(prompt).content
 
 
 
 def process_frame(image: Image.Image) -> list[Image.Image, str, str]:
 	"""Xử lý ảnh YOLO detect + LLM reasoning."""
-	resize_pil_img = image.resize((200, 200))
+	resize_pil_img = image.resize((224, 224))
 	results = YOLO_OBJECT_DETECTION.predict(resize_pil_img)
 	processed_img = Image.fromarray(results[0].plot(pil=True)[..., ::-1])
 	### Extract detection info
-	detected_data = []
+	detections = []
 	for box in results[0].boxes:
 		label = YOLO_OBJECT_DETECTION.names[int(box.cls)]
 		conf = float(box.conf)
 		bbox = tuple(map(int, box.xyxy[0]))
-		detected_data.append({
+		detections.append({
 			"label": label,
 			"confidence": round(conf, 2),
 			"bbox": bbox
 		})
-	product_status = "NG" if detected_data else "OK"
+	product_status = "NG" if detections else "OK"
 	### Tạo prompt + gọi LLM
-	json_str = json.dumps(detected_data, indent=2)
-	image_base64 = image_to_base64(resize_pil_img)
+	json_str = json.dumps(detections, indent=2)
+	img_b64 = image_to_base64(resize_pil_img)
 	### Tạo instruction
 	instruction = VISISON_AGENT_PROMPT_MSG.format(
-		json_str=json_str, image_base64=image_base64
+		json_str=json_str, image_base64=img_b64
 	)
 	llm_resp = VISION_INSTRUCT_LLM.invoke(instruction)
-	return [processed_img.resize(image.size), product_status, llm_resp.content]
+	return processed_img.resize(image.size), product_status, llm_resp.content
 
 
 
-def gr_detect_pcb_image(image: Image.Image) -> list[Image.Image, str, str]:
+def _detect_pcb_image(image: Image.Image) -> list[Image.Image, str, str]:
 	"""Nhận ảnh (PIL), xử lý bằng YOLO + LLM."""
 	return process_frame(image)
 
 
 
-def gr_detect_pcb_video(video_path: str) -> any:
-	"""Kiểm tra lỗi từ video hoặc ảnh, tạo prompt + gửi vào LLaMA Vision, trả về cả kết quả reasoning."""
+def _detect_pcb_video(video_path: str):
+	"""Kiểm tra lỗi từ video, tạo chuỗi prompt + gửi vào LLaMA Vision, trả về kết quả reasoning."""
 	cap = cv2.VideoCapture(video_path)
 	if not cap.isOpened():
-		yield None, "Can not open video.", ""
+		yield None, "Cannot open video", ""
 		return
-
-	fps = int(cap.get(cv2.CAP_PROP_FPS))
-	delay = 1 / fps if fps > 0 else 0.03 
-
+	fps = int(cap.get(cv2.CAP_PROP_FPS)) or 30
+	delay = 1 / fps 
 	while cap.isOpened():
 		ret, frame = cap.read()
 		if not ret: break
 		pil_frame = Image.fromarray(frame[..., ::-1])
-		processed_frame, product_status, reasoning = \
-			process_frame(pil_frame)
-
+		processed_frame, product_status, reasoning = process_frame(pil_frame)
 		time.sleep(delay)
 		yield processed_frame, product_status, reasoning
-
 	cap.release()
-	yield None, "Video ended.", ""
+	yield None, "Video ended", ""
 
 
 
-def gr_chatbot(user_query: str, history: list[dict]) -> list[dict]:
+def _chatbot(user_query: str, history: list[dict]) -> list[dict]:
 	"""Handle user input and return assistant reply in OpenAI-style format."""
 	if not user_query.strip():
 		return history + [{"role": "assistant", "content": "You haven't entered a message."}]
@@ -143,7 +161,7 @@ def main() -> None:
 				)
 				chatbot_button = gr.Button("Submit")
 				chatbot_button.click(
-					fn=gr_chatbot, 
+					fn=_chatbot, 
 					inputs=[chatbot_input, chatbot], 
 					outputs=chatbot
 				)
@@ -157,7 +175,7 @@ def main() -> None:
 					status_box_img = gr.Textbox(label="Product Status", interactive=False)
 					reasoning_output_img = gr.Textbox(label="Reasoning", lines=6)
 					gr.Button("Analyze Image").click(
-						fn=gr_detect_pcb_image, 
+						fn=_detect_pcb_image, 
 						inputs=image_input,
 						outputs=[image_output, status_box_img, reasoning_output_img]
 					)
@@ -169,7 +187,7 @@ def main() -> None:
 					reasoning_output = gr.Textbox(label="LLaMA3.2 Reasoning Result", lines=8)
 					process_video_button = gr.Button("Start Video Inspection")
 					process_video_button.click(
-						fn=gr_detect_pcb_video,
+						fn=_detect_pcb_video,
 						inputs=video_input,
 						outputs=[video_output, status_box, reasoning_output]
 					)

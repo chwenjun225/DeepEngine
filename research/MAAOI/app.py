@@ -23,6 +23,12 @@ from utils import get_latest_msg
 
 
 
+prompt = """You are a visual inspector. Please describe the defect in the following image region:
+<image>{base64_img}</image>
+"""
+
+
+
 def get_status() -> str:
 	"""Trả về trạng thái lỗi hiện tại của sản phẩm."""
 	with STATUS_LOCK:
@@ -30,7 +36,7 @@ def get_status() -> str:
 
 
 
-def image_to_base64(pil_img: Image.Image | np.ndarray) -> base64:
+def image_to_base64(pil_img: Image.Image | np.ndarray) -> str:
 	"""Convert PIL or NumPy image to base64 string (PNG format), optimized for real-time usage."""
 	if isinstance(pil_img, np.ndarray):
 		pil_img = Image.fromarray(cv2.cvtColor(pil_img, cv2.COLOR_BGR2RGB))
@@ -61,7 +67,6 @@ def describe_defect_from_bbox(full_image: Image.Image, bbox: tuple[int, int, int
 	cropped = crop_from_bbox(full_image, bbox)
 	resized = resize_or_pad_img_cut_from_bbox(cropped, size=(224, 224))
 	base64_img = image_to_base64(resized)
-	### System prompt
 	prompt = f"""You are a visual inspector. Please describe the defect in the following image region:
 <image>{base64_img}</image>
 """
@@ -71,18 +76,17 @@ def describe_defect_from_bbox(full_image: Image.Image, bbox: tuple[int, int, int
 
 def process_frame(image: Image.Image) -> list[Image.Image, str, str]:
 	"""Xử lý ảnh YOLO detect + LLM reasoning."""
-	# resize_pil_img = image.resize((224, 224))
-	resize_pil_img = image
 	results = YOLO_OBJECT_DETECTION.predict(
-		resize_pil_img,
-		conf=0.,  			# phát hiện nhạy hơn, cần chỉnh cho yolo bắt được càng nhiều box nhỏ càng tốt, sau đó cắt các box nhỏ đưa vào trong LLM
-		iou=0.1, 			# ít bbox trùng
-		max_det=50,  		# nhiều vật thể
-		imgsz=640, 			# ảnh to hơn
+		image,
+		conf=0.,  		# phát hiện nhạy hơn, cần chỉnh cho yolo bắt được càng nhiều box nhỏ càng tốt, sau đó cắt các box nhỏ đưa vào trong LLM
+		iou=0.1, 		# ít bbox trùng
+		max_det=50,  	# nhiều vật thể
+		imgsz=640, 		# ảnh to hơn
 		vid_stride=4
 	)
-	processed_img = Image.fromarray(results[0].plot(pil=True)[..., ::-1])
-	### Extract detection info
+	### Convert ảnh kết quả detect thành PIL
+	processed_img = Image.fromarray(results[0].plot(pil=True)[..., ::-1]) 
+	### Extract detected results info
 	detections = []
 	for box in results[0].boxes:
 		label = YOLO_OBJECT_DETECTION.names[int(box.cls)]
@@ -93,17 +97,46 @@ def process_frame(image: Image.Image) -> list[Image.Image, str, str]:
 			"confidence": round(conf, 2),
 			"bbox": bbox
 		})
+	### Trích xuất tọa độ bboxes 
+	bboxes = []
+	for d in detections:
+		d_bbox = d["bbox"] + np.array([5, 5, 5, 5])
+		bboxes.append(d_bbox)
+	### Cắt các ảnh nhỏ từ bbox rồi cho vào list 
+	cropped_imgs = []
+	for bbox in bboxes:
+		cropped = crop_from_bbox(image=image, bbox=bbox)
+		cropped_imgs.append(cropped)
+	### Chuyển ảnh thành base64
+	base64_imgs = []
+	for c_img in cropped_imgs:
+		b64_img = image_to_base64(pil_img=c_img)
+		base64_imgs.append(b64_img)
+	### Cho vào instruction 
+	insts = []
+	for bi in base64_imgs:
+		prompt_formatted = prompt.format(base64_img=bi)
+		insts.append(prompt_formatted)
+	### Đưa các ảnh đã cắt được vào LLM invoke
+	texts = []
+	for inst in insts: 
+		text_ = VISION_INSTRUCT_LLM.invoke(inst).content
+		texts.append(text_)
+	### instruction của các list được lưu vào trong này 
+	### TODO: Build pipeline để reasoning trên nhiều croped_img
+
+
 	product_status = "NG" if detections else "OK"
 	### Tạo prompt + gọi LLM
 	json_str = json.dumps(detections, indent=2)
-	img_b64 = image_to_base64(resize_pil_img)
+	img_b64 = image_to_base64(image)
 	### Tạo instruction
 	instruction = VISISON_AGENT_PROMPT_MSG.format(
 		json_str=json_str, image_base64=img_b64
 	)
 	### Lấy các bbox cắt được cho vào LLM để cho ra kết quả, rồi lấy các kết quả thu được tính toán dựa trên phương trình xác xuất.
-	################### Cần cắt các ảnh nhỏ predict được ở đây
-	describe_defect_from_bbox
+	### Cần cắt các ảnh nhỏ predict được ở đây...
+	
 	llm_resp = VISION_INSTRUCT_LLM.invoke(instruction)
 	return processed_img.resize(image.size), product_status, llm_resp.content
 

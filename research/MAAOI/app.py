@@ -102,7 +102,7 @@ def process_frame(image: Image.Image) -> list[Image.Image, str, str]:
 		json_str=json_str, image_base64=img_b64
 	)
 	### Lấy các bbox cắt được cho vào LLM để cho ra kết quả, rồi lấy các kết quả thu được tính toán dựa trên phương trình xác xuất.
-	###################### Cần cắt các ảnh nhỏ predict được ở đây
+	################### Cần cắt các ảnh nhỏ predict được ở đây
 	describe_defect_from_bbox
 	llm_resp = VISION_INSTRUCT_LLM.invoke(instruction)
 	return processed_img.resize(image.size), product_status, llm_resp.content

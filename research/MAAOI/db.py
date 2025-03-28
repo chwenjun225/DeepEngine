@@ -1,4 +1,4 @@
-"""CLI to Interact with Chroma Vector Database."""
+"""CLI to Interact with Vector Database."""
 
 
 
@@ -15,14 +15,18 @@ import chromadb.errors
 
 
 
-from typing_extensions import List, Dict, Optional
+from typing_extensions import Optional
 
 
 
-from langchain_community.vectorstores import Chroma 
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.document_loaders import TextLoader, Docx2txtLoader, UnstructuredHTMLLoader, PyPDFLoader
+from langchain_community.document_loaders import (
+	TextLoader, 
+	Docx2txtLoader, 
+	UnstructuredHTMLLoader, 
+	PyPDFLoader
+)
 
 
 
@@ -185,7 +189,7 @@ def clean_text(text: str) -> str:
 def process_document( file_path: str, embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2",
 		chunk_size: int = 500,
 		chunk_overlap: int = 50
-	) -> Optional[List[Dict]]:
+	) -> Optional[list[dict]]:
 	"""
 	Xử lý tài liệu: đọc, chia nhỏ thành chunks và tạo embeddings.
 

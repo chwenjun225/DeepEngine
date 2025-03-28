@@ -65,14 +65,14 @@ python /home/chwenjun225/projects/DeepEngine/third_3rdparty/MiniCPM-o-main/web_d
 postgresql+psycopg://langchain:langchain@localhost:2028/langchain
 # Docker run pgvector16
 docker run \
-	--name chat_history_pgvector \
+	--name chat_history \
 	-e POSTGRES_USER=tranvantuan \
 	-e POSTGRES_PASSWORD=tranvantuan \
 	-e POSTGRES_DB=tranvantuan \
 	-p 2028:5432 \
 	-d pgvector/pgvector:pg16
 docker run \
-	--name rag_pgvector \
+	--name rag \
 	-e POSTGRES_USER=langchain \
 	-e POSTGRES_PASSWORD=langchain \
 	-e POSTGRES_DB=langchain \

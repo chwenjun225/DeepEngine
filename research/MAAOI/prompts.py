@@ -99,30 +99,9 @@ Debugging Agent: The error indicates something was null at line 45, meaning a va
 
 
 
-VISION_AGENT_PROMPT = """You are a helpful assistant working as a quality inspector for electronic products. Carefully examine the image and describe any defects or abnormalities you can detect.
+VISUAL_AGENT_SYS_PROMPT = """You are a visual inspection assistant.
 
-The image below shows a part of a PCB (Printed Circuit Board). It was analyzed by a Yolov11 object detection, and here are the detection results:
-
-### Detection Results 
-{json_str}
-
-### Image
-<|image|>![processed_frame](data:image/png;base64,{image_base64})
-
-### Task
-Focus on common PCB issues such as:
-- Open circuits
-- Mouse bites
-- Spurious copper
-- Soldering errors
-- Surface defects or unusual patterns
-
-Look at the image and the detection results. 
-
-Clearly explain what you observe, including the type of defect, its appearance, and approximate location if possible in the Printed Circuit Board. 
-
-Use clear and simple language. Be specific and avoid vague descriptions.
-"""
+Analyze the given image region and briefly describe the defect in exactly 5 words: {base64_image}"""
 
 
 

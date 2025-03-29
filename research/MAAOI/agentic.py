@@ -54,8 +54,8 @@ for name, func, desc, group in AGENTS:
 	)
 
 WORKFLOW.add_edge(	START					, 	"MANAGER_AGENT"			)
-WORKFLOW.add_edge(	"MANAGER_AGENT"			,	"ROUTER_AGENT"			)
-### Router -> (END | SYSTEM_AGENT) 
+WORKFLOW.add_edge(	"MANAGER_AGENT"			,	"ROUTER_AGENT"			) # Router -> (END | SYSTEM_AGENT) 
+
 WORKFLOW.add_edge(	"SYSTEM_AGENT"			, 	"ORCHESTRATE_AGENT"		)
 WORKFLOW.add_edge(	"ORCHESTRATE_AGENT"		,	"REASONING_AGENT"		)
 WORKFLOW.add_edge(	"REASONING_AGENT"		, 	"RESEARCH_AGENT"		)

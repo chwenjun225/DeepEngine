@@ -1,6 +1,9 @@
-
 import re 
 import json 
+import base64
+import numpy as np 
+from PIL import Image 
+from io import BytesIO
 
 
 
@@ -9,7 +12,10 @@ from langchain_core.tools import BaseTool
 
 
 
-from langchain_core.messages import BaseMessage, SystemMessage
+from langchain_core.messages import (
+	BaseMessage				, 
+	SystemMessage			,
+)
 
 
 
@@ -19,6 +25,25 @@ from const_vars import (
 	ENCODING				, 
 	MAX_TOKENS				, 
 )
+
+
+
+def image_to_base64(pil_img: Image.Image | np.ndarray) -> str:
+	"""Convert PIL or NumPy image to base64 string (PNG format), optimized for real-time usage."""
+	with BytesIO() as buffer:
+		pil_img.save(buffer, format="PNG")
+		return base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+
+
+def expand_bbox(bbox:list[int], delta:int=6) -> list[int]:
+	"""Điều chỉnh bbox theo hệ số cho trước."""
+	x1, y1, x2, y2 = bbox 
+	x2 = x2 + delta//2 
+	x1 = x1 - delta//2
+	y2 = y2 + delta//2
+	y1 = y1 - delta//2 
+	return [x1, y1, x2, y2]
 
 
 
@@ -32,7 +57,7 @@ def prepare_context(
 		state: State, 
 		agent: str, 
 		system_prompt: str
-	) -> tuple[list[BaseMessage], SystemMessage | None]:
+	) -> tuple[list[BaseMessage], SystemMessage|None]:
 	"""Thêm system message nếu chưa có và trả về context đã trim."""
 	ctx = get_msgs(state)
 	sys_msg = None
@@ -60,7 +85,7 @@ def replace_message_content(
 	) -> BaseMessage:
 	"""Chỉnh sửa content của một BaseMessage."""
 	return type(msg)(
-		content=f"Forwarded to `{new_content}`.", # Sai logic rồi đm
+		content=f"Forwarded to `{new_content}`.",
 		name=getattr(msg, "name", None),
 		additional_kwargs=msg.additional_kwargs,
 		response_metadata=msg.response_metadata,
@@ -106,13 +131,13 @@ def has_agent_got_sys_prompt(context: list[dict|BaseMessage], agent_name: str) -
 
 
 def count_tokens(messages: list[BaseMessage]) -> int:
-	"""Đếm tổng số tokens trong messages theo model."""
+	"""Đếm tổng số tokens trong messages theo model. 
+		Token structure theo chuẩn OpenAI ChatML"""
 	num_tokens = 0 
 	for msg in messages:
 		role = getattr(msg, "type", "user")
 		content = getattr(msg, "content", "")
 		name = getattr(msg, "name", None)
-		### Token structure theo chuẩn OpenAI ChatML
 		num_tokens += 4 
 		num_tokens += len(ENCODING.encode(role))
 		num_tokens += len(ENCODING.encode(content))

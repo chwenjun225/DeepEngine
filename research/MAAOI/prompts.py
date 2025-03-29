@@ -101,9 +101,11 @@ Debugging Agent: The error indicates something was null at line 45, meaning a va
 
 VISUAL_AGENT_PROMPT = """You are a visual inspection assistant.
 
-Analyze the given image region and briefly describe the defect in exactly 1 words: {base64_image}
+This is the region of Printed Circuit Board (PCB), that user cut from bounding box yolo detected: {base64_image}
 
-Remember, you answer is only 1 word 'OK' (GOOD) or 'NG'(NOT GOOD)."""
+Describe the region in 10 words."""
+
+# Remember, you answer is only 1 word 'OK' (GOOD) or 'NG'(NOT GOOD)."""
 
 
 

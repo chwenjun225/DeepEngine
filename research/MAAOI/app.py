@@ -1,10 +1,8 @@
+import json
 import asyncio
 import cv2 
-import numpy as np 
-import base64
 import fire 
 import gradio as gr 
-from io import BytesIO
 from PIL import Image 
 
 
@@ -16,45 +14,45 @@ from langchain_core.messages import BaseMessage
 from agentic import AGENTIC
 from const_vars import (
 	VISUAL_AGENT_PROMPT_MSG		,
-	YOLO_OBJECT_DETECTION		,
-	VISION_INSTRUCT_LLM			,
 	CONFIG						,
 	PRODUCT_STATUS				,
-	STATUS_LOCK					, 
+	STATUS_LOCK					,
+
+	YOLO_OBJECT_DETECTION		,
+	VISION_INSTRUCT_LLM			,
 )
-from utils import get_latest_msg
+from utils import (
+	image_to_base64				,
+	expand_bbox					,
+	get_latest_msg				,
+)
 
 
 
-def get_status() -> str:
+def get_status_product() -> str:
 	"""Trả về trạng thái lỗi hiện tại của sản phẩm."""
 	with STATUS_LOCK:
 		return PRODUCT_STATUS
 
 
 
-def image_to_base64(pil_img: Image.Image | np.ndarray) -> str:
-	"""Convert PIL or NumPy image to base64 string (PNG format), optimized for real-time usage."""
-	with BytesIO() as buffer:
-		pil_img.save(buffer, format="PNG")
-		return base64.b64encode(buffer.getvalue()).decode("utf-8")
-
-
-
 async def async_llm_inference(prompt):
 	"""Thực thi LLM không chặn."""
-	return await asyncio.to_thread(VISION_INSTRUCT_LLM.invoke, prompt)
+	return await asyncio.to_thread(
+		VISION_INSTRUCT_LLM.invoke, prompt
+	)
 
 
 
-async def async_process_frame(image: Image.Image): 
+async def async_process_frame(image: Image.Image) -> tuple[Image.Image, list[str]]: 
 	"""Xử lý khung hình bằng YOLO và LLM với asyncio."""
 	results = YOLO_OBJECT_DETECTION.predict(image, conf=0., iou=0.1, max_det=5) 
-	processed_img = Image.fromarray(results[0].plot(pil=True)[..., ::-1]) 
+	processed_img = Image.fromarray(results[0].plot()[..., ::-1]) 
 	bboxes = [list(map(int, box.xyxy[0])) for box in results[0].boxes] 
 	tasks = []
 	for bbox in bboxes: 
-		cropped = image.crop(bbox) # làm sao để gia tăng kích thước bbox lên 5 lần
+		bbox_expanded = expand_bbox(bbox)
+		cropped = image.crop(bbox_expanded) 
 		b64_img = image_to_base64(cropped) 
 		prompt = VISUAL_AGENT_PROMPT_MSG.format(base64_image=b64_img)
 		tasks.append(async_llm_inference(prompt))
@@ -63,7 +61,7 @@ async def async_process_frame(image: Image.Image):
 
 
 
-async def async_video_processing(video_path: str):
+async def async_video_processing(video_path: str, resize_coord:tuple=(640, 640)) -> any:
 	"""Xử lý video không chặn bằng asyncio."""
 	cap = cv2.VideoCapture(video_path)
 	if not cap.isOpened():
@@ -72,7 +70,7 @@ async def async_video_processing(video_path: str):
 	while cap.isOpened():
 		ret, frame = cap.read()
 		if not ret: break
-		pil_frame = Image.fromarray(frame[..., ::-1]).resize((640, 640))
+		pil_frame = Image.fromarray(frame[..., ::-1]).resize(resize_coord)
 		processed_img, texts = await async_process_frame(pil_frame)
 		text_combined = " | ".join([text.content if isinstance(text, BaseMessage) else str(text) for text in texts])
 		yield processed_img, "NG", text_combined
@@ -81,7 +79,7 @@ async def async_video_processing(video_path: str):
 
 
 
-def __detect_pcb_video(video_path: str):
+def __detect_pcb_video(video_path: str) -> any:
 	"""Giao diện Gradio để xử lý video."""
 	try:
 		loop = asyncio.get_running_loop()
@@ -101,7 +99,7 @@ def __detect_pcb_video(video_path: str):
 
 
 
-async def __detect_pcb_image(image: Image.Image):
+async def __detect_pcb_image(image: Image.Image) -> any:
 	"""Xử lý ảnh PCB bằng YOLO và LLM."""
 	try:
 		processed_img, texts = await async_process_frame(image)
@@ -111,7 +109,7 @@ async def __detect_pcb_image(image: Image.Image):
 				else str(text) \
 				for text in texts
 		])
-		status = get_status()
+		status = get_status_product()
 		return processed_img, status, text_combined
 	except Exception as e:
 		return None, "Error during image processing", str(e)

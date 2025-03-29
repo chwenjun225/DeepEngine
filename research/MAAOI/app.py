@@ -51,11 +51,11 @@ async def async_process_frame(image: Image.Image):
 	"""Xử lý khung hình bằng YOLO và LLM với asyncio."""
 	results = YOLO_OBJECT_DETECTION.predict(image, conf=0., iou=0.1, max_det=5) 
 	processed_img = Image.fromarray(results[0].plot(pil=True)[..., ::-1]) 
-	bboxes = [tuple(map(int, box.xyxy[0])) for box in results[0].boxes] 
+	bboxes = [list(map(int, box.xyxy[0])) for box in results[0].boxes] 
 	tasks = []
 	for bbox in bboxes: 
-		cropped = image.crop(bbox)
-		b64_img = image_to_base64(cropped)
+		cropped = image.crop(bbox) # làm sao để gia tăng kích thước bbox lên 5 lần
+		b64_img = image_to_base64(cropped) 
 		prompt = VISUAL_AGENT_PROMPT_MSG.format(base64_image=b64_img)
 		tasks.append(async_llm_inference(prompt))
 	texts = await asyncio.gather(*tasks)

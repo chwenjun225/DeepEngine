@@ -99,9 +99,11 @@ Debugging Agent: The error indicates something was null at line 45, meaning a va
 
 
 
-VISUAL_AGENT_SYS_PROMPT = """You are a visual inspection assistant.
+VISUAL_AGENT_PROMPT = """You are a visual inspection assistant.
 
-Analyze the given image region and briefly describe the defect in exactly 5 words: {base64_image}"""
+Analyze the given image region and briefly describe the defect in exactly 1 words: {base64_image}
+
+Remember, you answer is only 1 word 'OK' (GOOD) or 'NG'(NOT GOOD)."""
 
 
 

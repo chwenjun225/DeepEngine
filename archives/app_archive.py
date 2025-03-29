@@ -12,7 +12,7 @@ from PIL import Image
 
 from agentic import AGENTIC
 from const_vars import (
-    VISISON_AGENT_PROMPT_MSG,
+    VISUAL_AGENT_PROMPT_MSG,
     YOLO_OBJECT_DETECTION,
     VISION_INSTRUCT_LLM,
     CONFIG,
@@ -20,12 +20,6 @@ from const_vars import (
     STATUS_LOCK
 )
 from utils import get_latest_msg
-
-
-
-prompt = """You are a visual inspector. Please describe the defect in the following image region:
-<image>{base64_img}</image>
-"""
 
 
 
@@ -80,9 +74,7 @@ def process_frame(image: Image.Image) -> list[Image.Image, str, str]:
 		image,
 		conf=0.,  		# phát hiện nhạy hơn, cần chỉnh cho yolo bắt được càng nhiều box nhỏ càng tốt, sau đó cắt các box nhỏ đưa vào trong LLM
 		iou=0.1, 		# ít bbox trùng
-		max_det=50,  	# nhiều vật thể
-		imgsz=640, 		# ảnh to hơn
-		vid_stride=4
+		max_det=5,  	# nhiều vật thể
 	)
 	### Convert ảnh kết quả detect thành PIL
 	processed_img = Image.fromarray(results[0].plot(pil=True)[..., ::-1]) 
@@ -115,7 +107,7 @@ def process_frame(image: Image.Image) -> list[Image.Image, str, str]:
 	### Cho vào instruction 
 	insts = []
 	for bi in base64_imgs:
-		prompt_formatted = prompt.format(base64_img=bi)
+		prompt_formatted = VISUAL_AGENT_PROMPT_MSG.format(base64_image=bi)
 		insts.append(prompt_formatted)
 	### Đưa các ảnh đã cắt được vào LLM invoke
 	texts = []
@@ -130,10 +122,10 @@ def process_frame(image: Image.Image) -> list[Image.Image, str, str]:
 	product_status = "NG" if detections else "OK"
 	### Tạo prompt + gọi LLM
 	json_str = json.dumps(detections, indent=2)
-	img_b64 = image_to_base64(image)
+	base64_image = image_to_base64(image)
 	### Tạo instruction
-	instruction = VISISON_AGENT_PROMPT_MSG.format(
-		json_str=json_str, image_base64=img_b64
+	instruction = VISUAL_AGENT_PROMPT_MSG.format(
+		json_str=json_str, base64_image=base64_image
 	)
 	### Lấy các bbox cắt được cho vào LLM để cho ra kết quả, rồi lấy các kết quả thu được tính toán dựa trên phương trình xác xuất.
 	### Cần cắt các ảnh nhỏ predict được ở đây...
@@ -161,7 +153,7 @@ def _detect_pcb_video(video_path: str):
 	while cap.isOpened():
 		ret, frame = cap.read()
 		if not ret: break
-		pil_frame = Image.fromarray(frame[..., ::-1])
+		pil_frame = Image.fromarray(frame[..., ::-1]).resize((640, 640))
 		processed_frame, product_status, reasoning = process_frame(pil_frame)
 		time.sleep(delay)
 		yield processed_frame, product_status, reasoning

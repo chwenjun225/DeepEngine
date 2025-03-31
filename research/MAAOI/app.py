@@ -82,10 +82,35 @@ async def async_process_frames(ctx_frames:list[Image.Image]) -> tuple[Image.Imag
 
 
 	# TODO: Ngày mai cần build nhanh một hệ thống Multi-Agent ở đây để lý giải tính toán các "ctx_frame_metadata"
-	print("ctx_frames_metadata:", ctx_frames_metadata)
+	print("ctx_frames_metadata:", ctx_frames_metadata) 
 	print("DEBUG")
 
 	### IMPORTANT: Kết quả đầu ra phải là một list["Ảnh pil đã vẽ các dấu hiệu lỗi","PRODUCT_STATUS OK hoặc NG",  "Lý luận để hiển thị"]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	### Đây là hình ảnh plot kết quả lên yolo, bây giờ chưa cần thiết
 	processed_img = Image.fromarray(results[0].plot()[..., ::-1]) 
 	bboxes = [list(map(int, box.xyxy[0])) for box in results[0].boxes] 

@@ -103,9 +103,9 @@ VISUAL_AGENT_PROMPT = """You are a visual inspection assistant.
 
 This is the region of Printed Circuit Board (PCB), that user cut from bounding box yolo detected: {base64_image}
 
-Describe the region in 10 words."""
+anh this is the 
 
-# Remember, you answer is only 1 word 'OK' (GOOD) or 'NG'(NOT GOOD)."""
+Remember, you answer is only 1 word 'OK' (GOOD) or 'NG'(NOT GOOD)."""
 
 
 

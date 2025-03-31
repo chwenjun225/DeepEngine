@@ -33,9 +33,9 @@ STATUS_LOCK = threading.Lock()
 
 
 ENCODING = tiktoken.get_encoding("cl100k_base") 
-YOLO_OBJECT_DETECTION = YOLO("/home/chwenjun225_laptop/projects/DeepEngine/research/MAAOI/VisionAgent/runs/detect/train/weights/best.pt")
-REASONING_INSTRUCT_LLM = ChatOllama(model="minicpm-v:8b-2.6-q2_K", num_predict=128_000)
-VISION_INSTRUCT_LLM = ChatOllama(model="minicpm-v:8b-2.6-q2_K", num_predict=128_000)
+YOLO_OBJECT_DETECTION = YOLO("/home/chwenjun225/projects/DeepEngine/research/MAAOI/VisionAgent/runs/detect/train/weights/best.pt")
+REASONING_INSTRUCT_LLM = ChatOllama(model="Llama-3.2-11B-Vision-Instruct.Q4_K_M:latest", num_predict=128_000)
+VISION_INSTRUCT_LLM = ChatOllama(model="Llama-3.2-11B-Vision-Instruct.Q4_K_M:latest", num_predict=128_000)
 
 
 

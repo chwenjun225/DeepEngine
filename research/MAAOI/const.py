@@ -1,4 +1,3 @@
-import os 
 import uuid
 import threading 
 from queue import Queue 
@@ -33,38 +32,27 @@ STATUS_LOCK = threading.Lock()
 
 
 ENCODING = tiktoken.get_encoding("cl100k_base") 
-YOLO_OBJECT_DETECTION = YOLO("/home/chwenjun225_laptop/projects/DeepEngine/research/MAAOI/VisionAgent/runs/detect/train/weights/best.pt")
-REASONING_INSTRUCT_LLM = ChatOllama(model="minicpm-v:8b-2.6-q2_K", num_predict=128_000)
-VISION_INSTRUCT_LLM = ChatOllama(model="minicpm-v:8b-2.6-q2_K", num_predict=128_000)
+YOLO_OBJECT_DETECTION = YOLO("/home/chwenjun225/projects/DeepEngine/research/MAAOI/VisionAgent/runs/detect/train/weights/best.pt")
+LLM = ChatOllama(model="Llama-3.2-11B-Vision-Instruct.Q4_K_M:latest", num_predict=128_000)
+VISION_LLM = ChatOllama(model="Llama-3.2-11B-Vision-Instruct.Q4_K_M:latest", num_predict=128_000)
 
 
 
-MANAGER_AGENT_PROMPT_MSG 			= 		prompts.MANAGER_AGENT_PROMPT
-ROUTER_AGENT_PROMPT_MSG 			= 		prompts.ROUTER_AGENT_PROMPT
-SYSTEM_AGENT_PROMPT_MSG 			= 		prompts.SYSTEM_AGENT_PROMPT
-ORCHESTRATE_AGENT_PROMPT_MSG		=	 	prompts.ORCHESTRATE_AGENT_PROMPT
-REASONING_AGENT_PROMPT_MSG 			= 		prompts.REASONING_AGENT_PROMPT
-RESEARCH_AGENT_PROMPT_MSG 			= 		prompts.RESEARCH_AGENT_PROMPT
-PLANNING_AGENT_PROMPT_MSG 			= 		prompts.PLANNING_AGENT_PROMPT
-EXECUTION_AGENT_PROMPT_MSG 			= 		prompts.EXECUTION_AGENT_PROMPT
-COMMUNICATION_AGENT_PROMPT_MSG 		= 		prompts.COMMUNICATION_AGENT_PROMPT
-EVALUATION_AGENT_PROMPT_MSG			= 		prompts.EVALUATION_AGENT_PROMPT
-DEBUGGING_AGENT_PROMPT_MSG			= 		prompts.DEBUGGING_AGENT_PROMPT
-
-VISUAL_AGENT_PROMPT_MSG				=		prompts.VISUAL_AGENT_PROMPT
+TEMPORAL_PATTERN_AGENT_MSG 		= 	prompts.TEMPORAL_PATTERN_AGENT_PROMPT
+DEFECT_REASONING_AGENT_MSG 		= 	prompts.DEFECT_REASONING_AGENT_PROMPT
+CRITICAL_ASSESSMENT_AGENT_MSG 	= 	prompts.CRITICAL_ASSESSMENT_AGENT_PROMPT
+REPORT_GENERATOR_AGENT_MSG		=	prompts.REPORT_GENERATOR_AGENT_PROMPT
+VISUAL_AGENT_MSG 				= 	prompts.VISUAL_AGENT_PROMPT
 
 
 
 CONNECTION = "postgresql+psycopg://langchain:langchain@localhost:2028/langchain" 
-COLLECTION_NAME = "maaoi"
+COLLECTION_NAME = "tranvantuan"
 EMBEDDING_FUNC = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
 
 
-CHAT_HISTORY_COLLECTION_NAME = "maaoi"
-
-
-
+CHAT_HISTORY_COLLECTION_NAME = "tranvantuan"
 CONFIG = {"configurable": {"thread_id": str(uuid.uuid4()), "recursion_limit": 100}}
 CHECKPOINTER = MemorySaver()
 STORE = InMemoryStore()
@@ -100,14 +88,3 @@ The model should achieve at least 0.95 (95%) accuracy on the test set and be imp
 
 
 DEBUG = False
-
-
-
-LLAMA_TOKENS = {
-	"BEGIN_OF_TEXT"			:	"<|begin_of_text|>"		,
-	"END_OF_TEXT"			:	"<|end_of_text|>"		,
-	"START_HEADER_ID"		:	"<|start_header_id|>"	,
-	"END_HEADER_ID"			:	"<|end_header_id|>"		,
-	"END_OF_MESSAGE_ID"		:	"<|eom_id|>"			,
-	"END_OF_TURN_ID"		:	"<|eot_id|>"			,
-}

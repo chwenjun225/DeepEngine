@@ -1,5 +1,3 @@
-import re 
-import json 
 import base64
 import numpy as np 
 from PIL import Image 
@@ -8,7 +6,6 @@ from io import BytesIO
 
 
 from langchain_core.runnables import RunnableLambda
-from langchain_core.tools import BaseTool 
 
 
 
@@ -20,8 +17,7 @@ from langchain_core.messages import (
 
 
 from state import State 
-from const_vars import (
-	LLAMA_TOKENS			, 
+from research.MAAOI.const import (
 	ENCODING				, 
 	MAX_TOKENS				, 
 )
@@ -113,7 +109,7 @@ def has_agent_got_name_attr(
 
 
 def has_agent_got_sys_prompt(context: list[dict|BaseMessage], agent_name: str) -> bool:
-	"""Kiểm tra xem đã có system message cho agent được chỉ định chưa."""
+	"""Kiểm tra xem đã có system message cho agent được chỉ định chưa, type==role"""
 	for c in context:
 		role = name = None
 
@@ -121,7 +117,7 @@ def has_agent_got_sys_prompt(context: list[dict|BaseMessage], agent_name: str) -
 			role = c.get("role")
 			name = c.get("name")
 		elif isinstance(c, BaseMessage):
-			role = getattr(c, "type", None) # type==role
+			role = getattr(c, "type", None)
 			name = getattr(c, "name", None)
 
 		if role == "system" and name == agent_name:
@@ -179,90 +175,3 @@ def get_msgs(state: State) -> list[BaseMessage]:
 def get_latest_msg(state: State) -> BaseMessage:
 	"""Lấy tin nhắn mới nhất, O(1)."""
 	return state["messages"][-1]
-
-
-
-def build_react_sys_msg_prompt(tool_desc_prompt: str, react_prompt: str, tools: list[BaseTool]) -> str:
-	"""Builds a formatted system prompt with tool descriptions.
-
-	Args:
-		tool_desc_prompt (PromptTemplate): Template for tool descriptions.
-		react_prompt (PromptTemplate): Template for constructing the final system prompt.
-		tools (List[BaseTool]): List of tool objects.
-
-	Returns:
-		str: A fully formatted system prompt with tool descriptions.
-	"""
-	list_tool_desc = [
-		tool_desc_prompt.format(
-			name_for_model=(tool_info := getattr(tool.args_schema, "model_json_schema", lambda: {})()).get("title", "Unknown Tool"),
-			name_for_human=tool_info.get("title", "Unknown Tool"),
-			description_for_model=tool_info.get("description", "No description available."),
-			type=tool_info.get("type", "N/A"),
-			properties=json.dumps(tool_info.get("properties", {}), ensure_ascii=False),
-			required=json.dumps(tool_info.get("required", []), ensure_ascii=False),
-		) + " Format the arguments as a JSON object."
-		for tool in tools
-	]
-	prompt = react_prompt.format(
-		BEGIN_OF_TEXT=LLAMA_TOKENS["BEGIN_OF_TEXT"], 
-		START_HEADER_ID=LLAMA_TOKENS["START_HEADER_ID"], 
-		END_HEADER_ID=LLAMA_TOKENS["END_HEADER_ID"], 
-		END_OF_TURN_ID=LLAMA_TOKENS["END_OF_TURN_ID"], 
-		tools_desc="\n\n".join(list_tool_desc), 
-		tools_name=", ".join(tool.name for tool in tools)
-	)
-	return prompt
-
-
-
-# def conversation2json(
-# 		msg_prompt: str, 
-# 		llm_structure_output: Runnable[LanguageModelInput, Dict | BaseModel], 
-# 		human_msg: Dict, 
-# 		schema: Type[Dict]
-# 	) -> json:
-# 	"""Parses user's query into structured JSON for manager_agent."""
-# 	json_data = llm_structure_output.invoke([human_msg])
-# 	if not json_data:
-# 		json_schema = json.dumps(TypeAdapter(schema).json_schema()["properties"], indent=2).strip()
-# 		sys_msg = SystemMessage(content=msg_prompt.format(
-# 			BEGIN_OF_TEXT=LLAMA_TOKENS["BEGIN_OF_TEXT"], 
-# 			START_HEADER_ID=LLAMA_TOKENS["START_HEADER_ID"], 
-# 			END_HEADER_ID=LLAMA_TOKENS["END_HEADER_ID"], 
-# 			json_schema=json_schema, 
-# 			human_msg=human_msg.content, 
-# 			END_OF_TURN_ID=LLAMA_TOKENS["END_OF_TURN_ID"]
-# 		))
-# 		ai_msg_json = LLM_LTEMP.invoke([sys_msg])
-# 		pattern = r"```json\n(.*?)\n```"
-# 		match = re.search(pattern=pattern, string=ai_msg_json.content, flags=re.DOTALL)
-# 		if not match: 
-# 			raise ValueError(">>> Không tìm thấy JSON hợp lệ trong phản hồi của mô hình.")
-# 		json_string = match.group(1).strip()
-# 		try:
-# 			json_data = json.loads(json_string)
-# 			if DEBUG: 
-# 				print(">>> JSON hợp lệ:")
-# 				print(json.dumps(json_data, indent=2, ensure_ascii=False))
-# 		except json.JSONDecodeError as e:
-# 			raise ValueError(f">>> JSON không hợp lệ (DecodeError): {e}")
-# 	missing_keys = set(schema.__annotations__.keys()) - json_data.keys()
-# 	extra_keys = json_data.keys() - set(schema.__annotations__.keys())
-# 	if missing_keys:
-# 		raise ValueError(f">>> JSON thiếu các trường bắt buộc: {missing_keys}")
-# 	if extra_keys: 
-# 		raise ValueError(f">>> JSON có các trường không hợp lệ: {extra_keys}")
-# 	return json_data
-
-
-
-def check_msg_yes_or_no(ai_msg: str) -> str:
-	"""Checks if the AI response contains 'Yes' or 'No'."""
-	match = re.search(
-		r"<\|start_header_id\|>assistant<\|end_header_id\|>\s*\n\s*(\byes\b|\bno\b)",  
-		ai_msg, re.IGNORECASE
-	)
-	return match.group(1).upper() \
-		if match \
-			else "[ERROR]: Không tìm thấy 'Yes' hoặc 'No' trong phản hồi AIMessage!"

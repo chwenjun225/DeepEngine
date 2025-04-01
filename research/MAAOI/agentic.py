@@ -40,19 +40,20 @@ for name, func, desc, group in AGENTS:
 		action=func						,
 		metadata={
 			"description": desc			, 
-			"group": group, 
+			"group": group				, 
 			"tags": [group, "agent"]
 	})
 
-WORKFLOW.add_edge(	START						, 	"TEMPORAL_PATTERN_AGENT"		)
-WORKFLOW.add_edge(	"TEMPORAL_PATTERN_AGENT"	,	"DEFECT_REASONING_AGENT"		) 
-WORKFLOW.add_edge(	"DEFECT_REASONING_AGENT"	, 	"CRITICAL_ASSESSMENT_AGENT"		)
-WORKFLOW.add_edge(	"CRITICAL_ASSESSMENT_AGENT"	,	"REPORT_GENERATOR_AGENT"		)
-WORKFLOW.add_edge(	"CRITICAL_ASSESSMENT_AGENT"	,	"VISUAL_AGENT"					)
+WORKFLOW.add_edge(	START						, 	"TEMPORAL_PATTERN_AGENT"	)
+WORKFLOW.add_edge(	"TEMPORAL_PATTERN_AGENT"	,	"DEFECT_REASONING_AGENT"	) 
+WORKFLOW.add_edge(	"DEFECT_REASONING_AGENT"	, 	"CRITICAL_ASSESSMENT_AGENT"	)
+WORKFLOW.add_edge(	"CRITICAL_ASSESSMENT_AGENT"	,	"REPORT_GENERATOR_AGENT"	)
+WORKFLOW.add_edge(	"REPORT_GENERATOR_AGENT"	,	"VISUAL_AGENT"				)
+WORKFLOW.add_edge(	"VISUAL_AGENT"				,	END							)
 
 AGENTIC = WORKFLOW.compile(
-	store=STORE, 
-	debug=DEBUG, 
-	checkpointer=CHECKPOINTER,
-	name="tranvantuan"
+	store=STORE					, 
+	debug=DEBUG					, 
+	checkpointer=CHECKPOINTER	,
+	name="tranvantuan"			,
 )

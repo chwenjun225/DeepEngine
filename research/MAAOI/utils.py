@@ -17,7 +17,7 @@ from langchain_core.messages import (
 
 
 from state import State 
-from research.MAAOI.const import (
+from const import (
 	ENCODING				, 
 	MAX_TOKENS				, 
 )
@@ -172,6 +172,6 @@ def get_msgs(state: State) -> list[BaseMessage]:
 
 
 
-def get_latest_msg(state: State) -> BaseMessage:
-	"""Lấy tin nhắn mới nhất, O(1)."""
-	return state["messages"][-1]
+def get_latest_msg(state:State, type_msgs:str) -> BaseMessage:
+	"""Lấy tin nhắn mới nhất của một agent, O(1)."""
+	return state[type_msgs][-1]

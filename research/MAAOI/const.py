@@ -32,17 +32,23 @@ STATUS_LOCK = threading.Lock()
 
 
 ENCODING = tiktoken.get_encoding("cl100k_base") 
-YOLO_OBJECT_DETECTION = YOLO("/home/chwenjun225/projects/DeepEngine/research/MAAOI/VisionAgent/runs/detect/train/weights/best.pt")
-LLM = ChatOllama(model="Llama-3.2-11B-Vision-Instruct.Q4_K_M:latest", num_predict=128_000)
-VISION_LLM = ChatOllama(model="Llama-3.2-11B-Vision-Instruct.Q4_K_M:latest", num_predict=128_000)
+YOLO_OBJECT_DETECTION = YOLO(
+    model="/home/chwenjun225/projects/DeepEngine/research/MAAOI/VisionAgent/runs/detect/train/weights/best.pt"
+)
+LLM = ChatOllama(
+    model="Llama-3.2-11B-Vision-Instruct.Q4_K_M:latest", num_predict=128_000
+)
+VISION_LLM = ChatOllama(
+    model="Llama-3.2-11B-Vision-Instruct.Q4_K_M:latest", num_predict=128_000
+)
 
 
 
-TEMPORAL_PATTERN_AGENT_MSG 		= 	prompts.TEMPORAL_PATTERN_AGENT_PROMPT
-DEFECT_REASONING_AGENT_MSG 		= 	prompts.DEFECT_REASONING_AGENT_PROMPT
-CRITICAL_ASSESSMENT_AGENT_MSG 	= 	prompts.CRITICAL_ASSESSMENT_AGENT_PROMPT
-REPORT_GENERATOR_AGENT_MSG		=	prompts.REPORT_GENERATOR_AGENT_PROMPT
-VISUAL_AGENT_MSG 				= 	prompts.VISUAL_AGENT_PROMPT
+TEMPORAL_PATTERN_AGENT_PROMPT_MSG 		= 	prompts.TEMPORAL_PATTERN_AGENT_PROMPT
+DEFECT_REASONING_AGENT_PROMPT_MSG 		= 	prompts.DEFECT_REASONING_AGENT_PROMPT
+CRITICAL_ASSESSMENT_AGENT_PROMPT_MSG 	= 	prompts.CRITICAL_ASSESSMENT_AGENT_PROMPT
+REPORT_GENERATOR_AGENT_PROMPT_MSG		=	prompts.REPORT_GENERATOR_AGENT_PROMPT
+VISUAL_AGENT_PROMPT_MSG 				= 	prompts.VISUAL_AGENT_PROMPT
 
 
 

@@ -8,7 +8,7 @@ from PIL import Image
 
 
 
-from langchain_core.messages import BaseMessage
+from langchain_core.messages import BaseMessage, AIMessage
 
 
 
@@ -78,13 +78,16 @@ async def async_process_frames(ctx_frames:list[Image.Image]) -> tuple[Image.Imag
 		results = YOLO_OBJECT_DETECTION.predict(frame, conf=0., iou=0.1, max_det=5) 
 		frame_metadata = single_frame_detections_to_json(results, idx) 
 		ctx_frames_metadata.append(frame_metadata)
-
-
-	#################################### TODO: Tiếp theo hãy viết logic xử lý cho các agent trong file nodes ################
+	#################################### TODO: Tiếp theo hãy viết logic xử lý cho các agent trong file nodes
 	#################################### BĂT ĐẦU VIẾT Ở ĐÂY ################################################
+	response = AGENTIC.invoke(
+		input={"VISION_AGENT_MSGS": [AIMessage(
+			content=ctx_frames_metadata, name="VISION_AGENT"
+		)]}, 
+		config=CONFIG
+	)
 
-
-	
+	processed_img, ngok, reason = ["Ảnh pil đã vẽ các dấu hiệu lỗi","PRODUCT_STATUS OK hoặc NG",  "Lý luận để hiển thị"] ### Giả lập kết quả đầu ra 
 
 
 	# TODO: Ngày mai cần build nhanh một hệ thống Multi-Agent ở đây để lý giải tính toán các "ctx_frame_metadata"

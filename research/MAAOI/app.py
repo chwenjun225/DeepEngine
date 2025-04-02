@@ -109,8 +109,7 @@ async def async_video_processing(video_path:str, resize_to:tuple=(640, 640), ctx
 	ctx_frames = []
 	while cap.isOpened():
 		ret, frame = cap.read()
-		if not ret: 
-			break
+		if not ret: break
 
 		frame = Image.fromarray(frame[..., ::-1]).resize(resize_to) 
 		ctx_frames.append(frame) 
@@ -168,81 +167,36 @@ async def __detect_pcb_image(image: Image.Image) -> any:
 
 def main() -> None:
 	"""Giao diện ứng dụng AOI Multi-Agent."""
-	with gr.Blocks(title="AOI Multi-Agent QC System") as ui:
+	with gr.Blocks(title="AOI Multi-Agent QC System") as user_interface:
 		gr.Markdown(
 			"# CPEG-AI-Research: MultiAgent for AOI Tasks\n"
-			"#### Owner: 陳文俊 - V1047876"
+			"#### Owner: Tran Van Tuan - V1047876"
 		)
 		### IMAGE PREDICTION TAB 
 		with gr.Tab("Image Prediction"):
 			with gr.Row():
 				### LEFT: Processed image
-				image_output = gr.Image(
-					label="Processed Image", 
-					scale=1, 
-					height=550
-				)
+				image_output = gr.Image(label="Processed Image", scale=1, height=550)
 				### RIGHT: Input & Outputs
 				with gr.Column(scale=1):
-					image_input = gr.Image(
-						label="Upload Image", 
-						type="pil", 
-						height=160
-					)
+					image_input = gr.Image(label="Upload Image", type="pil", height=160)
 					analyze_img_btn = gr.Button("Analyze Image")
-					status_box_img = gr.Textbox(
-						label="Product Status", 
-						interactive=False
-					)
-					reasoning_output_img = gr.Textbox(
-						label="Reasoning Explanation", 
-						lines=6
-					)
-					analyze_img_btn.click(
-						fn=__detect_pcb_image,
-						inputs=image_input,
-						outputs=[
-							image_output,
-							status_box_img,
-							reasoning_output_img
-						]
-					)
+					status_box_img = gr.Textbox(label="Product Status", interactive=False)
+					reasoning_output_img = gr.Textbox(label="Reasoning Explanation", lines=6)
+					analyze_img_btn.click(fn=__detect_pcb_image, inputs=image_input, outputs=[image_output,status_box_img,reasoning_output_img])
 		### VIDEO PREDICTION TAB 
 		with gr.Tab("Video Prediction"):
 			with gr.Row():
 				### LEFT: Predicted frame
-				video_output = gr.Image(
-					streaming=True,
-					scale=1, 
-					height=550
-				)
+				video_output = gr.Image(streaming=True, scale=1, height=550)
 				### RIGHT: Upload & Info
 				with gr.Column(scale=1):
-					video_input = gr.File(
-						label="Upload Video (.mp4, .avi)",
-						file_types=[".mp4", ".avi"],
-						height=120
-				)
+					video_input = gr.File(label="Upload Video (.mp4, .avi)", file_types=[".mp4", ".avi"], height=120)
 					process_video_button = gr.Button("Start Video Inspection")
-					status_box = gr.Textbox(
-						label="Product Status", 
-						value=PRODUCT_STATUS, 
-						interactive=False
-					)
-					reasoning_output = gr.Textbox(
-						label="Reasoning Explanation", 
-						lines=6
-					)
-					process_video_button.click(
-						fn=__detect_pcb_video,
-						inputs=video_input,
-						outputs=[
-							video_output,
-							status_box,
-							reasoning_output
-						]
-					)
-	ui.launch()
+					status_box = gr.Textbox(label="Product Status", value=PRODUCT_STATUS, interactive=False)
+					reasoning_output = gr.Textbox(label="Reasoning Explanation", lines=6)
+					process_video_button.click(fn=__detect_pcb_video, inputs=video_input, outputs=[video_output, status_box, reasoning_output])
+	user_interface.launch()
 
 
 

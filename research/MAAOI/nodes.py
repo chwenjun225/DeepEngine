@@ -78,22 +78,30 @@ def DEFECT_REASONING_AGENT(state: State) -> State:
 
 
 def QC_JUDGEMENT_AGENT(state: State) -> State:
-	"""Dựa trên thông tin được reasoning, đưa ra kết luận OK hoặc NG."""
+	"""Dựa trên reasoning, đưa ra kết luận OK hoặc NG. Nếu không rõ, thử lại tối đa 3 lần."""
 	prev_agent_msg = get_latest_msg(state, type_msgs="DEFECT_REASONING_AGENT_MSGS")
-	ai_msg = LLM.invoke([
-		SystemMessage(QC_JUDGEMENT_AGENT_PROMPT_MSG), 
-		prev_agent_msg
-	])
+	
 	def extract_qc_judgement(text: str) -> str:
-		"""Hàm tách OK/NG an toàn bằng regex."""
+		"""Hàm tách OK/NG bằng regex, không phân biệt hoa thường."""
 		match = re.search(r"\b(OK|NG)\b", text.strip(), re.IGNORECASE)
-		if match:
-			return match.group(1).upper()
-		return "..."
-	conclusion = extract_qc_judgement(ai_msg.content)
-	return {"QC_JUDGEMENT_AGENT_MSGS": [
-		AIMessage(content=conclusion, name="QC_JUDGEMENT_AGENT_MSGS"
-	)]} 
+		return match.group(1).upper() if match else ""
+
+	conclusion = ""
+	for _ in range(3):
+		ai_msg = LLM.invoke([
+			prev_agent_msg, 
+			SystemMessage(QC_JUDGEMENT_AGENT_PROMPT_MSG)
+		])
+		conclusion = extract_qc_judgement(ai_msg.content)
+		if conclusion.upper() in {"OK", "NG"}: break
+
+	if not conclusion: conclusion = "NG"
+
+	return {
+		"QC_JUDGEMENT_AGENT_MSGS": [
+			AIMessage(content=conclusion, name="QC_JUDGEMENT_AGENT_MSGS")
+		]
+	}
 # ================================== Ai Message ==================================
 # Name: QC_JUDGEMENT_AGENT_MSGS
 #

@@ -68,7 +68,7 @@ async def async_process_frames(ctx_frames:list[Image.Image]) -> tuple[Image.Imag
 		results = YOLO_OBJECT_DETECTION.predict(frame, conf=0., iou=0.1, max_det=5) 
 		frame_metadata = single_frame_detections_to_json(results, idx) 
 		ctx_frames_metadata.append(frame_metadata)
-	
+
 	response = AGENTIC.invoke(
 		input={"VISION_AGENT_MSGS": [AIMessage(
 			content=ctx_frames_metadata, 
@@ -80,16 +80,23 @@ async def async_process_frames(ctx_frames:list[Image.Image]) -> tuple[Image.Imag
 	if isinstance(visual_metadata, str):
 		visual_metadata = eval(visual_metadata)
 
-	PRODUCT_STATUS = visual_metadata.get("ngok", None)
-	bbox_per_frame = visual_metadata.get("bbox", {})
+	PRODUCT_STATUS = visual_metadata["ngok"]
+	bbox_per_frame = visual_metadata["bbox"]
 
 	last_idx = len(ctx_frames) - 1
 	last_frame_pil = ctx_frames[last_idx]
-	last_frame_np = cv2.cvtColor(np.array(last_frame_pil), cv2.COLOR_RGB2BGR)
+	last_frame_np = cv2.cvtColor(
+		np.array(last_frame_pil), 
+		cv2.COLOR_RGB2BGR
+	)
 
-	last_bboxes = bbox_per_frame.get(last_idx, [])
+	last_bboxes = bbox_per_frame[last_idx] ### TODO: Cần sửa lại chỗ này, phải lấy toàn bộ các bbox từ tất cả 10 frames để vẽ lên ảnh cuối 
 
-	annotated_np = draw_defect_overlay(last_frame_np, last_bboxes, PRODUCT_STATUS)
+	annotated_np = draw_defect_overlay(
+		last_frame_np, 
+		last_bboxes, 
+		PRODUCT_STATUS
+	)
 	annotated_pil = Image.fromarray(cv2.cvtColor(annotated_np, cv2.COLOR_BGR2RGB))
 
 	texts = [f"{obj['label']} at {obj['bbox']}" for obj in last_bboxes]
@@ -114,6 +121,10 @@ async def async_video_processing(video_path:str, resize_to:tuple=(640, 640), ctx
 		frame = Image.fromarray(frame[..., ::-1]).resize(resize_to) 
 		ctx_frames.append(frame) 
 
+		if False:
+			preview_frame = frame.copy()
+			yield preview_frame, "WAITING", "Analyzing..."
+
 		if len(ctx_frames) == ctx_frames_limit: 
 			processed_img, PRODUCT_STATUS, texts = await async_process_frames(ctx_frames) 
 			text_combined = " | ".join([
@@ -125,7 +136,6 @@ async def async_video_processing(video_path:str, resize_to:tuple=(640, 640), ctx
 			yield processed_img, PRODUCT_STATUS, text_combined
 			ctx_frames.clear()
 	cap.release()
-	yield None, "Video ended", ""
 
 
 
@@ -176,7 +186,7 @@ def main() -> None:
 		with gr.Tab("Image Prediction"):
 			with gr.Row():
 				### LEFT: Processed image
-				image_output = gr.Image(label="Processed Image", scale=1, height=550)
+				image_output = gr.Image(label="Processed Image", scale=1, height=550, show_label=False)
 				### RIGHT: Input & Outputs
 				with gr.Column(scale=1):
 					image_input = gr.Image(label="Upload Image", type="pil", height=160)
@@ -188,7 +198,7 @@ def main() -> None:
 		with gr.Tab("Video Prediction"):
 			with gr.Row():
 				### LEFT: Predicted frame
-				video_output = gr.Image(streaming=True, scale=1, height=550)
+				video_output = gr.Image(streaming=True, scale=1, height=550, show_label=False)
 				### RIGHT: Upload & Info
 				with gr.Column(scale=1):
 					video_input = gr.File(label="Upload Video (.mp4, .avi)", file_types=[".mp4", ".avi"], height=120)
@@ -202,3 +212,23 @@ def main() -> None:
 
 if __name__ == "__main__":
 	fire.Fire(main)
+
+
+"""
+Hiện tại đã hoàn thiện một số chức năng cơ bản. Tuy nhiên vẫn còn một số điểm cần cải thiện:
+
+Task:
+	1. Stream Frame: Quá trình tích lũy frame ta cũng sẽ stream frame đó lên màn ảnh, nhằm đảm bảo độ mượt mà, tăng cường trải nghiệm người dùng.
+	-> Câu hỏi: Làm thế nào để vừa tích lũy frame và vừa stream frame. Đến khi có kết quả thì frame thứ 10 sẽ show ra kết quả ===> Có thể chưa cần thiết
+
+	2. Nếu NG thì cần vẽ chữ NG màu đỏ in đậm, cùng các box màu đỏ lên hình ảnh cuối trong ctx_frames. Nếu OK thì cần hiển thị chữ OK màu xanh in đậm. ===> Xong
+
+
+	3. Tiếp tục nghiên cứu async để cải thiện tốc độ. 
+
+
+	4. Nếu Agent không cho ra kết quả là OK hoặc NG thì bắt Agent phải inference lại. ===> Xong
+
+
+	5. Cần chuẩn bị dữ liệu để xác nhận độ chính xác, 100 ảnh NG, 100 ảnh OK.
+"""

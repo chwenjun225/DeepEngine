@@ -25,6 +25,35 @@ from const import (
 
 
 
+def draw_defect_overlay(
+	frame: np.ndarray,
+	bboxes: dict, 
+	status: str
+) -> np.ndarray:
+	"""Hiển thị bounding boxes và trạng thái sản phẩm lên frame ảnh."""
+	font = cv2.FONT_HERSHEY_SIMPLEX
+	font_scale = 0.8
+	thickness = 2
+	image = frame.copy()
+
+	if status.upper() == "OK":
+		color = (0, 255, 0) ### GREEN
+		cv2.putText(image, f"{status}", (20, 40), font, 1.0, color, 3, lineType=cv2.LINE_AA)
+	elif status.upper() == "NG":
+		color = (0, 0, 255) ### RED
+		cv2.putText(image, f"{status}", (20, 40), font, 1.0, color, 3, lineType=cv2.LINE_AA)
+		for obj in bboxes:
+				x1, y1, x2, y2 = obj["bbox"]
+				label = obj["label"]
+				cv2.rectangle(image, (x1, y1), (x2, y2), color, 2)
+				cv2.putText(image, label, (x1, y1 - 5), font, font_scale, color, thickness)
+	else:
+		color = (0, 255, 255) ### YELLOW
+		cv2.putText(image, f"Processing...", (20, 40), font, 1.0, color, 3, lineType=cv2.LINE_AA)
+	return image
+
+
+
 def image_to_base64(pil_img: Image.Image | np.ndarray) -> str:
 	"""Convert PIL or NumPy image to base64 string (PNG format), optimized for real-time usage."""
 	with BytesIO() as buffer:
@@ -176,26 +205,3 @@ def get_msgs(state: State) -> list[BaseMessage]:
 def get_latest_msg(state:State, type_msgs:str) -> BaseMessage:
 	"""Lấy tin nhắn mới nhất của một agent, O(1)."""
 	return state[type_msgs][-1]
-
-
-
-def draw_defect_overlay(frame, bboxes, status=None):
-	"""Hiển thị bounding boxes và trạng thái QC lên frame ảnh."""
-	font = cv2.FONT_HERSHEY_SIMPLEX
-	font_scale = 0.6
-	thickness = 2
-
-	image = frame.copy()
-
-	for obj in bboxes:
-		x1, y1, x2, y2 = obj["bbox"]
-		label = obj["label"]
-		color = (0, 255, 255) 
-		cv2.rectangle(image, (x1, y1), (x2, y2), color, 2)
-		cv2.putText(image, label, (x1, y1 - 5), font, font_scale, color, thickness)
-
-	if status in ("OK", "NG"):
-		color = (0, 200, 0) if status == "OK" else (0, 0, 255)
-		cv2.putText(image, f"{status}", (20, 40), font, 1.0, color, 3, lineType=cv2.LINE_AA)
-
-	return image

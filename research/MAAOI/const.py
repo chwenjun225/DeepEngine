@@ -24,7 +24,7 @@ import prompts
 
 
 MAX_TOKENS = 128_000
-PRODUCT_STATUS = "..."
+PRODUCT_STATUS = ""
 FRAME_QUEUE = Queue()
 MESSAGES_HISTORY_UI = []
 STATUS_LOCK = threading.Lock()

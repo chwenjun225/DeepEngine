@@ -122,7 +122,7 @@ def VISUAL_AGENT(state: State) -> State:
 		"bbox": bbox_per_frame
 	}
 	return {"VISUAL_AGENT_MSGS": [
-		AIMessage(content=json.dumps(result, indent=2), name="VISUAL_AGENT_MSGS"
+		AIMessage(content=str(result), name="VISUAL_AGENT_MSGS"
 	)]} 
 # ================================== Ai Message ==================================
 # Name: VISUAL_AGENT_MSGS

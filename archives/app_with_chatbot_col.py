@@ -19,6 +19,7 @@ from agentic import AGENTIC
 from const import (
 	CONFIG						,
 	PRODUCT_STATUS				,
+	STATUS_LOCK					,
 
 	YOLO_OBJECT_DETECTION		,
 	VISION_LLM					,
@@ -94,7 +95,7 @@ async def async_process_frames(ctx_frames:list[Image.Image]) -> tuple[Image.Imag
 
 	texts = [f"{obj['label']} at {obj['bbox']}" for obj in last_bboxes]
 	if PRODUCT_STATUS:
-		texts.insert(0, f"{PRODUCT_STATUS}")
+		texts.insert(0, f"QC: {PRODUCT_STATUS}")
 	return annotated_pil, PRODUCT_STATUS, texts
 
 
@@ -183,83 +184,85 @@ def __chatbot(user_query: str, history: list[dict]) -> list[dict]:
 
 
 
-
 def main() -> None:
-	"""Giao diện ứng dụng AOI Multi-Agent."""
-	with gr.Blocks(title="AOI Multi-Agent QC System") as ui:
-		gr.Markdown(
-			"# CPEG-AI-Research: MultiAgent for AOI Tasks\n"
-			"#### Owner: 陳文俊 - V1047876"
-		)
-		### IMAGE PREDICTION TAB 
-		with gr.Tab("Image Prediction"):
-			with gr.Row():
-				### LEFT: Processed image
-				image_output = gr.Image(
-					label="Processed Image", 
-					scale=1, 
-					height=550
-				)
-				### RIGHT: Input & Outputs
-				with gr.Column(scale=1):
+	"""Giao diện ứng dụng."""
+	with gr.Blocks() as ui:
+		gr.Markdown("# AI-Research: MultiAgent for AOI Tasks --- Owner: 陳文俊-V1047876")
+		with gr.Row():
+			### Reasoning Agent ###
+			# with gr.Column():
+			# 	gr.Markdown("### Chatbot Agent")
+			# 	chatbot = gr.Chatbot(
+			# 		label="Reasoning Agent", 
+			# 		height=400, 
+			# 		type="messages"
+			# 	)
+			# 	chatbot_input = gr.Textbox(
+			# 		label="Type a messages...", 
+			# 		placeholder="Ask me anything..."
+			# 	)
+			# 	chatbot_button = gr.Button("Submit")
+			# 	chatbot_button.click(
+			# 		fn=__chatbot, 
+			# 		inputs=[chatbot_input, chatbot], 
+			# 		outputs=chatbot
+			# 	)
+			### Vision Agent ###
+			with gr.Column():
+				gr.Markdown("### Vision Agent")
+				### Image predict ###
+				with gr.Tab("Image Predict"):
 					image_input = gr.Image(
 						label="Upload Image", 
 						type="pil", 
 						height=160
 					)
-					analyze_img_btn = gr.Button("Analyze Image")
+					image_output = gr.Image(label="Processed Image")
 					status_box_img = gr.Textbox(
 						label="Product Status", 
 						interactive=False
 					)
 					reasoning_output_img = gr.Textbox(
-						label="Reasoning Explanation", 
-						lines=6
+						label="Reasoning", lines=6
 					)
-					analyze_img_btn.click(
-						fn=__detect_pcb_image,
+					gr.Button("Analyze Image").click(
+						fn=__detect_pcb_image, 
 						inputs=image_input,
 						outputs=[
-							image_output,
-							status_box_img,
+							image_output, 
+							status_box_img, 
 							reasoning_output_img
 						]
 					)
-		### VIDEO PREDICTION TAB 
-		with gr.Tab("Video Prediction"):
-			with gr.Row():
-				### LEFT: Predicted frame
-				video_output = gr.Image(
-					streaming=True,
-					scale=1, 
-					height=550
-				)
-				### RIGHT: Upload & Info
-				with gr.Column(scale=1):
+				### Video predict ###
+				with gr.Tab("Video Predict"):
 					video_input = gr.File(
-						label="Upload Video (.mp4, .avi)",
-						file_types=[".mp4", ".avi"],
+						label="Upload Video", 
+						file_types=[".mp4", ".avi"], 
 						height=120
-				)
-					process_video_button = gr.Button("Start Video Inspection")
+					)
+					video_output = gr.Image(
+						label="Predicted Frame", 
+						streaming=True
+					) 
 					status_box = gr.Textbox(
 						label="Product Status", 
 						value=PRODUCT_STATUS, 
 						interactive=False
 					)
 					reasoning_output = gr.Textbox(
-						label="Reasoning Explanation", 
-						lines=6
+						label="LLaMA3.2 Reasoning Result", 
+						lines=8
 					)
+					process_video_button = gr.Button("Start Video Inspection")
 					process_video_button.click(
-						fn=__detect_pcb_video,
+						fn=__detect_pcb_video, 
 						inputs=video_input,
 						outputs=[
-							video_output,
-							status_box,
+							video_output, 
+							status_box, 
 							reasoning_output
-						]
-					)
+						])
 	ui.launch()
 
 

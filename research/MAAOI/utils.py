@@ -190,13 +190,12 @@ def draw_defect_overlay(frame, bboxes, status=None):
 	for obj in bboxes:
 		x1, y1, x2, y2 = obj["bbox"]
 		label = obj["label"]
-		color = (0, 255, 255)  # vàng
+		color = (0, 255, 255) 
 		cv2.rectangle(image, (x1, y1), (x2, y2), color, 2)
 		cv2.putText(image, label, (x1, y1 - 5), font, font_scale, color, thickness)
 
-	# In trạng thái QC
 	if status in ("OK", "NG"):
 		color = (0, 200, 0) if status == "OK" else (0, 0, 255)
-		cv2.putText(image, f"QC: {status}", (20, 40), font, 1.0, color, 3, lineType=cv2.LINE_AA)
+		cv2.putText(image, f"{status}", (20, 40), font, 1.0, color, 3, lineType=cv2.LINE_AA)
 
 	return image

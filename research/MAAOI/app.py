@@ -166,24 +166,6 @@ async def __detect_pcb_image(image: Image.Image) -> any:
 
 
 
-def __chatbot(user_query: str, history: list[dict]) -> list[dict]:
-	"""Handle user input and return assistant reply in OpenAI-style format."""
-	if not user_query.strip():
-		return history + [{"role": "assistant", "content": "You haven't entered a message."}]
-	state_data = AGENTIC.invoke(
-		input={"messages": [{"role": "user", "content": user_query}]}, 
-		config=CONFIG
-	)
-	ai_msg = get_latest_msg(state=state_data)
-	history.extend([
-		{"role": "user", "content": user_query},
-		{"role": "assistant", "content": ai_msg.content}
-	])
-	return history
-
-
-
-
 def main() -> None:
 	"""Giao diện ứng dụng AOI Multi-Agent."""
 	with gr.Blocks(title="AOI Multi-Agent QC System") as ui:

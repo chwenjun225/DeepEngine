@@ -15,8 +15,7 @@ from const import (
 from nodes import (
 	TEMPORAL_PATTERN_AGENT		,
 	DEFECT_REASONING_AGENT		,
-	CRITICAL_ASSESSMENT_AGENT	,
-	REPORT_GENERATOR_AGENT		,
+	QC_JUDGEMENT_AGENT	,
 	VISUAL_AGENT				,
 )
 
@@ -25,8 +24,7 @@ from nodes import (
 AGENTS = [
 	(	"TEMPORAL_PATTERN_AGENT"	, TEMPORAL_PATTERN_AGENT	, "Phân loại lỗi."					, "logic, non-LLM"	),
 	(	"DEFECT_REASONING_AGENT"	, DEFECT_REASONING_AGENT	, "Đặt câu hỏi về lỗi."				, "reasoning, LLM"	),
-	(	"CRITICAL_ASSESSMENT_AGENT"	, CRITICAL_ASSESSMENT_AGENT	, "Đánh giá độ nghiêm trọng lỗi."	, "logic, LLM"		),
-	(	"REPORT_GENERATOR_AGENT"	, REPORT_GENERATOR_AGENT	, "Báo cáo kết quả cho người dùng"	, "logic, non-LLM"	),
+	(	"QC_JUDGEMENT_AGENT"		, QC_JUDGEMENT_AGENT		, "Đưa ra quyết định là OK hay NG."	, "logic, LLM"		),
 	(	"VISUAL_AGENT"				, VISUAL_AGENT				, "Đưa ra tọa độ lỗi cuối cùng."	, "logic, non-LLM"	),
 ]	
 
@@ -46,9 +44,8 @@ for name, func, desc, group in AGENTS:
 
 WORKFLOW.add_edge(	START						, 	"TEMPORAL_PATTERN_AGENT"	)
 WORKFLOW.add_edge(	"TEMPORAL_PATTERN_AGENT"	,	"DEFECT_REASONING_AGENT"	) 
-WORKFLOW.add_edge(	"DEFECT_REASONING_AGENT"	, 	"CRITICAL_ASSESSMENT_AGENT"	)
-WORKFLOW.add_edge(	"CRITICAL_ASSESSMENT_AGENT"	,	"REPORT_GENERATOR_AGENT"	)
-WORKFLOW.add_edge(	"REPORT_GENERATOR_AGENT"	,	"VISUAL_AGENT"				)
+WORKFLOW.add_edge(	"DEFECT_REASONING_AGENT"	, 	"QC_JUDGEMENT_AGENT"		)
+WORKFLOW.add_edge(	"QC_JUDGEMENT_AGENT"		,	"VISUAL_AGENT"				)
 WORKFLOW.add_edge(	"VISUAL_AGENT"				,	END							)
 
 AGENTIC = WORKFLOW.compile(

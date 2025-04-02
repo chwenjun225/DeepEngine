@@ -1,3 +1,4 @@
+import cv2
 import base64
 import numpy as np 
 from PIL import Image 
@@ -175,3 +176,51 @@ def get_msgs(state: State) -> list[BaseMessage]:
 def get_latest_msg(state:State, type_msgs:str) -> BaseMessage:
 	"""Lấy tin nhắn mới nhất của một agent, O(1)."""
 	return state[type_msgs][-1]
+
+
+
+def draw_defect_overlay(frame, bboxes, status=None):
+	"""Hiển thị bounding boxes và trạng thái QC lên frame ảnh."""
+	# Copy ảnh để không ghi đè
+	image = frame.copy()
+
+	# Font setup
+	font = cv2.FONT_HERSHEY_SIMPLEX
+	font_scale = 0.6
+	thickness = 2
+
+	# 1. Vẽ các bounding boxes
+	for obj in bboxes:
+		x1, y1, x2, y2 = map(int, obj["bbox"])
+		label = obj.get("label", "unknown")
+		conf = obj.get("conf", None)
+
+		# Màu mặc định
+		color = (0, 255, 255)  # vàng
+
+		# Vẽ box
+		cv2.rectangle(image, (x1, y1), (x2, y2), color, 2)
+
+		# Nội dung nhãn
+		text = f"{label}"
+		if conf is not None:
+			text += f" ({conf:.2f})"
+
+		# Ghi text trên box
+		cv2.putText(image, text, (x1, y1 - 5), font, font_scale, color, thickness)
+
+	# 2. Hiển thị trạng thái OK/NG ở góc phần tư thứ nhất
+	if status in ("OK", "NG"):
+		color = (0, 200, 0) if status == "OK" else (0, 0, 255)  # xanh hoặc đỏ
+		cv2.putText(
+			image,
+			f">>> Status: {status}",
+			(20, 40),
+			font,
+			1.0,
+			color,
+			3,
+			lineType=cv2.LINE_AA
+		)
+
+	return image

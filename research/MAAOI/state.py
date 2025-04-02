@@ -11,6 +11,5 @@ class State(TypedDict):
 	VISION_AGENT_MSGS				: Annotated[list[BaseMessage], add_messages]
 	TEMPORAL_PATTERN_AGENT_MSGS		: Annotated[list[BaseMessage], add_messages]
 	DEFECT_REASONING_AGENT_MSGS		: Annotated[list[BaseMessage], add_messages]
-	CRITICAL_ASSESSMENT_AGENT_MSGS	: Annotated[list[BaseMessage], add_messages]
-	REPORT_GENERATOR_AGENT_MSGS		: Annotated[list[BaseMessage], add_messages]
+	QC_JUDGEMENT_AGENT_MSGS			: Annotated[list[BaseMessage], add_messages]
 	VISUAL_AGENT_MSGS				: Annotated[list[BaseMessage], add_messages]

@@ -73,143 +73,27 @@ def single_frame_detections_to_json(results:Results, frame_id:int) -> str:
 
 async def async_process_frames(ctx_frames:list[Image.Image]) -> tuple[Image.Image, list[str]]: 
 	"""Xử lý khung hình bằng YOLO và LLM với asyncio."""
-	ctx_frames_metadata = [] ### Khởi tạo context-frames-metadata
+	ctx_frames_metadata = [] 
 	for idx, frame in enumerate(ctx_frames):
 		results = YOLO_OBJECT_DETECTION.predict(frame, conf=0., iou=0.1, max_det=5) 
 		frame_metadata = single_frame_detections_to_json(results, idx) 
 		ctx_frames_metadata.append(frame_metadata)
-	#################################### TODO: Tiếp theo hãy viết logic xử lý cho các agent trong file nodes
-	#################################### BĂT ĐẦU VIẾT Ở ĐÂY ################################################
+
 	response = AGENTIC.invoke(
 		input={"VISION_AGENT_MSGS": [AIMessage(
 			content=ctx_frames_metadata, name="VISION_AGENT"
 		)]}, 
 		config=CONFIG
 	)
+	metadata = get_latest_msg(response, "VISUAL_AGENT_MSGS") # TODO: tiếp tục làm tiếp hàm này 
+
 
 	processed_img, ngok, reason = ["Ảnh pil đã vẽ các dấu hiệu lỗi","PRODUCT_STATUS OK hoặc NG",  "Lý luận để hiển thị"] ### Giả lập kết quả đầu ra 
 
 
-	# TODO: Ngày mai cần build nhanh một hệ thống Multi-Agent ở đây để lý giải tính toán các "ctx_frame_metadata"
 	print("ctx_frames_metadata:", ctx_frames_metadata) 
 	print("DEBUG")
 
-	### IMPORTANT: Kết quả đầu ra phải là một list["Ảnh pil đã vẽ các dấu hiệu lỗi","PRODUCT_STATUS OK hoặc NG",  "Lý luận để hiển thị"]
-
-	### Đã có multi_frame_ctx_metadata, giờ làm gì tiếp
-	### 1. cho vào agent.invoke 
-		### Sửa lại đường dẫn model file --> đã sửa xong
-		### Viết agent.invoke
-		### Nhưng giờ làm thế nào để cho agent workflow tương tác hay nói cách khác là bóc tách các thông tin từ frame nhỉ
-		### có hai hướng
-		### 1. Giải quyết từ cách nhìn nhận con người
-			### Suy luận nhanh: khi nhận một chuỗi thông tin như này ta sẽ nhìn vào pattern và nhìn vào confidence để đưa ra dự đoán có thể là sử dụng tính trung bình cộng
-				### Nhưng không thể tính theo kiểu trung bình cộng được 
-		### 2. Giải quyết từ cách nhìn nhận AI
-			### Suy luận nhanh: làm thế nào một hệ thống AI có thể xử lý được khi nhận được task và docs
-			### Phân tích: Task ---  đưa ra kết luận OK hay NG đối với bản mạch PCB 
-			### Dữ kiện: 10 frames ảnh, có chứa vị trí xyxy, confidence, class_id, label 
-				### làm thế nào nhỉ?
-				### Cần có một quá trình suy luận từng bước 
-				### 1. Lỗi ở đây là gì, đâu là lỗi phổ biến? Có xu hướng gì trong thời gian 
-				### 2. Đánh giá mức độ nghiêm trọng 
-				### 	--- trong 10 frames, các confidence cao mà xuất hiện nhiều --> lỗi thật 
-				### 	--- còn nếu confidence thấp mà xuất hiện ít thì là lỗi ảo
-				### Có một hướng sau có thể sử dụng 
-
-
-
-				### 1. VISION AGENT
-				### 	--- Đã hoàn thành
-
-
-
-				### 2. TEMPORAL PATTERN AGENT 
-				###		--- Group lại các lỗi kiểu như ```
-				### frame id 1: lỗi missing hole xuất hiện 6 lần tại các vị trí cùng với các độ tin cậy như sau 
-				### độ tin cậy 89%, lỗi xuất hiện tại vị trí xyxy
-				### độ tin cậy 15%, lỗi xuất hiện tại vị trí xyxy
-				### độ tin cậy 12%, lỗi xuất hiện tại vị trí xyxy
-				### ...```
-
-
-
-				### 3. Defect Reasoning Agent 
-				### 	--- lấy thông tin từ TEMPORAL_PATTERN_AGENT để suy luận 
-				### 	Giả lập Agent suy luận: 
-				### 🤯 Có thể dùng LLM để hỏi kiểu:
-				### 	--- "Liệu các lỗi này liên quan đến một nguyên nhân gốc?"
-				###		--- "Đâu là lỗi phổ biến? Có xu hướng gì trong thời gian?"
-
-
-
-				### 4. Criticality Assessment Agent
-				### Đánh giá mức độ nghiêm trọng:
-				###		--- Ví dụ Confidence thấp --- có thể ignore
-				### 	--- Nếu một lỗi tồn tại qua nhiều frame ---> Lỗi thật 
-				### Gợi ý prompt: Dựa trên metadata, đánh giá mức độ nghiêm trọng của từng lỗi [...metadata...]
-
-
-
-				### 5. Report Generator Agent
-				### 	Tạo báo cáo người dùng:
-				### 	Văn bản tự nhiên mô tả: "Có 3 lỗi missing_hole phát hiện liên tục từ frame 2–8. Lỗi short có xuất hiện nhưng confidence thấp."
-				### 	Gợi ý:
-				### 	Trả về text, summary, markdown, hoặc JSON structured report.
-
-
-
-				### 6. Bonus Agent: Visual Agent
-				###		Ghi đè label lên ảnh bằng màu khác nhau theo severity.
-				###		Có thể crop ảnh lỗi để đưa vào báo cáo cuối.
-
-
-				### Hướng liên kết agent với LangGraph:
-				###			start → Vision Agent
-				###		        ↓
-				###		    Temporal Agent
-				###		        ↓
-				###		    Reasoning Agent
-				###		        ↓
-				###		  [Branch]
-				###		   ↙      ↘
-				###	Crit.Agent  Visual Agent
-				###		       ↓         ↓
-				###	 → Report Generator → END
-
-
-
-	# 1. Đã viết xong sơ bộ prompts 
-	# 2. Bắt đầu kể từ hôm nay tất cả các thành phần trong chương trình cần phải trả về State --- LangGraph 
-	# Bắt đầu viết chương trình langgraph, nhưng có thêm vấn đề nữa
-	# nếu đây là một quá trình suy luận tuần tự thì nên thiết kế State như thế nào 
-
-	# Hiện tại cần thiết kế State
-
-	# State là mạch máu lưu thông giữa các agent
-
-	# Đây là một state tuần tự, vì vậy có thể sử dụng kiểu như list[BaseMessage]
-
-	# agent sau có thể lấy thông tin từ agent trước bằng cách sử dụng state["messages"][-1]
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-	### Đây là hình ảnh plot kết quả lên yolo, bây giờ chưa cần thiết
 	processed_img = Image.fromarray(results[0].plot()[..., ::-1]) 
 	bboxes = [list(map(int, box.xyxy[0])) for box in results[0].boxes] 
 	tasks = []

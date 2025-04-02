@@ -232,3 +232,8 @@ Task:
 
 	5. Cần chuẩn bị dữ liệu để xác nhận độ chính xác, 100 ảnh NG, 100 ảnh OK.
 """
+"""
+Cần hoàn thành số liệu để báo cáo cho ngày mai:
+1. Thời gian inference cho ra kết quả, tốc độ inference là bao nhiêu ms
+2. TP-FP-TN-FN
+"""

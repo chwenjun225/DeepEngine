@@ -62,7 +62,7 @@ def single_frame_detections_to_json(results:Results, frame_id:int) -> str:
 
 
 
-# @measure_time("Process 10 Frames")
+@measure_time("Process 10 Frames")
 async def async_process_frames(ctx_frames:list[Image.Image]) -> tuple[Image.Image, str, list[str]]: 
 	"""Xử lý khung hình bằng YOLO và LLM với asyncio."""
 
@@ -200,7 +200,7 @@ def main() -> None:
 					analyze_img_btn = gr.Button("Analyze Image")
 					status_box_img = gr.Textbox(label="Product Status", interactive=False)
 					reasoning_output_img = gr.Textbox(label="Reasoning Explanation", lines=6)
-					analyze_img_btn.click(fn=__detect_pcb_image__, inputs=image_input, outputs=[image_output,status_box_img,reasoning_output_img])
+					analyze_img_btn.click(fn=__detect_pcb_image__, inputs=image_input, outputs=[image_output, status_box_img, reasoning_output_img])
 		### VIDEO PREDICTION TAB 
 		with gr.Tab("Video Prediction"):
 			with gr.Row():
@@ -222,25 +222,6 @@ if __name__ == "__main__":
 
 
 """
-Hiện tại đã hoàn thiện một số chức năng cơ bản. Tuy nhiên vẫn còn một số điểm cần cải thiện:
-
-Task:
-	1. Stream Frame: Quá trình tích lũy frame ta cũng sẽ stream frame đó lên màn ảnh, nhằm đảm bảo độ mượt mà, tăng cường trải nghiệm người dùng.
-	-> Câu hỏi: Làm thế nào để vừa tích lũy frame và vừa stream frame. Đến khi có kết quả thì frame thứ 10 sẽ show ra kết quả ===> Có thể chưa cần thiết
-
-	2. Nếu NG thì cần vẽ chữ NG màu đỏ in đậm, cùng các box màu đỏ lên hình ảnh cuối trong ctx_frames. Nếu OK thì cần hiển thị chữ OK màu xanh in đậm. ===> Xong
-
-
-	3. Tiếp tục nghiên cứu async để cải thiện tốc độ. 
-
-
-	4. Nếu Agent không cho ra kết quả là OK hoặc NG thì bắt Agent phải inference lại. ===> Xong
-
-
-	5. Cần chuẩn bị dữ liệu để xác nhận độ chính xác, 100 ảnh NG, 100 ảnh OK.
-"""
-"""
-Cần hoàn thành số liệu để báo cáo cho ngày mai:
-1. Thời gian inference cho ra kết quả, tốc độ inference là bao nhiêu ms
-2. TP-FP-TN-FN
+1. Đã thu thập ~7000 sample PCB images
+2. Viết script chạy evals
 """

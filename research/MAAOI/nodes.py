@@ -42,7 +42,7 @@ def TEMPORAL_PATTERN_AGENT(state: State) -> State:
 		)]}
 # ================================== Ai Message ==================================
 # Name: TEMPORAL_PATTERN_AGENT_MSGS
-
+# 
 # This is a summary of defect types detected across frames:
 # - The defect 'missing_hole' was detected in frames [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] with 27 occurrences, and an average confidence of 0.72.
 # - The defect 'mouse_bite' was detected in frames [4] with 1 occurrences, and an average confidence of 0.10.
@@ -70,7 +70,7 @@ def DEFECT_REASONING_AGENT(state: State) -> State:
 # 1. Most critical defects are 'missing_hole' (high confidence) and 'mouse_bite' (low confidence but severe impact).
 # 2. There is a pattern where 'short', 'spur', and 'tangle' defects occur in frames [0-9] with varying frequencies, while 'mouse_bite' only occurs once.
 # 3. Ignore low-confidence defects like 'mouse_bite'. Escalate 'missing_hole' due to high confidence and potential impact on product quality.
-#
+# 
 # Technical explanation:
 # The defect detection summary indicates that the most critical defects are 'missing_hole' and 'mouse_bite', with 'missing_hole' being more severe due to its higher confidence. 
 # The occurrence of multiple defects ('short', 'spur', 'tangle') across frames suggests a need for closer inspection, while low-confidence defects like 'mouse_bite' can be ignored unless further investigation is warranted.

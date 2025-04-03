@@ -25,40 +25,52 @@ from langchain_core.messages import (
 
 from state import State 
 from const import (
+	WANNA_MEASURE_TIME		,
 	MEASURE_LOG_FILE		,
-	ENCODING				, 
-	MAX_TOKENS				, 
+	ENCODING				,
+	MAX_TOKENS				,
 )
+
+
+
+def list_image_files_from_folder(folder_path: str, valid_exts={".png", ".jpg", ".jpeg"}) -> list:
+	"""Duyệt qua một thư mục và trả về danh sách đầy đủ đường dẫn các ảnh."""
+	image_paths = []
+	for fname in os.listdir(folder_path):
+		if os.path.splitext(fname)[1].lower() in valid_exts:
+			image_paths.append(os.path.join(folder_path, fname))
+	return sorted(image_paths)
 
 
 
 def measure_time(tag:str="Execution") -> Callable:
 	"""Decorator dùng để đo thời gian thực thi của hàm (cả async & sync), ghi kết quả để vẽ biểu đồ."""
 	def decorator(func):
-		if asyncio.iscoroutinefunction(func):
-			async def async_wrapper(*args, **kwargs):
-				start = time.time()
-				result = await func(*args, **kwargs)
-				end = time.time()
-				duration_ms = (end - start) * 1000
-				print(f">>> [{tag}] took {duration_ms:.2f} ms")
-				with open(MEASURE_LOG_FILE, mode="a", newline="") as f:
-					writer = csv.writer(f)
-					writer.writerow([tag, f"{duration_ms:.2f}"])
-				return result
-			return async_wrapper
-		else:
-			def sync_wrapper(*args, **kwargs):
-				start = time.time()
-				result = func(*args, **kwargs)
-				end = time.time()
-				duration_ms = (end - start) * 1000
-				print(f">>> [{tag}] took {duration_ms:.2f} ms")
-				with open(MEASURE_LOG_FILE, mode="a", newline="") as f:
-					writer = csv.writer(f)
-					writer.writerow([tag, f"{duration_ms:.2f}"])
-				return result
-			return sync_wrapper
+		if WANNA_MEASURE_TIME:
+			if asyncio.iscoroutinefunction(func):
+				async def async_wrapper(*args, **kwargs):
+					start = time.time()
+					result = await func(*args, **kwargs)
+					end = time.time()
+					duration_ms = (end - start) * 1000
+					print(f">>> [{tag}] took {duration_ms:.2f} ms")
+					with open(MEASURE_LOG_FILE, mode="a", newline="") as f:
+						writer = csv.writer(f)
+						writer.writerow([tag, f"{duration_ms:.2f}"])
+					return result
+				return async_wrapper
+			else:
+				def sync_wrapper(*args, **kwargs):
+					start = time.time()
+					result = func(*args, **kwargs)
+					end = time.time()
+					duration_ms = (end - start) * 1000
+					print(f">>> [{tag}] took {duration_ms:.2f} ms")
+					with open(MEASURE_LOG_FILE, mode="a", newline="") as f:
+						writer = csv.writer(f)
+						writer.writerow([tag, f"{duration_ms:.2f}"])
+					return result
+				return sync_wrapper
 	return decorator
 
 

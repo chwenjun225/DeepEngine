@@ -23,13 +23,17 @@ import prompts
 
 
 
+WANNA_MEASURE_TIME = False
+MEASURE_LOG_FILE = "inference_times.csv"
+
+
+
 MAX_TOKENS = 128_000
 PRODUCT_STATUS = ""
 FRAME_QUEUE = Queue()
 MESSAGES_HISTORY_UI = []
 STATUS_LOCK = threading.Lock()
 SAVE_FRAME_RESULTS = False
-MEASURE_LOG_FILE = "inference_times.csv"
 
 
 

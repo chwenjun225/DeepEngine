@@ -1,7 +1,4 @@
 """CLI to Interact with Vector Database."""
-
-
-
 import time
 import shutil
 import os 
@@ -31,24 +28,13 @@ from langchain_community.document_loaders import (
 
 
 def get_chroma_client(
-	chromadb_host: str = None, 
-	chromadb_port: int = None, 
-	persist_directory: str = None
-):
+	chromadb_host:str=None, 
+	chromadb_port:int=None, 
+	persist_directory:str=None
+) -> chromadb:
 	"""Khởi tạo ChromaDB client.
-	- Sử dụng `HttpClient` nếu cung cấp `chromadb_host` + `chromadb_port` (kết nối máy chủ).
-	- Sử dụng `PersistentClient` nếu có `persist_directory` (làm việc cục bộ).
-
-	Args:
-		chromadb_host (str, optional): Địa chỉ IP hoặc hostname của ChromaDB server.
-		chromadb_port (int, optional): Cổng của ChromaDB server.
-		persist_directory (str, optional): Đường dẫn đến thư mục lưu trữ ChromaDB cục bộ.
-
-	Returns:
-		chromadb.Client: Client ChromaDB phù hợp.
-
-	Raises:
-		ValueError: Nếu không có thông tin kết nối hợp lệ.
+		- Sử dụng `HttpClient` nếu cung cấp `chromadb_host` + `chromadb_port` (kết nối máy chủ).
+		- Sử dụng `PersistentClient` nếu có `persist_directory` (làm việc cục bộ).
 	"""
 	if chromadb_host and chromadb_port:
 		return chromadb.HttpClient(host=chromadb_host, port=chromadb_port)
@@ -141,19 +127,9 @@ def show_collections_name(
 	chromadb_port: Optional[int] = 2027,
 	persist_directory: Optional[str] = None
 ) -> None:
-	"""
-	Hiển thị danh sách collections trong ChromaDB.
-
-	- Hỗ trợ `HttpClient` (máy chủ) hoặc `PersistentClient` (cục bộ).
-	- In danh sách collections hiện có.
-
-	Args:
-		chromadb_host (str, optional): Địa chỉ IP/hostname của ChromaDB server (mặc định: "127.0.0.1").
-		chromadb_port (int, optional): Cổng của ChromaDB server (mặc định: 2027).
-		persist_directory (str, optional): Đường dẫn đến thư mục lưu trữ ChromaDB cục bộ.
-
-	Returns:
-		None: Chỉ in dữ liệu ra terminal.
+	"""Hiển thị danh sách collections trong ChromaDB.
+		- Hỗ trợ `HttpClient` (máy chủ) hoặc `PersistentClient` (cục bộ).
+		- In danh sách collections hiện có.
 	"""
 	try:
 		client = get_chroma_client(chromadb_host, chromadb_port, persist_directory)
@@ -190,18 +166,7 @@ def process_document( file_path: str, embedding_model: str = "sentence-transform
 		chunk_size: int = 500,
 		chunk_overlap: int = 50
 	) -> Optional[list[dict]]:
-	"""
-	Xử lý tài liệu: đọc, chia nhỏ thành chunks và tạo embeddings.
-
-	Args:
-		file_path (str): Đường dẫn tài liệu.
-		embedding_model (str, optional): Mô hình embeddings (mặc định: MiniLM-L6-v2).
-		chunk_size (int, optional): Kích thước mỗi đoạn văn bản.
-		chunk_overlap (int, optional): Số ký tự trùng lặp giữa các đoạn văn bản.
-
-	Returns:
-		List[Dict]: Danh sách các chunk với id, văn bản, và metadata.
-	"""
+	"""Xử lý tài liệu: đọc, chia nhỏ thành chunks và tạo embeddings."""
 	
 	if not os.path.exists(file_path):
 		print(f">>> [Lỗi] File '{file_path}' không tồn tại.")
@@ -245,23 +210,9 @@ def upload_data_to_server(
 	chunk_overlap: int = 50
 ) -> None:
 	"""Tải dữ liệu văn bản và vector embeddings lên ChromaDB.
-
-	- Đọc dữ liệu từ file văn bản, chia nhỏ thành đoạn (`chunks`).
-	- Tạo vector embeddings bằng mô hình `HuggingFaceEmbeddings`.
-	- Lưu trữ vào collection của ChromaDB.
-
-	Args:
-		chromadb_host (str, optional): Địa chỉ IP/hostname của ChromaDB server.
-		chromadb_port (int, optional): Cổng của ChromaDB server.
-		persist_directory (str, optional): Đường dẫn thư mục lưu trữ ChromaDB cục bộ.
-		name_of_collection (str): Tên collection để lưu dữ liệu.
-		file_path (str): Đường dẫn file văn bản cần xử lý.
-		embedding_model (str, optional): Mô hình nhúng văn bản (mặc định: `"sentence-transformers/all-MiniLM-L6-v2"`).
-		chunk_size (int, optional): Kích thước mỗi đoạn văn bản (mặc định: `500`).
-		chunk_overlap (int, optional): Số ký tự trùng lặp giữa các đoạn văn bản (mặc định: `50`).
-
-	Returns:
-		None: Chỉ in thông tin ra terminal.
+		- Đọc dữ liệu từ file văn bản, chia nhỏ thành đoạn (`chunks`).
+		- Tạo vector embeddings bằng mô hình `HuggingFaceEmbeddings`.
+		- Lưu trữ vào collection của ChromaDB.
 	"""
 	if not name_of_collection:
 		print(">>> [Lỗi] Bạn cần cung cấp tên collection (`name_of_collection`).")
@@ -313,18 +264,8 @@ def remove_collection(
 	collection_name: Optional[str] = None
 ) -> None:
 	"""Xóa một collection khỏi ChromaDB.
-
-	- Hỗ trợ `HttpClient` (máy chủ) hoặc `PersistentClient` (cục bộ).
-	- Kiểm tra trước khi xóa để tránh lỗi.
-
-	Args:
-		chromadb_host (str, optional): Địa chỉ IP/hostname của ChromaDB server.
-		chromadb_port (int, optional): Cổng của ChromaDB server.
-		persist_directory (str, optional): Đường dẫn lưu trữ ChromaDB cục bộ.
-		collection_name (str): Tên collection cần xóa.
-
-	Returns:
-		None: Chỉ in kết quả ra terminal.
+		- Hỗ trợ `HttpClient` (máy chủ) hoặc `PersistentClient` (cục bộ).
+		- Kiểm tra trước khi xóa để tránh lỗi.
 	"""
 	if not collection_name:
 		print(">>> [Lỗi] Bạn cần cung cấp tên collection (`collection_name`).")

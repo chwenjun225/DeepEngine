@@ -28,7 +28,7 @@ PRODUCT_STATUS = ""
 FRAME_QUEUE = Queue()
 MESSAGES_HISTORY_UI = []
 STATUS_LOCK = threading.Lock()
-SAVE_FRAME_RESULTS = True
+SAVE_FRAME_RESULTS = False
 MEASURE_LOG_FILE = "inference_times.csv"
 
 

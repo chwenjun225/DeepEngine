@@ -62,7 +62,7 @@ def single_frame_detections_to_json(results:Results, frame_id:int) -> str:
 
 
 
-@measure_time("Process 10 Frames")
+# @measure_time("Process 10 Frames")
 async def async_process_frames(ctx_frames:list[Image.Image]) -> tuple[Image.Image, str, list[str]]: 
 	"""Xử lý khung hình bằng YOLO và LLM với asyncio."""
 

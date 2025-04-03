@@ -15,7 +15,7 @@ from const import (
 from nodes import (
 	TEMPORAL_PATTERN_AGENT		,
 	DEFECT_REASONING_AGENT		,
-	QC_JUDGEMENT_AGENT	,
+	QC_JUDGEMENT_AGENT			,
 	VISUAL_AGENT				,
 )
 

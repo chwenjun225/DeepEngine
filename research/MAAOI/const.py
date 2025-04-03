@@ -28,13 +28,14 @@ PRODUCT_STATUS = ""
 FRAME_QUEUE = Queue()
 MESSAGES_HISTORY_UI = []
 STATUS_LOCK = threading.Lock()
+SAVE_FRAME_RESULTS = True
+MEASURE_LOG_FILE = "inference_times.csv"
 
 
 
 ENCODING = tiktoken.get_encoding("cl100k_base") 
 YOLO_OBJECT_DETECTION = YOLO(
 	model="/home/chwenjun225/projects/DeepEngine/research/MAAOI/TrainYOLOv11/runs/detect/train/weights/best.pt", 
-    verbose=False
 )
 LLM = ChatOllama(
 	model="Llama-3.2-11B-Vision-Instruct.Q4_K_M:latest", num_predict=128_000

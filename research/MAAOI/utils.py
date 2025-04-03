@@ -1,8 +1,14 @@
+import os 
 import cv2
+import csv 
+import time
 import base64
+import datetime
+import asyncio
 import numpy as np 
 from PIL import Image 
 from io import BytesIO
+from typing import Callable
 
 
 
@@ -19,37 +25,130 @@ from langchain_core.messages import (
 
 from state import State 
 from const import (
+	MEASURE_LOG_FILE		,
 	ENCODING				, 
 	MAX_TOKENS				, 
 )
 
 
 
+def measure_time(tag:str="Execution") -> Callable:
+	"""Decorator dùng để đo thời gian thực thi của hàm (cả async & sync), ghi kết quả để vẽ biểu đồ."""
+	def decorator(func):
+		if asyncio.iscoroutinefunction(func):
+			async def async_wrapper(*args, **kwargs):
+				start = time.time()
+				result = await func(*args, **kwargs)
+				end = time.time()
+				duration_ms = (end - start) * 1000
+				print(f">>> [{tag}] took {duration_ms:.2f} ms")
+				with open(MEASURE_LOG_FILE, mode="a", newline="") as f:
+					writer = csv.writer(f)
+					writer.writerow([tag, f"{duration_ms:.2f}"])
+				return result
+			return async_wrapper
+		else:
+			def sync_wrapper(*args, **kwargs):
+				start = time.time()
+				result = func(*args, **kwargs)
+				end = time.time()
+				duration_ms = (end - start) * 1000
+				print(f">>> [{tag}] took {duration_ms:.2f} ms")
+				with open(MEASURE_LOG_FILE, mode="a", newline="") as f:
+					writer = csv.writer(f)
+					writer.writerow([tag, f"{duration_ms:.2f}"])
+				return result
+			return sync_wrapper
+	return decorator
+
+
+
+def save_frame_result(image:Image.Image, filename:str, status:str, output_dir:str="evals") -> None:
+	"""Lưu ảnh đã dự đoán vào thư mục tương ứng theo trạng thái (OK/NG/UNKNOWN),"""
+	status = (status or "").strip().upper()
+	if status not in {"OK", "NG"}:
+		status = "UNKNOWN"
+
+	save_path = os.path.join(output_dir, f"{status.upper()}")
+	os.makedirs(save_path, exist_ok=True)
+
+	timestamp = datetime.datetime.now().strftime("%Y-%m-%d--%H-%M-%S")
+	filename = f"{status}__{timestamp}.jpg"
+
+	full_path = os.path.join(save_path, filename)
+	image.save(full_path)
+	print(f">>> Saved result to: {full_path}")
+
+
+
+def extract_frames_from_video(video_path:str, output_dir:str, interval:int=10) -> None:
+	"""Trích xuất ảnh từ video."""
+	os.makedirs(output_dir, exist_ok=True)
+	cap = cv2.VideoCapture(video_path)
+	frame_id = 0
+	saved = 0
+	while cap.isOpened():
+		ret, frame = cap.read()
+		if not ret: break
+		if frame_id % interval == 0:
+			filename = os.path.join(output_dir, f"frame_{saved:03d}.jpg")
+			cv2.imwrite(filename, frame)
+			saved += 1
+		frame_id += 1
+	cap.release()
+	print(f">>> Extracted {saved} frames to {output_dir}")
+
+
+
 def draw_defect_overlay(
 	frame: np.ndarray,
 	bboxes: dict, 
-	status: str
+	product_status: str
 ) -> np.ndarray:
-	"""Hiển thị bounding boxes và trạng thái sản phẩm lên frame ảnh."""
-	font = cv2.FONT_HERSHEY_SIMPLEX
-	font_scale = 0.8
-	thickness = 2
+	"""Hiển thị bounding boxes, trạng thái sản phẩm, và timestamp lên ảnh."""
 	image = frame.copy()
+	font = cv2.FONT_HERSHEY_SIMPLEX
 
-	if status.upper() == "OK":
-		color = (0, 255, 0) ### GREEN
-		cv2.putText(image, f"{status}", (20, 40), font, 1.0, color, 3, lineType=cv2.LINE_AA)
-	elif status.upper() == "NG":
-		color = (0, 0, 255) ### RED
-		cv2.putText(image, f"{status}", (20, 40), font, 1.0, color, 3, lineType=cv2.LINE_AA)
-		for obj in bboxes:
-				x1, y1, x2, y2 = obj["bbox"]
-				label = obj["label"]
-				cv2.rectangle(image, (x1, y1), (x2, y2), color, 2)
-				cv2.putText(image, label, (x1, y1 - 5), font, font_scale, color, thickness)
+	if product_status.upper() == "OK":
+		main_color = (0, 255, 0)  			### Green
+		label_text = "OK"
+	elif product_status.upper() == "NG":
+		main_color = (0, 0, 255)  			### Red
+		label_text = "NG"
 	else:
-		color = (0, 255, 255) ### YELLOW
-		cv2.putText(image, f"Processing...", (20, 40), font, 1.0, color, 3, lineType=cv2.LINE_AA)
+		main_color = (0, 255, 255)  		### Yellow
+		label_text = "Processing..."
+
+	cv2.putText(
+		image, label_text, org=(20, 40), fontFace=font, 
+		fontScale=1.2, color=main_color, thickness=3, lineType=cv2.LINE_AA)
+
+	timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+	text_size, _ = cv2.getTextSize(timestamp, font, 0.6, 1)
+	text_w, _ = text_size
+	_, img_w = image.shape[:2]
+	cv2.putText(
+		image, timestamp, org=(img_w-text_w-20, 30), 
+		fontFace=font, fontScale=1, thickness=1, lineType=cv2.LINE_AA, color=main_color)
+
+	for obj in bboxes:
+		x1, y1, x2, y2 = obj["bbox"]
+		label = obj["label"]
+
+		box_color = (0, 0, 255) if product_status.upper() == "NG" else (0, 200, 0)
+
+		cv2.rectangle(image, (x1, y1), (x2, y2), box_color, 2)
+
+		label_str = f"{label}"
+		(tw, th), _ = cv2.getTextSize(label_str, font, 0.5, 1)
+		cv2.rectangle(
+			image, (x1, y1-th-4), 
+			(x1+tw+4, y1), box_color, -1
+		)
+		cv2.putText(
+			image, label_str, (x1+2, y1-2), font, 0.5, 
+			(255, 255, 255), 1, lineType=cv2.LINE_AA
+		)
 	return image
 
 

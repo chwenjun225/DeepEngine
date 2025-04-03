@@ -1,6 +1,6 @@
-import asyncio
 import cv2 
 import fire 
+import asyncio
 import numpy as np 
 import gradio as gr 
 from PIL import Image 
@@ -19,6 +19,7 @@ from agentic import AGENTIC
 from const import (
 	CONFIG						,
 	PRODUCT_STATUS				,
+	SAVE_FRAME_RESULTS			,
 
 	YOLO_OBJECT_DETECTION		,
 	VISION_LLM					,
@@ -26,15 +27,15 @@ from const import (
 from utils import (
 	get_latest_msg				,
 	draw_defect_overlay			,
+	save_frame_result			,
+	measure_time				,
 )
 
 
 
 async def async_llm_inference(prompt):
 	"""Thực thi LLM không chặn."""
-	return await asyncio.to_thread(
-		VISION_LLM.invoke, prompt
-	)
+	return await asyncio.to_thread(VISION_LLM.invoke, prompt)
 
 
 
@@ -61,11 +62,13 @@ def single_frame_detections_to_json(results:Results, frame_id:int) -> str:
 
 
 
-async def async_process_frames(ctx_frames:list[Image.Image]) -> tuple[Image.Image, list[str]]: 
+@measure_time("Process 10 Frames")
+async def async_process_frames(ctx_frames:list[Image.Image]) -> tuple[Image.Image, str, list[str]]: 
 	"""Xử lý khung hình bằng YOLO và LLM với asyncio."""
+
 	ctx_frames_metadata = [] 
 	for idx, frame in enumerate(ctx_frames):
-		results = YOLO_OBJECT_DETECTION.predict(frame, conf=0., iou=0.1, max_det=5) 
+		results = YOLO_OBJECT_DETECTION.predict(frame, conf=0., iou=0.1, max_det=5, verbose=False) 
 		frame_metadata = single_frame_detections_to_json(results, idx) 
 		ctx_frames_metadata.append(frame_metadata)
 
@@ -80,8 +83,8 @@ async def async_process_frames(ctx_frames:list[Image.Image]) -> tuple[Image.Imag
 	if isinstance(visual_metadata, str):
 		visual_metadata = eval(visual_metadata)
 
-	PRODUCT_STATUS = visual_metadata["ngok"]
-	bbox_per_frame = visual_metadata["bbox"]
+	PRODUCT_STATUS: str = visual_metadata["ngok"]
+	bbox_per_frame: dict = visual_metadata["bbox"]
 
 	last_idx = len(ctx_frames) - 1
 	last_frame_pil = ctx_frames[last_idx]
@@ -90,19 +93,20 @@ async def async_process_frames(ctx_frames:list[Image.Image]) -> tuple[Image.Imag
 		cv2.COLOR_RGB2BGR
 	)
 
-	last_bboxes = bbox_per_frame[last_idx] ### TODO: Cần sửa lại chỗ này, phải lấy toàn bộ các bbox từ tất cả 10 frames để vẽ lên ảnh cuối 
+	last_bboxes = []
+	for frame_bboxes in bbox_per_frame.values():
+		last_bboxes.extend(frame_bboxes)
 
-	annotated_np = draw_defect_overlay(
-		last_frame_np, 
-		last_bboxes, 
-		PRODUCT_STATUS
-	)
+	annotated_np = draw_defect_overlay(last_frame_np, last_bboxes, PRODUCT_STATUS)
 	annotated_pil = Image.fromarray(cv2.cvtColor(annotated_np, cv2.COLOR_BGR2RGB))
 
-	texts = [f"{obj['label']} at {obj['bbox']}" for obj in last_bboxes]
+	if SAVE_FRAME_RESULTS:
+		save_frame_result(annotated_pil, f"frame__{last_idx:03d}__.jpg", PRODUCT_STATUS)
+
+	reasoning_texts = [f"{obj['label']} at {obj['bbox']}" for obj in last_bboxes]
 	if PRODUCT_STATUS:
-		texts.insert(0, f"{PRODUCT_STATUS}")
-	return annotated_pil, PRODUCT_STATUS, texts
+		reasoning_texts.insert(0, f"{PRODUCT_STATUS}")
+	return annotated_pil, PRODUCT_STATUS, reasoning_texts
 
 
 
@@ -110,13 +114,16 @@ async def async_video_processing(video_path:str, resize_to:tuple=(640, 640), ctx
 	"""Xử lý video không chặn bằng asyncio."""
 	cap = cv2.VideoCapture(video_path)
 	if not cap.isOpened():
+		print(">>> Cannot open video...")
 		yield None, "Cannot open video", ""
 		return
 
 	ctx_frames = []
 	while cap.isOpened():
 		ret, frame = cap.read()
-		if not ret: break
+		if not ret: 
+			print(">>> Video Ended...")
+			break
 
 		frame = Image.fromarray(frame[..., ::-1]).resize(resize_to) 
 		ctx_frames.append(frame) 
@@ -126,20 +133,20 @@ async def async_video_processing(video_path:str, resize_to:tuple=(640, 640), ctx
 			yield preview_frame, "WAITING", "Analyzing..."
 
 		if len(ctx_frames) == ctx_frames_limit: 
-			processed_img, PRODUCT_STATUS, texts = await async_process_frames(ctx_frames) 
-			text_combined = " | ".join([
-				text.content 
-					if isinstance(text, BaseMessage) 
-					else str(text) 
-					for text in texts
+			annotated_pil, PRODUCT_STATUS, reasoning_texts = await async_process_frames(ctx_frames) 
+			reasoning_text_combined = " | ".join([
+				t.content 
+					if isinstance(t, BaseMessage) 
+					else str(t) 
+					for t in reasoning_texts
 			])
-			yield processed_img, PRODUCT_STATUS, text_combined
+			yield annotated_pil, PRODUCT_STATUS, reasoning_text_combined
 			ctx_frames.clear()
 	cap.release()
 
 
 
-def __detect_pcb_video(video_path: str) -> any:
+def __detect_pcb_video__(video_path: str) -> any:
 	"""Giao diện Gradio để xử lý video."""
 	try:
 		loop = asyncio.get_running_loop()
@@ -159,7 +166,7 @@ def __detect_pcb_video(video_path: str) -> any:
 
 
 
-async def __detect_pcb_image(image: Image.Image) -> any:
+async def __detect_pcb_image__(image: Image.Image) -> any:
 	"""Xử lý ảnh PCB bằng YOLO và LLM."""
 	try:
 		processed_img, PRODUCT_STATUS, texts = await async_process_frames(image)
@@ -193,7 +200,7 @@ def main() -> None:
 					analyze_img_btn = gr.Button("Analyze Image")
 					status_box_img = gr.Textbox(label="Product Status", interactive=False)
 					reasoning_output_img = gr.Textbox(label="Reasoning Explanation", lines=6)
-					analyze_img_btn.click(fn=__detect_pcb_image, inputs=image_input, outputs=[image_output,status_box_img,reasoning_output_img])
+					analyze_img_btn.click(fn=__detect_pcb_image__, inputs=image_input, outputs=[image_output,status_box_img,reasoning_output_img])
 		### VIDEO PREDICTION TAB 
 		with gr.Tab("Video Prediction"):
 			with gr.Row():
@@ -205,7 +212,7 @@ def main() -> None:
 					process_video_button = gr.Button("Start Video Inspection")
 					status_box = gr.Textbox(label="Product Status", value=PRODUCT_STATUS, interactive=False)
 					reasoning_output = gr.Textbox(label="Reasoning Explanation", lines=6)
-					process_video_button.click(fn=__detect_pcb_video, inputs=video_input, outputs=[video_output, status_box, reasoning_output])
+					process_video_button.click(fn=__detect_pcb_video__, inputs=video_input, outputs=[video_output, status_box, reasoning_output])
 	user_interface.launch()
 
 

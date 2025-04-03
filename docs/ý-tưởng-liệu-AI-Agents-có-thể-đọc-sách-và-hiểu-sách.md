@@ -1,0 +1,1 @@
+triển khai một hệ thống AI-Agent để nó có thể hiểu và đọc sách, từ đó hướng nó đến trở thành một trí tuệ nhân tạo tốt bụng KAI (Kind of AI)

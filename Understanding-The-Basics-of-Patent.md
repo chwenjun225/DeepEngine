@@ -163,3 +163,9 @@ While it's important to provide a thorought description, avoid unecessary detail
 
 
 For example, when describing a manufacturing process, include essential steps and parameters but avoid extraneous information that does not affect the outcome. This balance ensures that your description is both comprehensive and easy to follow, enhancing the overall quality of your patent application. 
+
+
+
+<!-- 
+Đọc các blog dạy viết bằng sáng chế để biết cách viết phù hợp với nguyên tắc.
+ -->

@@ -224,4 +224,10 @@ if __name__ == "__main__":
 """
 1. Đã thu thập ~7000 sample PCB images
 2. Viết script chạy evals
+
+IMPORTANT: Hiện tại cần tăng tốc viết bài báo khoa học rồi nộp cho taos, vậy làm sao để viết:
+1. Bắt đầu với phần tiêu đề pattern là AutoML-AOI: A Multi Agent Large Language Model Framework for Automated Optical Inspection Printed Circuit Board in Realtime 
+
+2. Viết phần abstract 
+
 """

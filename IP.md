@@ -62,3 +62,42 @@ All agents operate asynchronously with optional streaming mode for real-time fac
 ### 8. Abstract
 A system and method for real-time automated optical inspection of printed circuit boards using a multi-agent framework. The system includes a YOLO-based vision agent for defect detection, a large language model-based reasoning agent for classification and explanation, and a controller agent for coordination. The agents operate asynchronously to provide accurate, explainable, and scalable defect detection suitable for production environments.
 
+
+
+
+<!-- 
+
+Note cần làm:
+1. Tham khảo cách viết của: https://patentimages.storage.googleapis.com/68/f0/75/b31b89b81034a0/US20230260260A1.pdf
+
+ -->
+
+
+<!-- 
+
+1. Abstract
+
+**MÔ TẢ BẰNG LỜI CÁCH THUẬT TOÁN CHƯƠNG TRÌNH HOẠT ĐỘNG**
+
+A machine learning method comprises:
+
+S210. applying a constrastive learning model to a training image and an image mask to generate a foreground feature vector pair and a background feature pair, wherein the training image corresponds to the image mask.
+
+S220. calculating a foreground loss and a background loss according to the foreground feature vector pair and the background feature vector pair.
+
+S230. performing a weighted loss calculation on the foreground loss and the background loss by using a first weight and a second weight to generate a total loss, wherein the first weight corresponds to the foreground loss, and the second weight corresponds to the background loss .
+
+S240. determine whether a recursion end condition is met according to the total loss.
+
+S250. if YES, adjusting a parameter of a machine learning model by using the first encoder.
+
+S260. if NO, adjusting ta parameter of the first encoder of the constrastive learning model by using the total loss, adjusting a parameter of the second encoder of the contrastive learning model by using the total loss and a preset multiple, capturing a new training image and a new training iamge and a new image mask corresponding to the new training image and the new image mask as the training image and the image mask.
+
+
+
+MACHINE LEARNING METHOD AND DEVICE 
+
+CROSS-REFERENCE TO RELATED APPLICATION
+
+[0001]   This application claims priority to U.S.Provisional Application Ser.No
+ -->

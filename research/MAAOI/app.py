@@ -66,20 +66,26 @@ def single_frame_detections_to_json(results:Results, frame_id:int) -> str:
 async def async_process_frames(ctx_frames:list[Image.Image]) -> tuple[Image.Image, str, list[str]]: 
 	"""Xử lý khung hình bằng YOLO và LLM với asyncio."""
 
+### PROBLEM 1: Cải thiện tốc độ chương trình ???
+### ...
+
+### PROBLEM 2: Cải thiện độ chính xác 
+### Bây giờ ngữ cảnh là 10 chuỗi json 
+
 	ctx_frames_metadata = [] 
 	for idx, frame in enumerate(ctx_frames):
 		results = YOLO_OBJECT_DETECTION.predict(frame, conf=0., iou=0.1, max_det=5, verbose=False) 
 		frame_metadata = single_frame_detections_to_json(results, idx) 
 		ctx_frames_metadata.append(frame_metadata)
 
-	response = AGENTIC.invoke(
+	agentic_response = AGENTIC.invoke(
 		input={"VISION_AGENT_MSGS": [AIMessage(
 			content=ctx_frames_metadata, 
 			name="VISION_AGENT"
 		)]}, 
 	config=CONFIG)
 
-	visual_metadata = get_latest_msg(response, "VISUAL_AGENT_MSGS").content
+	visual_metadata = get_latest_msg(agentic_response, "VISUAL_AGENT_MSGS").content
 	if isinstance(visual_metadata, str):
 		visual_metadata = eval(visual_metadata)
 
@@ -184,7 +190,7 @@ async def __detect_pcb_image__(image: Image.Image) -> any:
 
 def main() -> None:
 	"""Giao diện ứng dụng AOI Multi-Agent."""
-	with gr.Blocks(title="AOI Multi-Agent QC System") as user_interface:
+	with gr.Blocks(title="MultiAgent for AOI Tasks") as user_interface:
 		gr.Markdown(
 			"# CPEG-AI-Research: MultiAgent for AOI Tasks\n"
 			"#### Owner: Tran Van Tuan - V1047876"
@@ -219,15 +225,3 @@ def main() -> None:
 
 if __name__ == "__main__":
 	fire.Fire(main)
-
-
-"""
-1. Đã thu thập ~7000 sample PCB images
-2. Viết script chạy evals
-
-IMPORTANT: Hiện tại cần tăng tốc viết bài báo khoa học rồi nộp cho taos, vậy làm sao để viết:
-1. Bắt đầu với phần tiêu đề pattern là AutoML-AOI: A Multi Agent Large Language Model Framework for Automated Optical Inspection Printed Circuit Board in Realtime 
-
-2. Viết phần abstract 
-
-"""

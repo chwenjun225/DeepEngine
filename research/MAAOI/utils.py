@@ -71,6 +71,7 @@ def measure_time(tag:str="Execution") -> Callable:
 						writer.writerow([tag, f"{duration_ms:.2f}"])
 					return result
 				return sync_wrapper
+		else: return func
 	return decorator
 
 

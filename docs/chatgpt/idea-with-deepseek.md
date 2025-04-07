@@ -7,7 +7,7 @@ from sentence_transformers import SentenceTransformer
 def create_hybrid_embedding(detection):
     # Kết hợp thông tin spatial và semantic
     spatial_feature = [detection['x1']/W, detection['y1']/H, detection['x2']/W, detection['y2']/H]
-    semantic_feature = model.encode(f"{CLASS_NAMES[detection['class_id']} {detection['conf']:.2f}")
+    semantic_feature = model.encode(f"{CLASS_NAMES[detection['class_id']]} {detection['conf']:.2f}")
     return np.concatenate([spatial_feature, semantic_feature])
 ```
 

@@ -13,12 +13,12 @@ from const import (
 	QUALITY_CONTROL_JUDGEMENT_AGENT_PROMPT_MSG	,
 )
 from utils import (get_latest_msg)
-########################################################################## Sửa 2 hàm này ###########################
+
 
 
 # ================================== Ai Message ==================================
 # Name: VISION_AGENT
-# TODO: Với các vector ngữ cảnh như thế này, ta nên sử dụng few-shot prompting
+#
 # {'id': 0, 'metadata': [{'bbox': {'x1': 473, 'y1': 263, 'x2': 485, 'y2': 277}, 'confidence': 0.867, 'class_id': 0, 'label': 'missing_hole'}, {'bbox': {'x1': 236, 'y1': 261, 'x2': 247, 'y2': 274}, 'confidence': 0.842, 'class_id': 0, 'label': 'missing_hole'}, {'bbox': {'x1': 212, 'y1': 406, 'x2': 228, 'y2': 421}, 'confidence': 0.219, 'class_id': 3, 'label': 'short'}, {'bbox': {'x1': 160, 'y1': 486, 'x2': 170, 'y2': 493}, 'confidence': 0.185, 'class_id': 4, 'label': 'spur'}, {'bbox': {'x1': 123, 'y1': 302, 'x2': 133, 'y2': 314}, 'confidence': 0.086, 'class_id': 0, 'label': 'missing_hole'}]}
 # {'id': 1, 'metadata': [{'bbox': {'x1': 472, 'y1': 265, 'x2': 484, 'y2': 279}, 'confidence': 0.822, 'class_id': 0, 'label': 'missing_hole'}, {'bbox': {'x1': 236, 'y1': 262, 'x2': 247, 'y2': 276}, 'confidence': 0.795, 'class_id': 0, 'label': 'missing_hole'}, {'bbox': {'x1': 122, 'y1': 304, 'x2': 134, 'y2': 317}, 'confidence': 0.523, 'class_id': 0, 'label': 'missing_hole'}, {'bbox': {'x1': 212, 'y1': 410, 'x2': 228, 'y2': 426}, 'confidence': 0.211, 'class_id': 3, 'label': 'short'}, {'bbox': {'x1': 292, 'y1': 477, 'x2': 304, 'y2': 486}, 'confidence': 0.122, 'class_id': 4, 'label': 'spur'}]}
 # {'id': 2, 'metadata': [{'bbox': {'x1': 236, 'y1': 263, 'x2': 247, 'y2': 277}, 'confidence': 0.837, 'class_id': 0, 'label': 'missing_hole'}, {'bbox': {'x1': 122, 'y1': 303, 'x2': 135, 'y2': 317}, 'confidence': 0.813, 'class_id': 0, 'label': 'missing_hole'}, {'bbox': {'x1': 472, 'y1': 267, 'x2': 484, 'y2': 281}, 'confidence': 0.686, 'class_id': 0, 'label': 'missing_hole'}, {'bbox': {'x1': 424, 'y1': 388, 'x2': 436, 'y2': 408}, 'confidence': 0.406, 'class_id': 4, 'label': 'spur'}, {'bbox': {'x1': 212, 'y1': 407, 'x2': 228, 'y2': 422}, 'confidence': 0.335, 'class_id': 3, 'label': 'short'}]}
@@ -66,59 +66,10 @@ def TEMPORAL_PATTERN_AGENT(state: State) -> State:
 # - The defect 'short' was detected in frames [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] with 12 occurrences, and an average confidence of 0.22.
 # - The defect 'spur' was detected in frames [0, 1, 2, 4, 5, 6, 7, 8, 9] with 10 occurrences, and an average confidence of 0.27.
 
-# TODO: Reflecting
-# TODO: Với các vector ngữ cảnh như thế này, ta nên sử dụng few-shot prompting 
-
 
 
 def DEFECT_REASONING_AGENT(state: State) -> State:
 	"""Đánh giá lỗi, phát hiện pattern và gợi ý hành động QC."""
-
-# Cần cải thiện lại phần này, ta sẽ cho nó thành subgraph-agent 
-# Đầu ra tại agent này quá đơn giản, nó cần phải tích hợp, kiết xuất thông tin, tự động tính toán số liệu. 
-# Đối chiếu với nhiều tư liệu khác nhau đã chứ sau đó mới cho ra mô tả về các lỗi cuối cùng. 
-
-# Task decomposition: multi-agent cần xác định được task nó đang giải quyết, sau đó break task lớn ra các task nhỏ
-
-# Build subgraph here...
-
-## TODO: Build PLANNING_AGENT: Planning through reasoning 
-# ---> Planning in LLM Agents involves breaking a given task up into actionable steps.
-
-## TODO: Build long-term memory với external vector database 
-
-### TODO: Có lẽ ta có thể cải thiện bằng few-shot prompting 
-
-	"""
-Multi-agent collaboration 
-The single agent we explored has serveral issues: too many tools may complicat selection, context becomes too complex, and task may require specialization. 
-
-Instead, we can look towards Multi-Agent, frameworks where multiple agents each with access to tools, mem, planning are interacting with each other and their envs:
-
-These multi-agent systems usually consist of speicalized agents, each equiped with their own tool set and overseen bu a siervior. the supervisor manageers communication between agents can assign specific tasks to the specilized agents.
-
-Each agent might have differnet types of tools avaiblable, bet where might also be fifderne tmmeory sstems.
-
-In practice, there are dozen of Multi-agetn architecure with two compoentn at te core
-
-interactive simulacra of human behavior 
-
-Arguably one of most influential, and frankly increadibly cool, Multi-agent papers is called Generative Agents: Interactive Simulacra of Human Behavior
-
-In this paper, they craeted computational software agents that simulate believable human behavior, which ehy call Generative agents 
-
-
-The profile each Generative Agent is given makes them behave in unique ways and helps create more interesting and dynamic behavior
-
-Each Agent is init with three modules mem, planning, and reflection very much like the core components that we have seen previously with ReAct and Reflextion 
-
-
-	"""
-
-
-# TODO: TÔi đang nghĩ đến việc sử dụng auto-chain-of-though prompting để giải quyết vấn đề này 
-
-
 	prev_agent_msg = get_latest_msg(state, type_msgs="TEMPORAL_PATTERN_AGENT_MSGS")
 	ai_msg = LLM.invoke([
 		SystemMessage(DEFECT_REASONING_AGENT_PROMPT_MSG), 

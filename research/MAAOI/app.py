@@ -8,6 +8,7 @@ from PIL import Image
 
 
 from langchain_core.messages import BaseMessage, AIMessage
+from langchain_core.documents import Document
 
 
 
@@ -17,18 +18,18 @@ from ultralytics.engine.results import Results
 
 from agentic import AGENTIC
 from const import (
-	CONFIG						,
+	CONFIG								,
 	PRODUCT_STATUS				,
-	SAVE_FRAME_RESULTS			,
+	SAVE_FRAME_RESULTS		,
 
-	YOLO_OBJECT_DETECTION		,
-	VISION_LLM					,
+	YOLO_OBJECT_DETECTION	,
+	VISION_LLM						,
 )
 from utils import (
 	get_latest_msg				,
-	draw_defect_overlay			,
+	draw_defect_overlay		,
 	save_frame_result			,
-	measure_time				,
+	measure_time					,
 )
 
 
@@ -39,61 +40,103 @@ async def async_llm_inference(prompt):
 
 
 
-def single_frame_detections_to_json(results:Results, frame_id:int) -> str:
-	"""Chuyển kết quả YOLOv8 từ 1 frame thành JSON, tối ưu tốc độ."""
-	result = results[0]
-	boxes: np.ndarray = result.boxes.xyxy.cpu().numpy().astype(int)
-	confidences: np.ndarray = result.boxes.conf.cpu().numpy().astype(float)
-	class_ids: np.ndarray = result.boxes.cls.cpu().numpy().astype(int)
-	class_names = result.names
-	frame_data = {
-		"id": frame_id, 
-		"metadata": [
-			{
+def single_frame_detections_to_json(results:Results, frame_id:int) -> dict[str, any]:
+	"""Chuyển kết quả YOLOv8 từ 1 frame thành JSON dictionary, tối ưu tốc độ."""
+	if not results[0].boxes:
+		return {"id": frame_id, "metadata": []}
+
+	boxes_data = results[0].boxes.data.cpu().numpy()
+	class_names = results[0].names
+	has_tracking = boxes_data.shape[1] == 7
+
+	metadata = []
+	for row in boxes_data:
+		x1, y1, x2, y2, conf, cls_id = row[:6]
+		detection = {
 				"bbox": {"x1": int(x1), "y1": int(y1), "x2": int(x2), "y2": int(y2)},
-				"confidence": round(float(conf), 3),
-				"class_id": int(cls_id), 
+				"confidence": round(conf),
+				"class_id": int(cls_id),
 				"label": class_names[int(cls_id)]
-			}
-			for (x1, y1, x2, y2), conf, cls_id in zip(boxes, confidences, class_ids)
-		]
-	}
-	return frame_data
+		}
+		if has_tracking: detection["track_id"] = int(row[6])
+		metadata.append(detection)
+
+	return {"id": frame_id, "metadata": metadata}
 
 
 
 @measure_time("Process 10 Frames")
-async def async_process_frames(ctx_frames:list[Image.Image]) -> tuple[Image.Image, str, list[str]]: 
+async def async_process_frames(frames:list[Image.Image]) -> tuple[Image.Image, str, list[str]]: 
 	"""Xử lý khung hình bằng YOLO và LLM với asyncio."""
 
-### PROBLEM 1: Cải thiện tốc độ chương trình ???
-### ...
 
-### PROBLEM 2: Cải thiện độ chính xác 
-### Bây giờ ngữ cảnh là 10 chuỗi json 
 
-	ctx_frames_metadata = [] 
-	for idx, frame in enumerate(ctx_frames):
-		results = YOLO_OBJECT_DETECTION.predict(frame, conf=0., iou=0.1, max_det=5, verbose=False) 
+
+### à mà không, bây giờ mỗi frame sẽ mang cho mình một ngữ cảnh riêng.
+
+### Nhưng bây giờ ta sẽ lấy các bbox ra để làm giá trị đo độ tương quan. 
+
+### Cơ mà 
+	# results_docs = []
+
+	frames_metadata = [] ### TODO: Sửa lại dòng này 
+
+	for idx, frame in enumerate(frames):
+		results = YOLO_OBJECT_DETECTION.predict(
+			frame, conf=0., iou=0.1, max_det=5, verbose=False
+		) 
+
 		frame_metadata = single_frame_detections_to_json(results, idx) 
-		ctx_frames_metadata.append(frame_metadata)
+		frames_metadata.append(frame_metadata)
+
+		# results_docs.append( ### TODO: Sửa lại dòng này 
+		# 	Document(
+		# 		page_content=f"Frame {idx} object detections",
+		# 		metadata={
+		# 			"frame_id": idx,
+		# 			"detections": frame_metadata["metadata"]
+		# 		}))
+
+		# Câu hỏi: Giờ làm như thế nào để tăng độ chính xác cho mô hình 
+		# Sử dụng pgvector, nhưng để làm gì 
+		# Ta sẽ nhóm các bbox lại thành các frame, mỗi frame sẽ có id frame 
+
+
+
+	### Nhưng docs lại là nơi lưu trữ 
+	### Vậy thuật toán giờ đây là lưu yolo_docs những gì từ yolo phát hiện được vào pgvector
+
+
+	### Tính xác xuất khoảng cách và phần trăm lỗi giữa các frame 
+
+
+	### Ta sẽ làm như này ứng với mỗi tọa độ xyxy ta sẽ cho nó thành một key
+
+	### có dạng như sau example_dict = {xyxy: conf}
+
+
+
+
 
 	agentic_response = AGENTIC.invoke(
 		input={"VISION_AGENT_MSGS": [AIMessage(
-			content=ctx_frames_metadata, 
+			content=frames_metadata, ### frames_metadata là để đưa vào trong Agentic inference 
 			name="VISION_AGENT"
 		)]}, 
-	config=CONFIG)
+	config=CONFIG) 
 
-	visual_metadata = get_latest_msg(agentic_response, "VISUAL_AGENT_MSGS").content
+	visual_metadata = get_latest_msg(
+		agentic_response, "VISUAL_AGENT_MSGS"
+	).content
 	if isinstance(visual_metadata, str):
 		visual_metadata = eval(visual_metadata)
 
 	PRODUCT_STATUS: str = visual_metadata["ngok"]
 	bbox_per_frame: dict = visual_metadata["bbox"]
 
-	last_idx = len(ctx_frames) - 1
-	last_frame_pil = ctx_frames[last_idx]
+	last_idx = len(frames) - 1
+	last_frame_pil = frames[last_idx]
+
 	last_frame_np = cv2.cvtColor(
 		np.array(last_frame_pil), 
 		cv2.COLOR_RGB2BGR
@@ -103,11 +146,23 @@ async def async_process_frames(ctx_frames:list[Image.Image]) -> tuple[Image.Imag
 	for frame_bboxes in bbox_per_frame.values():
 		last_bboxes.extend(frame_bboxes)
 
-	annotated_np = draw_defect_overlay(last_frame_np, last_bboxes, PRODUCT_STATUS)
-	annotated_pil = Image.fromarray(cv2.cvtColor(annotated_np, cv2.COLOR_BGR2RGB))
+	annotated_np = draw_defect_overlay(
+		last_frame_np, 
+		last_bboxes, 
+		PRODUCT_STATUS
+	)
+	annotated_pil = Image.fromarray(
+		cv2.cvtColor(
+			annotated_np, 
+			cv2.COLOR_BGR2RGB
+		))
 
 	if SAVE_FRAME_RESULTS:
-		save_frame_result(annotated_pil, f"frame__{last_idx:03d}__.jpg", PRODUCT_STATUS)
+		save_frame_result(
+			annotated_pil, 
+			f"frame__{last_idx:03d}__.jpg", 
+			PRODUCT_STATUS
+		)
 
 	reasoning_texts = [f"{obj['label']} at {obj['bbox']}" for obj in last_bboxes]
 	if PRODUCT_STATUS:

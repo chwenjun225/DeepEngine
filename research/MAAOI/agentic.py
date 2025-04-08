@@ -13,17 +13,17 @@ from const import (
 	STORE,
 )
 from nodes import (
-	TEMPORAL_PATTERN_AGENT,
-	DEFECT_REASONING_AGENT,
-	QUALITY_CONTROL_JUDGEMENT_AGENT,
-	VISUAL_AGENT,
+	TEMPORAL_PATTERN_AGENT					,
+	DEFECT_REASONING_AGENT					,
+	QUALITY_CONTROL_JUDGEMENT_AGENT	,
+	VISUAL_AGENT										,
 )
 
 
 
 AGENTS = [	
 	("TEMPORAL_PATTERN_AGENT", TEMPORAL_PATTERN_AGENT, "Phân loại lỗi.", "logic, non-LLM"),
-	("DEFECT_REASONING_AGENT", DEFECT_REASONING_AGENT, "Đặt câu hỏi về lỗi.",	"reasoning, LLM"),
+	("DEFECT_REASONING_AGENT", DEFECT_REASONING_AGENT, "Đặt câu hỏi về lỗi.", "reasoning, LLM"),
 	("QUALITY_CONTROL_JUDGEMENT_AGENT", QUALITY_CONTROL_JUDGEMENT_AGENT	, "Đưa ra quyết định là OK/NG.", "logic, LLM"),
 	("VISUAL_AGENT", VISUAL_AGENT, "Đưa ra tọa độ lỗi cuối cùng.",	"logic, non-LLM"	),
 ]	

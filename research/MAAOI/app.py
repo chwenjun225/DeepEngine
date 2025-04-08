@@ -7,8 +7,8 @@ from PIL import Image
 
 
 
+from langchain_core.stores import InMemoryByteStore
 from langchain_core.messages import BaseMessage, AIMessage
-from langchain_core.documents import Document
 
 
 
@@ -70,51 +70,16 @@ async def async_process_frames(frames:list[Image.Image]) -> tuple[Image.Image, s
 	"""Xử lý khung hình bằng YOLO và LLM với asyncio."""
 
 
-
-
-### à mà không, bây giờ mỗi frame sẽ mang cho mình một ngữ cảnh riêng.
-
-### Nhưng bây giờ ta sẽ lấy các bbox ra để làm giá trị đo độ tương quan. 
-
-### Cơ mà 
-	# results_docs = []
-
 	frames_metadata = [] ### TODO: Sửa lại dòng này 
 
 	for idx, frame in enumerate(frames):
 		results = YOLO_OBJECT_DETECTION.predict(
 			frame, conf=0., iou=0.1, max_det=5, verbose=False
-		) 
+		)
+		# frame_tensor_data = results[0].boxes.data ### [x1, y1, x2, y2, conf, label]
 
 		frame_metadata = single_frame_detections_to_json(results, idx) 
 		frames_metadata.append(frame_metadata)
-
-		# results_docs.append( ### TODO: Sửa lại dòng này 
-		# 	Document(
-		# 		page_content=f"Frame {idx} object detections",
-		# 		metadata={
-		# 			"frame_id": idx,
-		# 			"detections": frame_metadata["metadata"]
-		# 		}))
-
-		# Câu hỏi: Giờ làm như thế nào để tăng độ chính xác cho mô hình 
-		# Sử dụng pgvector, nhưng để làm gì 
-		# Ta sẽ nhóm các bbox lại thành các frame, mỗi frame sẽ có id frame 
-
-
-
-	### Nhưng docs lại là nơi lưu trữ 
-	### Vậy thuật toán giờ đây là lưu yolo_docs những gì từ yolo phát hiện được vào pgvector
-
-
-	### Tính xác xuất khoảng cách và phần trăm lỗi giữa các frame 
-
-
-	### Ta sẽ làm như này ứng với mỗi tọa độ xyxy ta sẽ cho nó thành một key
-
-	### có dạng như sau example_dict = {xyxy: conf}
-
-
 
 
 

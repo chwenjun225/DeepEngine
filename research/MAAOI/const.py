@@ -9,6 +9,7 @@ from ultralytics import YOLO
 
 
 
+from langchain_postgres import PGVector
 from langchain_ollama import ChatOllama
 from langchain_huggingface.embeddings import HuggingFaceEmbeddings
 
@@ -23,39 +24,48 @@ import prompts
 
 
 
+WANNA_MEASURE_TIME = False
+MEASURE_LOG_FILE = "inference_times.csv"
+
+
+
 MAX_TOKENS = 128_000
 PRODUCT_STATUS = ""
 FRAME_QUEUE = Queue()
 MESSAGES_HISTORY_UI = []
 STATUS_LOCK = threading.Lock()
+SAVE_FRAME_RESULTS = False
+
+
+
+YOLO_OBJECT_DETECTION = YOLO(model="/home/chwenjun225/projects/DeepEngine/research/MAAOI/TrainYOLOv11/runs/detect/train/weights/best.pt")
+LLM = ChatOllama(model="Llama-3.2-11B-Vision-Instruct.Q4_K_M:latest", num_predict=128_000)
+VISION_LLM = ChatOllama(model="Llama-3.2-11B-Vision-Instruct.Q4_K_M:latest", num_predict=128_000)
 
 
 
 ENCODING = tiktoken.get_encoding("cl100k_base") 
-YOLO_OBJECT_DETECTION = YOLO(
-	model="/home/chwenjun225/projects/DeepEngine/research/MAAOI/VisionAgent/runs/detect/train/weights/best.pt"
+CONNECTION = "postgresql+psycopg://tranvantuan:tranvantuan@localhost:2000/tranvantuan"
+COLLECTION_NAME = "yolo_retrieve"
+EMBEDDINGS_FUNC = HuggingFaceEmbeddings(
+	model_name="sentence-transformers/all-MiniLM-L6-v2", 
+	model_kwargs={'device': 'cuda'}, 
+	encode_kwargs={'normalize_embeddings': True}
 )
-LLM = ChatOllama(
-	model="Llama-3.2-11B-Vision-Instruct.Q4_K_M:latest", num_predict=128_000
+PGVECTOR_STORE = PGVector(
+	embeddings=EMBEDDINGS_FUNC,
+	collection_name=COLLECTION_NAME,
+	connection=CONNECTION,
+	use_jsonb=True,
 )
-VISION_LLM = ChatOllama(
-	model="Llama-3.2-11B-Vision-Instruct.Q4_K_M:latest", num_predict=128_000
-)
 
 
 
-DEFECT_REASONING_AGENT_PROMPT_MSG 	= 	prompts.DEFECT_REASONING_AGENT_PROMPT
-QC_JUDGEMENT_AGENT_PROMPT_MSG 		= 	prompts.QC_JUDGEMENT_AGENT_PROMPT
+DEFECT_REASONING_AGENT_PROMPT_MSG			= prompts.DEFECT_REASONING_AGENT_PROMPT
+QUALITY_CONTROL_JUDGEMENT_AGENT_PROMPT_MSG 	= prompts.QUALITY_CONTROL_JUDGEMENT_AGENT_PROMPT
 
 
 
-CONNECTION = "postgresql+psycopg://langchain:langchain@localhost:2028/langchain" 
-COLLECTION_NAME = "tranvantuan"
-EMBEDDING_FUNC = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-
-
-
-CHAT_HISTORY_COLLECTION_NAME = "tranvantuan"
 CONFIG = {"configurable": {"thread_id": str(uuid.uuid4()), "recursion_limit": 100}}
 CHECKPOINTER = MemorySaver()
 STORE = InMemoryStore()

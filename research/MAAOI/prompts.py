@@ -12,7 +12,7 @@ Summary:
 
 
 
-QC_JUDGEMENT_AGENT_PROMPT = """You are a final quality control judge. Based on the analysis provided, make a final decision about the product.
+QUALITY_CONTROL_JUDGEMENT_AGENT_PROMPT = """You are a final quality control judge. Based on the analysis provided, make a final decision about the product.
 
 Answer with ONLY one of the following:
 - Reply only with 'OK' if all defects irrelevant, or ignorable.

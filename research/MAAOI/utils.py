@@ -269,8 +269,7 @@ def has_agent_got_sys_prompt(context: list[dict|BaseMessage], agent_name: str) -
 
 
 def count_tokens(messages: list[BaseMessage]) -> int:
-	"""Đếm tổng số tokens trong messages theo model. 
-		Token structure theo chuẩn OpenAI ChatML"""
+	"""Đếm tổng số tokens trong messages theo model. Token structure theo chuẩn OpenAI ChatML."""
 	num_tokens = 0 
 	for msg in messages:
 		role = getattr(msg, "type", "user")

@@ -4,6 +4,7 @@ from queue import Queue
 
 
 
+import torch
 import tiktoken
 from ultralytics import YOLO 
 
@@ -41,7 +42,7 @@ SAVE_FRAME_RESULTS = False
 YOLO_OBJECT_DETECTION = YOLO(model="/home/chwenjun225/projects/DeepEngine/research/MAAOI/TrainYOLOv11/runs/detect/train/weights/best.pt")
 LLM = ChatOllama(model="Llama-3.2-11B-Vision-Instruct.Q4_K_M:latest", num_predict=128_000)
 VISION_LLM = ChatOllama(model="Llama-3.2-11B-Vision-Instruct.Q4_K_M:latest", num_predict=128_000)
-
+torch.cuda.empty_cache()
 
 
 ENCODING = tiktoken.get_encoding("cl100k_base") 

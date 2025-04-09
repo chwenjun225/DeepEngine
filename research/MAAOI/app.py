@@ -1,3 +1,5 @@
+import glob
+import os 
 import cv2 
 import fire 
 import asyncio
@@ -7,7 +9,6 @@ from PIL import Image
 
 
 
-from langchain_core.stores import InMemoryByteStore
 from langchain_core.messages import BaseMessage, AIMessage
 
 
@@ -34,6 +35,81 @@ from utils import (
 
 
 
+async def async_eval_dataset(ok_folder:str,ng_folder:str) -> None:
+	"""Hàm async duyệt qua các ảnh trong hai folder. Với mỗi ảnh, chạy qua pipeline __detect_pcb_image__ để lấy dự đoán product_status."""
+	def get_image_files(folder, exts = ('*.jpg', '*.jpeg', '*.png')):
+		"""Lấy danh sách các file ảnh (hỗ trợ định dạng jpg, jpeg, png)"""
+		exts = ('*.jpg', '*.jpeg', '*.png')
+		return sorted([f for ext in exts for f in glob.glob(os.path.join(folder, ext))])
+
+	ok_files = get_image_files(ok_folder)
+	ng_files = get_image_files(ng_folder)
+
+	total_ok = len(ok_files)
+	total_ng = len(ng_files)
+
+	correct_ok = 0
+	correct_ng = 0
+
+	batch_size = 10  # Xử lý 10 ảnh cùng lúc
+	semaphore = asyncio.Semaphore(4)
+
+	async def process_image(img_path, expected_status):
+			async with semaphore:
+					try:
+							with Image.open(img_path) as img:
+									image = img.convert("RGB")
+									_, product_status, _ = await __detect_pcb_image__(image)
+									return product_status.upper() == expected_status
+					except Exception as e:
+							print(f"Lỗi khi xử lý {img_path}: {e}")
+							return False
+
+	# Xử lý ảnh OK theo batch
+	print(f"\nĐánh giá ảnh OK (expected: OK) từ folder: {ok_folder}")
+	for i in range(0, total_ok, batch_size):
+		batch = ok_files[i:i+batch_size]
+		tasks = [process_image(path, "OK") for path in batch]
+		results = await asyncio.gather(*tasks)
+		correct_ok += sum(results)
+		print(f"Đã xử lý {min(i+batch_size, total_ok)}/{total_ok} ảnh OK")
+
+	# Xử lý ảnh NG theo batch
+	print(f"\nĐánh giá ảnh NG (expected: NG) từ folder: {ng_folder}")
+	for i in range(0, total_ng, batch_size):
+		batch = ng_files[i:i+batch_size]
+		tasks = [process_image(path, "NG") for path in batch]
+		results = await asyncio.gather(*tasks)
+		correct_ng += sum(not result for result in results)  # NG là bất cứ gì không phải OK
+		print(f"Đã xử lý {min(i+batch_size, total_ng)}/{total_ng} ảnh NG")
+
+	# Tính toán accuracy (giữ nguyên phần này)
+	acc_ok = correct_ok / total_ok * 100 if total_ok > 0 else 0
+	acc_ng = correct_ng / total_ng * 100 if total_ng > 0 else 0
+	overall_total = total_ok + total_ng
+	overall_correct = correct_ok + correct_ng
+	overall_acc = overall_correct / overall_total * 100 if overall_total > 0 else 0
+
+	print("\n--- Evaluations ---")
+	print(f"Image OK: {correct_ok}/{total_ok} --- True --- ({acc_ok:.2f}%)")
+	print(f"Image NG: {correct_ng}/{total_ng} --- True --- ({acc_ng:.2f}%)")
+	print(f"Accuracy: {overall_correct}/{overall_total} ({overall_acc:.2f}%)\n")
+
+
+
+def eval_dataset(
+	ok_folder:str="/home/chwenjun225/projects/DeepEngine/evals/groundtruth_evaluations/OK", 
+	ng_folder:str="/home/chwenjun225/projects/DeepEngine/evals/groundtruth_evaluations/NG"
+) -> None:
+		"""
+		Hàm đồng bộ để chạy async_eval_dataset thông qua asyncio.
+		Ví dụ sử dụng:
+			python your_script.py eval_dataset --ok_folder path/to/ok --ng_folder path/to/ng
+		"""
+		asyncio.run(async_eval_dataset(ok_folder, ng_folder)) 
+
+
+
 async def async_llm_inference(prompt):
 	"""Thực thi LLM không chặn."""
 	return await asyncio.to_thread(VISION_LLM.invoke, prompt)
@@ -41,7 +117,7 @@ async def async_llm_inference(prompt):
 
 
 def single_frame_detections_to_json(results:Results, frame_id:int) -> dict[str, any]:
-	"""Chuyển kết quả YOLOv8 từ 1 frame thành JSON dictionary, tối ưu tốc độ."""
+	"""Chuyển kết quả YOLO từ một frame thành JSON dictionary. Nếu không có box nào, trả về dữ liệu rỗng."""
 	if not results[0].boxes:
 		return {"id": frame_id, "metadata": []}
 
@@ -58,7 +134,8 @@ def single_frame_detections_to_json(results:Results, frame_id:int) -> dict[str, 
 				"class_id": int(cls_id),
 				"label": class_names[int(cls_id)]
 		}
-		if has_tracking: detection["track_id"] = int(row[6])
+		if has_tracking: 
+			detection["track_id"] = int(row[6])
 		metadata.append(detection)
 
 	return {"id": frame_id, "metadata": metadata}
@@ -66,29 +143,17 @@ def single_frame_detections_to_json(results:Results, frame_id:int) -> dict[str, 
 
 
 @measure_time("Process 10 Frames")
-async def async_process_frames(frames:list[Image.Image]) -> tuple[Image.Image, str, list[str]]: 
+async def async_process_frames_for_video(frames: list[Image.Image]) -> tuple[Image.Image, str, list[str]]:
 	"""Xử lý khung hình bằng YOLO và LLM với asyncio."""
-
-
-	frames_metadata = [] ### TODO: Sửa lại dòng này 
+	
+	frames_metadata = []
 
 	for idx, frame in enumerate(frames):
-		results = YOLO_OBJECT_DETECTION.predict(
-			frame, conf=0., iou=0.1, max_det=5, verbose=False
-		)
-		# frame_tensor_data = results[0].boxes.data ### [x1, y1, x2, y2, conf, label]
-
+		results = YOLO_OBJECT_DETECTION.predict(frame, conf=0., iou=0.1, max_det=5, verbose=False)
 		frame_metadata = single_frame_detections_to_json(results, idx) 
 		frames_metadata.append(frame_metadata)
 
-
-
-	agentic_response = AGENTIC.invoke(
-		input={"VISION_AGENT_MSGS": [AIMessage(
-			content=frames_metadata, ### frames_metadata là để đưa vào trong Agentic inference 
-			name="VISION_AGENT"
-		)]}, 
-	config=CONFIG) 
+	agentic_response = AGENTIC.invoke(input={"VISION_AGENT_MSGS": [AIMessage(content=frames_metadata,name="VISION_AGENT")]}, config=CONFIG) 
 
 	visual_metadata = get_latest_msg(
 		agentic_response, "VISUAL_AGENT_MSGS"
@@ -102,32 +167,17 @@ async def async_process_frames(frames:list[Image.Image]) -> tuple[Image.Image, s
 	last_idx = len(frames) - 1
 	last_frame_pil = frames[last_idx]
 
-	last_frame_np = cv2.cvtColor(
-		np.array(last_frame_pil), 
-		cv2.COLOR_RGB2BGR
-	)
+	last_frame_np = cv2.cvtColor(np.array(last_frame_pil), cv2.COLOR_RGB2BGR)
 
 	last_bboxes = []
 	for frame_bboxes in bbox_per_frame.values():
 		last_bboxes.extend(frame_bboxes)
 
-	annotated_np = draw_defect_overlay(
-		last_frame_np, 
-		last_bboxes, 
-		PRODUCT_STATUS
-	)
-	annotated_pil = Image.fromarray(
-		cv2.cvtColor(
-			annotated_np, 
-			cv2.COLOR_BGR2RGB
-		))
+	annotated_np = draw_defect_overlay(last_frame_np, last_bboxes, PRODUCT_STATUS)
+	annotated_pil = Image.fromarray(cv2.cvtColor(annotated_np, cv2.COLOR_BGR2RGB))
 
 	if SAVE_FRAME_RESULTS:
-		save_frame_result(
-			annotated_pil, 
-			f"frame__{last_idx:03d}__.jpg", 
-			PRODUCT_STATUS
-		)
+		save_frame_result(annotated_pil, f"frame__{last_idx:03d}__.jpg", PRODUCT_STATUS)
 
 	reasoning_texts = [f"{obj['label']} at {obj['bbox']}" for obj in last_bboxes]
 	if PRODUCT_STATUS:
@@ -154,12 +204,8 @@ async def async_video_processing(video_path:str, resize_to:tuple=(640, 640), ctx
 		frame = Image.fromarray(frame[..., ::-1]).resize(resize_to) 
 		ctx_frames.append(frame) 
 
-		if False:
-			preview_frame = frame.copy()
-			yield preview_frame, "WAITING", "Analyzing..."
-
 		if len(ctx_frames) == ctx_frames_limit: 
-			annotated_pil, PRODUCT_STATUS, reasoning_texts = await async_process_frames(ctx_frames) 
+			annotated_pil, PRODUCT_STATUS, reasoning_texts = await async_process_frames_for_video(ctx_frames) 
 			reasoning_text_combined = " | ".join([
 				t.content 
 					if isinstance(t, BaseMessage) 
@@ -192,10 +238,10 @@ def __detect_pcb_video__(video_path: str) -> any:
 
 
 
-async def __detect_pcb_image__(image: Image.Image) -> any:
+async def __detect_pcb_image__(image: Image.Image) -> tuple[Image.Image, str, list[str]]:
 	"""Xử lý ảnh PCB bằng YOLO và LLM."""
 	try:
-		processed_img, PRODUCT_STATUS, texts = await async_process_frames(image)
+		processed_img, PRODUCT_STATUS, texts = await async_process_frames_for_video(image)
 		text_combined = " | ".join([
 			text.content \
 				if isinstance(text, BaseMessage) \
@@ -244,4 +290,8 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-	fire.Fire(main)
+	commands = {
+		"main": main,
+		"eval_dataset": eval_dataset,
+	}
+	fire.Fire(eval_dataset)

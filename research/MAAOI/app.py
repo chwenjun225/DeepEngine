@@ -294,4 +294,4 @@ if __name__ == "__main__":
 		"main": main,
 		"eval_dataset": eval_dataset,
 	}
-	fire.Fire(eval_dataset)
+	fire.Fire(main)

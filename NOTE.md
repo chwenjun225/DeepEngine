@@ -1,0 +1,1 @@
+nếu hệ thống càng thông minh thì ta không cần phải hướng dẫn nó quá nhiều.
